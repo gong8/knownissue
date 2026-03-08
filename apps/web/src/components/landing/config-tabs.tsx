@@ -13,39 +13,69 @@ const configs = [
   {
     id: "claude-code",
     label: "Claude Code",
-    code: `claude mcp add knownissue --transport http https://mcp.knownissue.dev/mcp`,
+    code: `claude mcp add --transport http --header "Authorization: Bearer $GITHUB_TOKEN" knownissue https://mcp.knownissue.dev/mcp`,
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    hint: "~/.cursor/mcp.json",
+    code: `"knownissue": {
+  "url": "https://mcp.knownissue.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer \${env:GITHUB_TOKEN}"
+  }
+}`,
   },
   {
     id: "codex",
     label: "Codex",
+    hint: "~/.codex/config.toml",
     code: `[mcp_servers.knownissue]
-url = "https://mcp.knownissue.dev/mcp"`,
+url = "https://mcp.knownissue.dev/mcp"
+bearer_token_env_var = "GITHUB_TOKEN"`,
   },
   {
     id: "gemini-cli",
     label: "Gemini CLI",
-    code: `"knownissue": {
-  "httpUrl": "https://mcp.knownissue.dev/mcp"
-}`,
+    code: `gemini mcp add --transport http --header "Authorization: Bearer $GITHUB_TOKEN" knownissue https://mcp.knownissue.dev/mcp`,
   },
   {
-    id: "opencode",
-    label: "OpenCode",
+    id: "amp",
+    label: "Amp",
+    hint: "~/.config/amp/settings.json",
     code: `"knownissue": {
-  "type": "remote",
-  "url": "https://mcp.knownissue.dev/mcp"
+  "url": "https://mcp.knownissue.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer \${GITHUB_TOKEN}"
+  }
 }`,
   },
   {
     id: "droid",
     label: "Droid",
-    code: `droid mcp add knownissue https://mcp.knownissue.dev/mcp --type http`,
+    code: `droid mcp add knownissue https://mcp.knownissue.dev/mcp --type http --header "Authorization: Bearer $GITHUB_TOKEN"`,
   },
   {
-    id: "amp",
-    label: "Amp",
+    id: "opencode",
+    label: "OpenCode",
+    hint: "opencode.json",
     code: `"knownissue": {
-  "url": "https://mcp.knownissue.dev/mcp"
+  "type": "remote",
+  "url": "https://mcp.knownissue.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer {env:GITHUB_TOKEN}"
+  }
+}`,
+  },
+  {
+    id: "antigravity",
+    label: "Antigravity",
+    hint: "~/.gemini/antigravity/mcp_config.json",
+    code: `"knownissue": {
+  "serverUrl": "https://mcp.knownissue.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer $GITHUB_TOKEN"
+  }
 }`,
   },
 ];
@@ -83,9 +113,17 @@ export function ConfigTabs() {
               </TabsTrigger>
             ))}
           </TabsList>
-          {configs.map(({ id, code }) => (
+          {configs.map(({ id, code, hint }) => (
             <TabsContent key={id} value={id}>
               <CodeBlock code={code} />
+              {hint && (
+                <p className="mt-2 text-right text-xs text-muted-foreground">
+                  add to{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono">
+                    {hint}
+                  </code>
+                </p>
+              )}
             </TabsContent>
           ))}
         </Tabs>

@@ -1,10 +1,12 @@
 const tools = [
   { name: "Claude Code", logo: "/logos/claude-code.svg" },
+  { name: "Cursor", logo: "/logos/cursor.svg" },
   { name: "Codex", logo: "/logos/codex.svg" },
   { name: "Gemini CLI", logo: "/logos/gemini-cli.svg" },
-  { name: "OpenCode", logo: "/logos/opencode.svg" },
-  { name: "Droid", logo: "/logos/droid.svg" },
   { name: "Amp", logo: "/logos/amp.svg" },
+  { name: "Droid", logo: "/logos/droid.svg" },
+  { name: "OpenCode", logo: "/logos/opencode.svg" },
+  { name: "Antigravity", logo: "/logos/antigravity.svg" },
 ];
 
 export function ToolLogos() {
