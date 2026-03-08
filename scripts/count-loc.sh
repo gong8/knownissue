@@ -39,8 +39,8 @@ separator() {
   printf "  %s\n" "──────────────────────────────────────────────────"
 }
 
-# Cache all tracked files once
-ALL_FILES=$(git ls-files --cached --others --exclude-standard)
+# Cache all tracked files once (exclude generated code)
+ALL_FILES=$(git ls-files --cached --others --exclude-standard | grep -v 'src/generated/')
 
 echo ""
 echo -e "${BOLD}KnownIssue — Lines of Code${RESET}"
