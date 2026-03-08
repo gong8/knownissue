@@ -105,8 +105,9 @@ export async function inferRelationsForBug(
        FROM "Bug"
        WHERE ${conditions.join(" AND ")}
        ORDER BY "createdAt" DESC
-       LIMIT ${RELATION_MAX_INFERRED_PER_TRIGGER}`,
-      ...params
+       LIMIT $${paramIndex}`,
+      ...params,
+      RELATION_MAX_INFERRED_PER_TRIGGER
     );
 
     for (const candidate of regressionCandidates) {
@@ -368,99 +369,88 @@ export async function inferRelationsForPatch(
     return created;
   };
 
+  // Fetch other patches once for both Rules 5 and 6
+  const needsOtherPatches =
+    hasBudget() && (filePaths.size > 0 || packageVersions.size > 0);
+  const otherPatches = needsOtherPatches
+    ? await prisma.patch.findMany({
+        where: {
+          bugId: { not: bugId },
+          bug: { createdAt: { gte: cutoff } },
+        },
+        select: {
+          id: true,
+          bugId: true,
+          steps: true,
+        },
+        take: 50, // limit scan scope
+      })
+    : [];
+
   // --- Rule 5: shared_fix ---
   // Patches on different bugs targeting same files/packages
-  if (hasBudget() && (filePaths.size > 0 || packageVersions.size > 0)) {
-    // Find other patches on different bugs, created within the window
-    const otherPatches = await prisma.patch.findMany({
-      where: {
-        bugId: { not: bugId },
-        bug: { createdAt: { gte: cutoff } },
-      },
-      select: {
-        id: true,
-        bugId: true,
-        steps: true,
-      },
-      take: 50, // limit scan scope
-    });
+  for (const otherPatch of otherPatches) {
+    if (!hasBudget()) break;
 
-    for (const otherPatch of otherPatches) {
-      if (!hasBudget()) break;
+    const otherSteps = (otherPatch.steps ?? []) as Array<
+      Record<string, unknown>
+    >;
 
-      const otherSteps = (otherPatch.steps ?? []) as Array<
-        Record<string, unknown>
-      >;
+    // Check for file path matches
+    let matched = false;
+    let matchConfidence = 0;
+    let matchType = "";
 
-      // Check for file path matches
-      let matched = false;
-      let matchConfidence = 0;
-      let matchType = "";
+    for (const otherStep of otherSteps) {
+      if (matched && matchConfidence >= 0.8) break;
 
-      for (const otherStep of otherSteps) {
-        if (matched && matchConfidence >= 0.8) break;
+      // File path match (code_change or config_change)
+      const otherFile =
+        otherStep.type === "code_change"
+          ? otherStep.filePath
+          : otherStep.type === "config_change"
+            ? otherStep.file
+            : null;
 
-        // File path match (code_change or config_change)
-        const otherFile =
-          otherStep.type === "code_change"
-            ? otherStep.filePath
-            : otherStep.type === "config_change"
-              ? otherStep.file
-              : null;
+      if (typeof otherFile === "string" && filePaths.has(otherFile)) {
+        matched = true;
+        matchConfidence = Math.max(matchConfidence, 0.7);
+        matchType = "file";
+      }
 
-        if (typeof otherFile === "string" && filePaths.has(otherFile)) {
+      // Package + version match (version_bump)
+      if (
+        otherStep.type === "version_bump" &&
+        typeof otherStep.package === "string" &&
+        typeof otherStep.to === "string"
+      ) {
+        const ourVersion = packageVersions.get(otherStep.package);
+        if (ourVersion && ourVersion === otherStep.to) {
           matched = true;
-          matchConfidence = Math.max(matchConfidence, 0.7);
-          matchType = "file";
-        }
-
-        // Package + version match (version_bump)
-        if (
-          otherStep.type === "version_bump" &&
-          typeof otherStep.package === "string" &&
-          typeof otherStep.to === "string"
-        ) {
-          const ourVersion = packageVersions.get(otherStep.package);
-          if (ourVersion && ourVersion === otherStep.to) {
-            matched = true;
-            matchConfidence = Math.max(matchConfidence, 0.8);
-            matchType = "package+version";
-          }
+          matchConfidence = Math.max(matchConfidence, 0.8);
+          matchType = "package+version";
         }
       }
+    }
 
-      if (matched) {
-        await tryInfer(
-          otherPatch.bugId,
-          bugId,
-          "shared_fix",
-          matchConfidence,
-          {
-            rule: "shared_fix",
-            matchType,
-            patchId: otherPatch.id,
-          }
-        );
-      }
+    if (matched) {
+      await tryInfer(
+        otherPatch.bugId,
+        bugId,
+        "shared_fix",
+        matchConfidence,
+        {
+          rule: "shared_fix",
+          matchType,
+          patchId: otherPatch.id,
+        }
+      );
     }
   }
 
   // --- Rule 6: fix_conflict ---
   // version_bump to different version of same package
-  if (hasBudget() && packageVersions.size > 0) {
-    const otherPatches = await prisma.patch.findMany({
-      where: {
-        bugId: { not: bugId },
-        bug: { createdAt: { gte: cutoff } },
-      },
-      select: {
-        id: true,
-        bugId: true,
-        steps: true,
-      },
-      take: 50,
-    });
-
+  if (packageVersions.size > 0) {
     for (const otherPatch of otherPatches) {
       if (!hasBudget()) break;
 
