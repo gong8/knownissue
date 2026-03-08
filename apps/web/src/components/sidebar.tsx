@@ -11,9 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  AlertTriangle,
-  UserCheck,
-  ShieldOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
@@ -25,19 +22,6 @@ const navItems = [
   { href: "/bugs", label: "bugs", icon: Bug, shortcut: "G B" },
   { href: "/bugs/new", label: "report bug", icon: PlusCircle, shortcut: "C" },
   { href: "/profile", label: "profile", icon: User, shortcut: "G P" },
-];
-
-const quickFilters = [
-  { label: "critical", icon: AlertTriangle, href: "/bugs?severity=critical" },
-  { label: "my bugs", icon: UserCheck, href: "/bugs?reporter=me" },
-  { label: "unpatched", icon: ShieldOff, href: "/bugs?status=open" },
-];
-
-const ecosystems = [
-  { label: "node", href: "/bugs?ecosystem=node" },
-  { label: "python", href: "/bugs?ecosystem=python" },
-  { label: "go", href: "/bugs?ecosystem=go" },
-  { label: "rust", href: "/bugs?ecosystem=rust" },
 ];
 
 interface SidebarProps {
@@ -121,47 +105,6 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
             );
           })}
         </div>
-
-        {!collapsed && (
-          <>
-            <div className="mx-1 my-3 border-t border-border" />
-
-            {/* Quick filters */}
-            <div className="space-y-0.5">
-              <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                quick filters
-              </p>
-              {quickFilters.map((filter) => (
-                <Link
-                  key={filter.label}
-                  href={filter.href}
-                  className="flex h-7 items-center gap-3 rounded-md px-3 text-sm font-mono text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-                >
-                  <filter.icon size={14} />
-                  <span>{filter.label}</span>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mx-1 my-3 border-t border-border" />
-
-            {/* Ecosystems */}
-            <div className="space-y-0.5">
-              <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                ecosystems
-              </p>
-              {ecosystems.map((eco) => (
-                <Link
-                  key={eco.label}
-                  href={eco.href}
-                  className="flex h-7 items-center gap-3 rounded-md px-3 text-sm font-mono text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-                >
-                  <span>{eco.label}</span>
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
       </nav>
 
       {/* Bottom: user */}
