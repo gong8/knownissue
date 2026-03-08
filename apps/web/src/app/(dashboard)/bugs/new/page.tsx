@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { bugInputSchema } from "@knownissue/shared";
+import { reportInputSchema } from "@knownissue/shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,16 @@ export default function NewBugPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [errorCode, setErrorCode] = useState("");
+  const [stackTrace, setStackTrace] = useState("");
+  const [triggerCode, setTriggerCode] = useState("");
+  const [expectedBehavior, setExpectedBehavior] = useState("");
+  const [actualBehavior, setActualBehavior] = useState("");
   const [library, setLibrary] = useState("");
   const [version, setVersion] = useState("");
   const [ecosystem, setEcosystem] = useState("");
-  const [severity, setSeverity] = useState("");
+  const [severity, setSeverity] = useState("medium");
   const [tagsInput, setTagsInput] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,21 +50,30 @@ export default function NewBugPage() {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const result = bugInputSchema.safeParse({
-      title,
-      description,
+    const input: Record<string, unknown> = {
       library,
       version,
       ecosystem,
       severity,
       tags,
-    });
+    };
+
+    if (title) input.title = title;
+    if (description) input.description = description;
+    if (errorMessage) input.errorMessage = errorMessage;
+    if (errorCode) input.errorCode = errorCode;
+    if (stackTrace) input.stackTrace = stackTrace;
+    if (triggerCode) input.triggerCode = triggerCode;
+    if (expectedBehavior) input.expectedBehavior = expectedBehavior;
+    if (actualBehavior) input.actualBehavior = actualBehavior;
+
+    const result = reportInputSchema.safeParse(input);
 
     if (!result.success) {
       const fieldErrors: FieldErrors = {};
       for (const issue of result.error.issues) {
-        const field = issue.path[0]?.toString();
-        if (field && !fieldErrors[field]) {
+        const field = issue.path[0]?.toString() ?? "_root";
+        if (!fieldErrors[field]) {
           fieldErrors[field] = issue.message;
         }
       }
@@ -69,14 +84,15 @@ export default function NewBugPage() {
     setIsSubmitting(true);
     try {
       const { createBug } = await import("@/app/actions/bugs");
-      await createBug(result.data);
+      const response = await createBug(result.data);
+      const credits = response?.creditsAwarded ?? 3;
       toast.success("Bug reported successfully!", {
-        description: "Your bug report has been submitted for review.",
+        description: `+${credits} credits earned`,
       });
       router.push("/bugs");
-    } catch {
+    } catch (err) {
       toast.error("Failed to submit bug report", {
-        description: "The API server may be unavailable. Please try again later.",
+        description: err instanceof Error ? err.message : "The API server may be unavailable.",
       });
     } finally {
       setIsSubmitting(false);
@@ -97,7 +113,6 @@ export default function NewBugPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      {/* Breadcrumb header */}
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
         <Link href="/bugs" className="hover:text-foreground transition-colors">
           bugs
@@ -109,44 +124,18 @@ export default function NewBugPage() {
       <PageHeader title="report a bug" />
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        {/* Title */}
-        <div className="space-y-1">
-          <label htmlFor="title" className="text-xs font-mono text-muted-foreground">
-            title
-          </label>
-          <Input
-            id="title"
-            placeholder="e.g. Memory leak in useEffect cleanup with React 19"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          {errors.title && (
-            <p className="text-xs text-destructive">{errors.title}</p>
-          )}
-        </div>
+        {/* Root-level error (from .refine) */}
+        {errors._root && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3">
+            <p className="text-xs text-destructive">{errors._root}</p>
+          </div>
+        )}
 
-        {/* Description */}
-        <div className="space-y-1">
-          <label htmlFor="description" className="text-xs font-mono text-muted-foreground">
-            description
-          </label>
-          <Textarea
-            id="description"
-            placeholder="Describe the bug in detail..."
-            rows={6}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          {errors.description && (
-            <p className="text-xs text-destructive">{errors.description}</p>
-          )}
-        </div>
-
-        {/* Library + Version */}
+        {/* Library + Version (required) */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label htmlFor="library" className="text-xs font-mono text-muted-foreground">
-              library
+              library *
             </label>
             <Input
               id="library"
@@ -160,7 +149,7 @@ export default function NewBugPage() {
           </div>
           <div className="space-y-1">
             <label htmlFor="version" className="text-xs font-mono text-muted-foreground">
-              version
+              version *
             </label>
             <Input
               id="version"
@@ -174,10 +163,130 @@ export default function NewBugPage() {
           </div>
         </div>
 
+        {/* Error Message */}
+        <div className="space-y-1">
+          <label htmlFor="errorMessage" className="text-xs font-mono text-muted-foreground">
+            error message
+          </label>
+          <Input
+            id="errorMessage"
+            placeholder="e.g. TypeError: Cannot read properties of undefined"
+            value={errorMessage}
+            onChange={(e) => setErrorMessage(e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground font-mono">
+            at least one of error message or description is required
+          </p>
+          {errors.errorMessage && (
+            <p className="text-xs text-destructive">{errors.errorMessage}</p>
+          )}
+        </div>
+
+        {/* Error Code */}
+        <div className="space-y-1">
+          <label htmlFor="errorCode" className="text-xs font-mono text-muted-foreground">
+            error code
+          </label>
+          <Input
+            id="errorCode"
+            placeholder="e.g. ERR_MODULE_NOT_FOUND"
+            value={errorCode}
+            onChange={(e) => setErrorCode(e.target.value)}
+          />
+        </div>
+
+        {/* Description */}
+        <div className="space-y-1">
+          <label htmlFor="description" className="text-xs font-mono text-muted-foreground">
+            description
+          </label>
+          <Textarea
+            id="description"
+            placeholder="Describe the bug in detail..."
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          {errors.description && (
+            <p className="text-xs text-destructive">{errors.description}</p>
+          )}
+        </div>
+
+        {/* Title (optional) */}
+        <div className="space-y-1">
+          <label htmlFor="title" className="text-xs font-mono text-muted-foreground">
+            title (optional)
+          </label>
+          <Input
+            id="title"
+            placeholder="Short summary — auto-generated from error message if omitted"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        {/* Trigger Code */}
+        <div className="space-y-1">
+          <label htmlFor="triggerCode" className="text-xs font-mono text-muted-foreground">
+            trigger code
+          </label>
+          <Textarea
+            id="triggerCode"
+            placeholder="Minimal code snippet that triggers the bug..."
+            rows={4}
+            className="font-mono text-sm"
+            value={triggerCode}
+            onChange={(e) => setTriggerCode(e.target.value)}
+          />
+        </div>
+
+        {/* Expected vs Actual */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="expectedBehavior" className="text-xs font-mono text-muted-foreground">
+              expected behavior
+            </label>
+            <Textarea
+              id="expectedBehavior"
+              placeholder="What should happen..."
+              rows={3}
+              value={expectedBehavior}
+              onChange={(e) => setExpectedBehavior(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="actualBehavior" className="text-xs font-mono text-muted-foreground">
+              actual behavior
+            </label>
+            <Textarea
+              id="actualBehavior"
+              placeholder="What actually happens..."
+              rows={3}
+              value={actualBehavior}
+              onChange={(e) => setActualBehavior(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Stack Trace */}
+        <div className="space-y-1">
+          <label htmlFor="stackTrace" className="text-xs font-mono text-muted-foreground">
+            stack trace
+          </label>
+          <Textarea
+            id="stackTrace"
+            placeholder="Full stack trace..."
+            rows={4}
+            className="font-mono text-xs"
+            value={stackTrace}
+            onChange={(e) => setStackTrace(e.target.value)}
+          />
+        </div>
+
         {/* Ecosystem + Severity */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-mono text-muted-foreground">ecosystem</label>
+            <label className="text-xs font-mono text-muted-foreground">ecosystem *</label>
             <Select value={ecosystem} onValueChange={setEcosystem}>
               <SelectTrigger>
                 <SelectValue placeholder="select ecosystem" />
@@ -208,9 +317,6 @@ export default function NewBugPage() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.severity && (
-              <p className="text-xs text-destructive">{errors.severity}</p>
-            )}
           </div>
         </div>
 
@@ -228,9 +334,6 @@ export default function NewBugPage() {
           <p className="text-[11px] text-muted-foreground font-mono">
             separate tags with commas
           </p>
-          {errors.tags && (
-            <p className="text-xs text-destructive">{errors.tags}</p>
-          )}
         </div>
 
         {/* Submit */}

@@ -1,15 +1,17 @@
 import { prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
+import type { PatchStep } from "@knownissue/shared";
 import { awardCredits } from "./credits";
 import { logAudit } from "./audit";
+import { computeDerivedStatus } from "./bug";
 
 export async function submitPatch(
   bugId: string,
-  description: string,
-  code: string,
+  explanation: string,
+  steps: PatchStep[],
+  versionConstraint: string | null | undefined,
   userId: string
 ) {
-  // Verify bug exists
   const bug = await prisma.bug.findUnique({ where: { id: bugId } });
   if (!bug) {
     throw new Error("Bug not found");
@@ -17,8 +19,9 @@ export async function submitPatch(
 
   const patch = await prisma.patch.create({
     data: {
-      description,
-      code,
+      explanation,
+      steps: steps as unknown as import("@knownissue/db").Prisma.InputJsonValue,
+      versionConstraint: versionConstraint ?? null,
       bugId,
       submitterId: userId,
     },
@@ -40,6 +43,9 @@ export async function submitPatch(
     actorId: userId,
     metadata: { bugId },
   });
+
+  // Recompute derived status after new patch
+  await computeDerivedStatus(bugId);
 
   return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance };
 }

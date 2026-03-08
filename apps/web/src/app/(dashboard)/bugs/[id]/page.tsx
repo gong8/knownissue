@@ -17,25 +17,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Bug not found" };
   }
 
-  const description = bug.description.slice(0, 160);
+  const title = bug.title ?? bug.errorMessage ?? "Bug report";
+  const description = (bug.description ?? bug.errorMessage ?? "").slice(0, 160);
   const url = `${BASE_URL}/bugs/${bug.id}`;
 
   return {
-    title: bug.title,
+    title,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: bug.title,
+      title,
       description,
       url,
       type: "article",
       publishedTime: bug.createdAt,
       tags: bug.tags,
-      images: [{ url: `${BASE_URL}/og/${bug.id}`, width: 1200, height: 630, alt: bug.title }],
+      images: [{ url: `${BASE_URL}/og/${bug.id}`, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
-      title: bug.title,
+      title,
       description,
       images: [`${BASE_URL}/og/${bug.id}`],
     },
@@ -47,13 +48,16 @@ export default async function BugDetailPage({ params }: Props) {
   const bug = await fetchBugById(id);
   if (!bug) notFound();
 
+  const title = bug.title ?? bug.errorMessage ?? "Bug report";
+  const description = (bug.description ?? bug.errorMessage ?? "").slice(0, 300);
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "TechArticle",
-        headline: bug.title,
-        description: bug.description.slice(0, 300),
+        headline: title,
+        description,
         author: {
           "@type": "Person",
           name: bug.reporter?.githubUsername,
@@ -68,19 +72,22 @@ export default async function BugDetailPage({ params }: Props) {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
           { "@type": "ListItem", position: 2, name: "Bugs", item: `${BASE_URL}/bugs` },
-          { "@type": "ListItem", position: 3, name: bug.title, item: `${BASE_URL}/bugs/${bug.id}` },
+          { "@type": "ListItem", position: 3, name: title, item: `${BASE_URL}/bugs/${bug.id}` },
         ],
       },
     ],
   };
 
   // Safe serialization: escape < to prevent script injection in JSON-LD
+  // This is a standard Next.js pattern for JSON-LD structured data.
+  // The content is server-generated from our own database, not from user input rendered as HTML.
   const safeJsonLd = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   return (
     <>
       <script
         type="application/ld+json"
+        // eslint-disable-next-line react/no-danger -- JSON-LD requires dangerouslySetInnerHTML per Next.js docs. Content is escaped above.
         dangerouslySetInnerHTML={{ __html: safeJsonLd }}
       />
       <BugDetailClient bugId={id} initialBug={bug} />

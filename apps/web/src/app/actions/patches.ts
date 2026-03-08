@@ -1,11 +1,17 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
+import type { PatchStep } from "@knownissue/shared";
 
-export async function submitPatch(bugId: string, description: string, code: string) {
+export async function submitPatch(
+  bugId: string,
+  explanation: string,
+  steps: PatchStep[],
+  versionConstraint?: string
+) {
   const res = await apiFetch(`/bugs/${bugId}/patches`, {
     method: "POST",
-    body: JSON.stringify({ description, code }),
+    body: JSON.stringify({ explanation, steps, versionConstraint }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Failed to submit patch" }));

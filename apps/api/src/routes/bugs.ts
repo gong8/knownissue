@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { bugInputSchema, bugUpdateSchema, SEARCH_COST } from "@knownissue/shared";
+import { reportInputSchema, bugUpdateSchema, SEARCH_COST } from "@knownissue/shared";
 import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
 import * as bugService from "../services/bug";
 import { deductCredits } from "../services/credits";
@@ -37,7 +37,8 @@ bugs.get("/bugs", optionalAuthMiddleware, async (c) => {
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "Insufficient credits" }, 403);
     }
-    const result = await bugService.searchBugs({ query, library, version, ecosystem, limit, offset });
+    const errorCode = c.req.query("errorCode");
+    const result = await bugService.searchBugs({ query, library, version, errorCode, limit, offset });
     return c.json(result);
   }
 
@@ -67,7 +68,7 @@ bugs.post("/bugs", authMiddleware, async (c) => {
   const body = await c.req.json();
 
   try {
-    const parsed = bugInputSchema.parse(body);
+    const parsed = reportInputSchema.parse(body);
     const result = await bugService.createBug(parsed, user.id);
     return c.json(result, 201);
   } catch (error) {
@@ -91,28 +92,6 @@ bugs.patch("/bugs/:id", authMiddleware, async (c) => {
     if (error instanceof Error) {
       if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
       if (error.message.includes("Only the reporter")) return c.json({ error: error.message }, 403);
-      return c.json({ error: error.message }, 400);
-    }
-    throw error;
-  }
-});
-
-// PATCH /bugs/:id/status — update bug status (any authenticated user)
-bugs.patch("/bugs/:id/status", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json();
-  const { status } = body;
-
-  if (!status || !["open", "confirmed", "patched", "closed"].includes(status)) {
-    return c.json({ error: "Invalid status. Must be: open, confirmed, patched, or closed" }, 400);
-  }
-
-  try {
-    const bug = await bugService.updateBugStatus(id, status);
-    return c.json(bug);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
       return c.json({ error: error.message }, 400);
     }
     throw error;

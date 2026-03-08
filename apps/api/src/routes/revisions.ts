@@ -1,8 +1,13 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { authMiddleware } from "../middleware/auth";
-import { rollbackBugInputSchema } from "@knownissue/shared";
 import { getBugRevisions, getBugRevision, rollbackBug } from "../services/revision";
 import type { AppEnv } from "../lib/types";
+
+const rollbackBugInputSchema = z.object({
+  bugId: z.uuid({ message: "Invalid bug ID" }),
+  version: z.number().int().min(1),
+});
 
 const revisions = new Hono<AppEnv>();
 

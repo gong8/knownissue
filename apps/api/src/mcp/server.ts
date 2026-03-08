@@ -4,77 +4,93 @@ import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
 import * as reviewService from "../services/review";
 import { deductCredits, getCredits } from "../services/credits";
-import { getBugRevisions } from "../services/revision";
 import {
-  searchBugsInputSchema,
-  bugInputSchema,
+  searchInputSchema,
+  reportInputSchema,
   patchInputSchema,
   reviewInputSchema,
-  getBugInputSchema,
-  updateBugStatusInputSchema,
-  listBugsInputSchema,
-  getBugHistoryInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
-function toolHandler<T>(fn: () => Promise<T>): Promise<CallToolResult> {
-  return fn()
-    .then((result) => ({
-      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-    }))
-    .catch((error) => ({
-      content: [{ type: "text" as const, text: `Error: ${error instanceof Error ? error.message : "Unknown error"}` }],
+async function toolHandler<T>(
+  fn: () => Promise<T>,
+  userId: string
+): Promise<CallToolResult> {
+  try {
+    const result = await fn();
+    const creditsRemaining = await getCredits(userId);
+    const payload = {
+      ...(typeof result === "object" && result !== null ? result : { result }),
+      _meta: { credits_remaining: creditsRemaining },
+    };
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+    };
+  } catch (error) {
+    return {
+      content: [{
+        type: "text" as const,
+        text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      }],
       isError: true,
-    }));
+    };
+  }
 }
 
 export function createMcpServer(userId: string) {
   const server = new McpServer({
     name: "knownissue",
-    version: "1.0.0",
+    version: "2.0.0",
   });
 
-  // Tool: search_bugs
+  // Tool: search
   server.registerTool(
-    "search_bugs",
+    "search",
     {
-      title: "Search Bugs",
+      title: "Search Known Issues",
       description:
-        "Search for known bugs by natural language query. Uses semantic similarity to find relevant results even if wording differs. Costs 1 credit per search.",
-      inputSchema: searchBugsInputSchema.shape,
+        "Search for known bugs by error message, error code, or natural language query. " +
+        "Uses tiered matching: exact error codes (tier 1), normalized error messages (tier 2), " +
+        "then semantic similarity (tier 3). Results include patches sorted by community score. " +
+        "Costs 1 credit per search. Returns _meta.credits_remaining.",
+      inputSchema: searchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true },
     },
     (params) =>
       toolHandler(async () => {
         await deductCredits(userId, SEARCH_COST, "search");
-        const result = await bugService.searchBugs(params);
-        return result;
-      })
+        return bugService.searchBugs(params);
+      }, userId)
   );
 
-  // Tool: report_bug
+  // Tool: report
   server.registerTool(
-    "report_bug",
+    "report",
     {
       title: "Report Bug",
       description:
-        "Report a new bug. Automatically checks for duplicates using semantic similarity and rejects near-exact matches. Free to use.",
-      inputSchema: bugInputSchema.shape,
+        "Report a new bug. Requires library + version + at least one of errorMessage or description. " +
+        "Automatically deduplicates via fingerprint and embedding similarity. " +
+        "Awards +3 credits. Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
+        "Duplicate submissions penalize -5 credits.",
+      inputSchema: reportInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     (params) =>
       toolHandler(async () => {
         return bugService.createBug(params, userId);
-      })
+      }, userId)
   );
 
-  // Tool: submit_patch
+  // Tool: patch
   server.registerTool(
-    "submit_patch",
+    "patch",
     {
       title: "Submit Patch",
       description:
-        "Submit a code fix for an existing bug. Awards 5 credits to the submitter on success.",
+        "Submit a structured fix for a known bug. Provide step-by-step instructions: " +
+        "code changes (before/after), version bumps, config changes, or commands. " +
+        "Awards +5 credits. The bug's status auto-updates based on patch scores.",
       inputSchema: patchInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
@@ -82,127 +98,38 @@ export function createMcpServer(userId: string) {
       toolHandler(async () => {
         return patchService.submitPatch(
           params.bugId,
-          params.description,
-          params.code,
+          params.explanation,
+          params.steps,
+          params.versionConstraint,
           userId
         );
-      })
+      }, userId)
   );
 
-  // Tool: review_patch
+  // Tool: review
   server.registerTool(
-    "review_patch",
+    "review",
     {
-      title: "Review Patch",
+      title: "Review Bug or Patch",
       description:
-        "Review a patch by voting up or down, with an optional comment. Upvotes award 1 credit to the patch author; downvotes deduct 1. You cannot review your own patches.",
+        "Vote on a bug report or patch. Upvotes confirm quality; downvotes flag issues. " +
+        "You earn +1 credit for reviewing. The target author gains +1 (upvote) or loses -1 (downvote). " +
+        "Items reaching score -3 are auto-hidden. Bug status auto-updates based on votes/scores. " +
+        "Cannot review your own submissions.",
       inputSchema: reviewInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        return reviewService.reviewPatch(
-          params.patchId,
+        return reviewService.review(
+          params.targetId,
+          params.targetType,
           params.vote,
-          params.comment,
+          params.note,
+          params.version,
           userId
         );
-      })
-  );
-
-  // Tool: get_bug
-  server.registerTool(
-    "get_bug",
-    {
-      title: "Get Bug",
-      description:
-        "Retrieve a bug by ID with its patches (including code and scores) and reviews. Use after search_bugs to inspect details. Free, no credit cost.",
-      inputSchema: getBugInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    (params) =>
-      toolHandler(async () => {
-        const bug = await bugService.getBugById(params.bugId);
-        if (!bug) throw new Error("Bug not found");
-        return bug;
-      })
-  );
-
-  // Tool: update_bug_status
-  server.registerTool(
-    "update_bug_status",
-    {
-      title: "Update Bug Status",
-      description:
-        "Update a bug's status. Any authenticated user can transition status (e.g. open → confirmed, confirmed → patched). Free, no credit cost.",
-      inputSchema: updateBugStatusInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: true },
-    },
-    (params) =>
-      toolHandler(async () => {
-        return bugService.updateBugStatus(params.bugId, params.status);
-      })
-  );
-
-  // Tool: list_bugs
-  server.registerTool(
-    "list_bugs",
-    {
-      title: "List Bugs",
-      description:
-        "List bugs with optional filters. Unlike search_bugs, this does NOT use semantic search and is free (no credit cost). Use for browsing by library, status, severity, etc.",
-      inputSchema: listBugsInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    (params) =>
-      toolHandler(async () => {
-        const statusList = params.status ? [params.status] : undefined;
-        const severityList = params.severity ? [params.severity] : undefined;
-        return bugService.listBugs({
-          library: params.library,
-          version: params.version,
-          ecosystem: params.ecosystem,
-          status: statusList,
-          severity: severityList,
-          limit: params.limit,
-          offset: params.offset,
-        });
-      })
-  );
-
-  // Tool: get_bug_history
-  server.registerTool(
-    "get_bug_history",
-    {
-      title: "Get Bug History",
-      description:
-        "Get the version history of a bug, showing all changes over time. Free, no credit cost.",
-      inputSchema: getBugHistoryInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    (params) =>
-      toolHandler(async () => {
-        return getBugRevisions(params.bugId, {
-          limit: params.limit,
-          offset: params.offset,
-        });
-      })
-  );
-
-  // Tool: get_my_credits
-  server.registerTool(
-    "get_my_credits",
-    {
-      title: "Get My Credits",
-      description:
-        "Check your current credit balance. Credits are earned by submitting patches (+5) and receiving upvotes (+1), and spent on searches (-1).",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    () =>
-      toolHandler(async () => {
-        const credits = await getCredits(userId);
-        return { credits };
-      })
+      }, userId)
   );
 
   return server;

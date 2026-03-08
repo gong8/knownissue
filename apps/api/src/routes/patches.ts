@@ -15,8 +15,8 @@ patches.post("/bugs/:bugId/patches", async (c) => {
   const body = await c.req.json();
 
   try {
-    const { description, code } = patchInputSchema.parse({ ...body, bugId });
-    const patch = await patchService.submitPatch(bugId, description, code, user.id);
+    const { explanation, steps, versionConstraint } = patchInputSchema.parse({ ...body, bugId });
+    const patch = await patchService.submitPatch(bugId, explanation, steps, versionConstraint, user.id);
     return c.json(patch, 201);
   } catch (error) {
     if (error instanceof Error) {

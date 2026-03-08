@@ -237,16 +237,17 @@ MCP endpoint: `https://mcp.knownissue.dev/mcp` — clean separation between the 
 
 **IaC:** SST v3 (TypeScript, Pulumi engine under the hood)
 
-**File:** `sst.config.ts` — manages VPC, RDS, ECS Cluster, Service, ALB, SSL, secrets
+**File:** `sst.config.ts` — manages VPC, RDS, ECS Cluster, Service, ALB, secrets
 
 **What SST provisions:**
 - VPC with fck-nat (~$3/mo vs $30+ managed NAT)
 - RDS Postgres 16.4 (`t4g.micro`, 20GB, auto-generated credentials)
 - ECS Cluster + Fargate Service (0.5 vCPU, 1GB, 2-10 tasks, auto-scaling)
-- ALB with HTTPS on `mcp.knownissue.dev`, health checks every 15s
-- SSL certificate via ACM (auto-provisioned)
+- ALB on HTTP (Cloudflare handles SSL termination), health checks every 15s
 
 **Dockerfile:** Multi-stage build at repo root using `turbo prune --docker`
+
+**Note:** No `domain` in SST config — DNS and SSL are managed by Cloudflare, not Route53/ACM.
 
 ---
 
@@ -254,9 +255,11 @@ MCP endpoint: `https://mcp.knownissue.dev/mcp` — clean separation between the 
 
 **SST secrets** (set once before first deploy):
 ```bash
-npx sst secret set ClerkSecretKey "sk_live_..."
-npx sst secret set OpenaiApiKey "sk-..."
+npx sst secret set ClerkSecretKey "sk_live_..." --stage production
+npx sst secret set OpenaiApiKey "sk-..." --stage production
 ```
+
+**Status:** Done (currently set with test keys — swap for production keys before launch).
 
 **Injected automatically by SST config:**
 - `DATABASE_URL` — constructed from RDS resource properties
@@ -274,31 +277,72 @@ npx sst secret set OpenaiApiKey "sk-..."
 
 ### 4.4 Deploy Sequence (First Time)
 
-1. Connect repo to Vercel (auto-deploys Next.js on push to main)
-2. Set up AWS OIDC identity provider for GitHub Actions
-3. Create IAM role for GitHub Actions with ECS/ECR/SST permissions
-4. Add `AWS_ROLE_ARN` as a GitHub Actions environment secret
-5. Set SST secrets: `npx sst secret set ClerkSecretKey "..."` etc.
-6. Run `npx sst deploy --stage production` (first deploy, ~5-10 min)
-7. After RDS is up, run `prisma migrate deploy` via `sst tunnel` or ECS exec
-8. Enable pgvector: `CREATE EXTENSION vector;` (handled by Prisma migration)
-9. Point `mcp.knownissue.dev` DNS to the ALB (SST outputs the domain)
+**Prerequisites completed:**
+- [x] AWS OIDC identity provider created (`token.actions.githubusercontent.com`)
+- [x] IAM role created: `github-actions-knownissue` (`arn:aws:iam::208569836255:role/github-actions-knownissue`)
+- [x] `AWS_ROLE_ARN` added as GitHub Actions secret (both `production` and `staging` environments)
+- [x] SST secrets set (test keys — update to production keys before launch)
+- [x] GitHub environments created (`production`, `staging`)
+
+**Remaining steps:**
+1. Install Docker Desktop and ensure it's running
+2. Run `npx sst deploy --stage production` (~5-10 min — provisions VPC, RDS, ECS, ALB, Docker build + ECR push)
+3. Copy the ALB URL from SST output (e.g. `Api-XXXX.us-east-1.elb.amazonaws.com`)
+4. In Cloudflare DNS for `knownissue.dev`:
+   - Add CNAME: `mcp` → ALB URL (proxy enabled, orange cloud)
+   - Set SSL/TLS mode to **Flexible** (Cloudflare terminates SSL, ALB receives HTTP)
+5. Run Prisma migration against production DB:
+   ```bash
+   npx sst tunnel --stage production
+   # In another terminal:
+   DATABASE_URL="postgresql://..." pnpm --filter @knownissue/db db:migrate
+   ```
+6. Connect repo to Vercel:
+   - Import `gong8/knownissue`, root directory: `apps/web`
+   - Build command: `cd ../.. && pnpm build --filter=@knownissue/web...`
+   - Set env vars: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL=https://mcp.knownissue.dev`, `CLERK_SECRET_KEY`
+7. In Cloudflare DNS: point `knownissue.dev` to Vercel (CNAME to `cname.vercel-dns.com`)
+8. Swap Clerk test keys for production keys:
+   - Create Clerk production instance at dashboard.clerk.com
+   - Update SST secret: `npx sst secret set ClerkSecretKey "sk_live_..." --stage production`
+   - Update Vercel env vars with `pk_live_...` and `sk_live_...`
+   - Redeploy both services
 
 ---
 
 ### 4.5 CI/CD Pipeline
 
-**`.github/workflows/ci.yml`** — runs on every push/PR:
+**`.github/workflows/ci.yml`** — runs on every push/PR to `main` or `dev`:
 - Install pnpm, Node 22, generate Prisma client
-- Lint + Build (full monorepo)
+- Quality check (`pnpm quality` — bans `@ts-ignore`, `as any`, `eslint-disable`, `console.log`, etc.)
+- Lint (`tsc --noEmit` across all packages)
+- Build (full monorepo)
 
-**`.github/workflows/deploy.yml`** — runs on push to main:
-- CI gate (lint + build must pass)
+**`.github/workflows/deploy.yml`** — runs on push to `main` (production) or `dev` (staging):
+- CI gate (quality + lint + build must pass)
 - AWS OIDC authentication (no long-lived credentials)
-- `npx sst deploy --stage production`
+- `npx sst deploy --stage production|staging`
 - SST handles: Docker build, ECR push, ECS service update, health check wait
 
 **Concurrency:** Parallel deployments are prevented. Running deploys are never cancelled.
+
+**Branching:** `dev` → staging, `main` → production. Branch protection on `main` (require PR, no force push).
+
+---
+
+### 4.6 Quality Gate
+
+**Script:** `scripts/quality.sh`, run via `pnpm quality`
+
+**Hard fails (blocks CI):**
+- `@ts-ignore` / `@ts-expect-error` / `@ts-nocheck`
+- `eslint-disable`
+- `as any` / `: any`
+- `debugger` statements
+- `console.log` in source code (allows `console.error`/`warn`/`info`, excludes seed scripts)
+
+**Warnings (visible but don't fail):**
+- `TODO` / `FIXME` / `HACK` markers
 
 ---
 
@@ -346,12 +390,13 @@ Add `openGraph` and `twitter` metadata for link previews.
   - [x] 3.1 Prisma migrate — initial migration `20260308045821_init` created and applied
   - [x] 3.2 DB constraints — `onDelete: Cascade` on all relations
   - [x] 3.3 Missing indexes — added `@@index` on reporterId, bugId, submitterId
-- [x] **Phase 4: Deployment**
+- [ ] **Phase 4: Deployment**
   - [x] 4.1 Hosting stack — Vercel + ECS Fargate + RDS Postgres
   - [x] 4.2 IaC — `sst.config.ts` (SST v3), `Dockerfile`, `.dockerignore`
-  - [x] 4.3 Secrets — SST secrets config, Vercel env vars documented
-  - [ ] 4.4 First deploy — run `npx sst deploy --stage production` + DNS setup
-  - [x] 4.5 CI/CD — `.github/workflows/ci.yml` + `deploy.yml` (OIDC, concurrency controls)
+  - [x] 4.3 Secrets — SST secrets set (test keys), GitHub env secrets configured
+  - [ ] 4.4 First deploy — need Docker running, then `npx sst deploy`, Cloudflare DNS, Vercel setup
+  - [x] 4.5 CI/CD — `.github/workflows/ci.yml` + `deploy.yml` (OIDC, quality gate, concurrency)
+  - [x] 4.6 Quality gate — `pnpm quality` bans unsafe patterns, runs in CI
 - [ ] **Phase 5: SEO & Polish**
   - [ ] 5.1 robots.txt + sitemap
   - [ ] 5.2 OG meta tags

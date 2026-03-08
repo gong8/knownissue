@@ -36,13 +36,15 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 
 type ApiBug = {
   id: string;
-  title: string;
+  title: string | null;
+  errorMessage?: string | null;
   library: string;
   version: string;
   ecosystem: string;
   severity: Severity;
   status: BugStatus;
   tags: string[];
+  score: number;
   createdAt: string;
   updatedAt: string;
   reporter?: { githubUsername: string; avatarUrl?: string };
@@ -181,9 +183,14 @@ export default function BugsPage() {
               {/* Severity dot */}
               <span className={`h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[bug.severity]}`} />
 
+              {/* Score */}
+              <span className="shrink-0 font-mono text-xs text-muted-foreground w-6 text-right">
+                {bug.score}
+              </span>
+
               {/* Title */}
               <span className="flex-1 truncate text-sm font-medium">
-                {bug.title}
+                {bug.title ?? bug.errorMessage ?? "Untitled"}
               </span>
 
               {/* Library@version */}

@@ -1,7 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
-import type { BugInput } from "@knownissue/shared";
+import type { ReportInput } from "@knownissue/shared";
 
 export async function fetchBugs(params: {
   q?: string;
@@ -37,7 +37,7 @@ export async function fetchBugById(id: string) {
   return res.json();
 }
 
-export async function createBug(input: BugInput) {
+export async function createBug(input: ReportInput) {
   const res = await apiFetch("/bugs", {
     method: "POST",
     body: JSON.stringify(input),

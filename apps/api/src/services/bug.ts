@@ -1,79 +1,128 @@
 import { prisma } from "@knownissue/db";
-import type { BugInput, BugUpdate, Role } from "@knownissue/shared";
-import { bugInputSchema, bugUpdateSchema } from "@knownissue/shared";
+import type { BugUpdate, ReportInput, SearchInput } from "@knownissue/shared";
+import type { Role } from "@knownissue/shared";
+import {
+  reportInputSchema,
+  bugUpdateSchema,
+  AUTO_HIDE_SCORE,
+  REPORT_REWARD,
+  DUPLICATE_PENALTY,
+  CONFIRMED_UPVOTES,
+  PATCHED_SCORE,
+  CLOSED_SCORE,
+} from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
+import { computeFingerprint, findByFingerprint } from "./fingerprint";
 import { checkDuplicate, validateContent } from "./spam";
 import { logAudit } from "./audit";
 import { createBugRevision } from "./revision";
+import { awardCredits, penalizeCredits } from "./credits";
+import * as patchService from "./patch";
 
-export async function searchBugs(params: {
-  query: string;
-  library?: string;
-  version?: string;
-  ecosystem?: string;
-  limit?: number;
-  offset?: number;
-}) {
-  const { query, library, version, ecosystem, limit = 10, offset = 0 } = params;
+export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }) {
+  const { query, library, version, errorCode, limit = 10, offset = 0 } = params;
 
-  // Build where clause for exact filters
-  const where: Record<string, unknown> = {};
-  if (library) where.library = library;
-  if (version) where.version = version;
-  if (ecosystem) where.ecosystem = ecosystem;
+  // Tier 1: fingerprint match via errorCode
+  if (errorCode && library) {
+    const fingerprint = computeFingerprint(library, errorCode);
+    if (fingerprint) {
+      const bug = await findByFingerprint(fingerprint);
+      if (bug) {
+        return {
+          bugs: [bug],
+          total: 1,
+          _meta: { matchTier: 1, confidence: 1.0 },
+        };
+      }
+    }
+  }
 
-  // Try semantic search with embeddings
+  // Tier 2: fingerprint match via normalized errorMessage in query
+  if (library) {
+    const fingerprint = computeFingerprint(library, null, query);
+    if (fingerprint) {
+      const bug = await findByFingerprint(fingerprint);
+      if (bug) {
+        return {
+          bugs: [bug],
+          total: 1,
+          _meta: { matchTier: 2, confidence: 0.95 },
+        };
+      }
+    }
+  }
+
+  // Tier 3: embedding/semantic search
   const embedding = await generateEmbedding(query);
 
   if (embedding) {
     const vectorStr = `[${embedding.join(",")}]`;
 
-    // Build filter conditions with parameterized placeholders
-    const conditions: string[] = [];
-    const params: unknown[] = [vectorStr, limit, offset];
+    const conditions: string[] = [`"score" > ${AUTO_HIDE_SCORE}`];
+    const queryParams: unknown[] = [vectorStr, limit, offset];
     let paramIndex = 4;
 
     if (library) {
       conditions.push(`"library" = $${paramIndex++}`);
-      params.push(library);
+      queryParams.push(library);
     }
     if (version) {
       conditions.push(`"version" = $${paramIndex++}`);
-      params.push(version);
-    }
-    if (ecosystem) {
-      conditions.push(`"ecosystem" = $${paramIndex++}`);
-      params.push(ecosystem);
+      queryParams.push(version);
     }
 
     const whereClause = conditions.length > 0
       ? `WHERE ${conditions.join(" AND ")}`
       : "";
 
-    const countQuery = `SELECT COUNT(*)::int as count FROM "Bug" ${whereClause}`;
-    const countParams = params.slice(3); // only the filter params
+    const countConditions = conditions.slice();
+    const countParams = queryParams.slice(3);
 
     const [bugs, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
         `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
+                "errorMessage", "errorCode", "fingerprint", "score",
                 "reporterId", "createdAt", "updatedAt",
                 1 - (embedding <=> $1::vector) as similarity
          FROM "Bug"
          ${whereClause}
          ORDER BY embedding <=> $1::vector
          LIMIT $2 OFFSET $3`,
-        ...params
+        ...queryParams
       ),
       prisma.$queryRawUnsafe<[{ count: number }]>(
-        countQuery,
+        `SELECT COUNT(*)::int as count FROM "Bug" ${whereClause ? `WHERE ${countConditions.join(" AND ")}` : ""}`,
         ...countParams
       ),
     ]);
 
-    return { bugs, total: countResult[0].count };
+    // Load patches for each bug (exclude auto-hidden)
+    const bugIds = bugs.map((b) => b.id as string);
+    const patchesByBug = bugIds.length > 0
+      ? await prisma.patch.findMany({
+          where: { bugId: { in: bugIds }, score: { gt: AUTO_HIDE_SCORE } },
+          include: { submitter: true },
+          orderBy: { score: "desc" },
+        })
+      : [];
+
+    const bugsWithPatches = bugs.map((bug) => ({
+      ...bug,
+      patches: patchesByBug.filter((p) => p.bugId === bug.id),
+    }));
+
+    return {
+      bugs: bugsWithPatches,
+      total: countResult[0].count,
+      _meta: { matchTier: 3 },
+    };
   }
 
   // Fallback: text search
+  const where: Record<string, unknown> = { score: { gt: AUTO_HIDE_SCORE } };
+  if (library) where.library = library;
+  if (version) where.version = version;
+
   const [bugs, total] = await Promise.all([
     prisma.bug.findMany({
       where: {
@@ -81,10 +130,16 @@ export async function searchBugs(params: {
         OR: [
           { title: { contains: query, mode: "insensitive" as const } },
           { description: { contains: query, mode: "insensitive" as const } },
+          { errorMessage: { contains: query, mode: "insensitive" as const } },
         ],
       },
       include: {
         reporter: true,
+        patches: {
+          where: { score: { gt: AUTO_HIDE_SCORE } },
+          include: { submitter: true },
+          orderBy: { score: "desc" },
+        },
         _count: { select: { patches: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -97,12 +152,13 @@ export async function searchBugs(params: {
         OR: [
           { title: { contains: query, mode: "insensitive" as const } },
           { description: { contains: query, mode: "insensitive" as const } },
+          { errorMessage: { contains: query, mode: "insensitive" as const } },
         ],
       },
     }),
   ]);
 
-  return { bugs, total };
+  return { bugs, total, _meta: { matchTier: 3 } };
 }
 
 export async function getBugById(id: string) {
@@ -111,6 +167,7 @@ export async function getBugById(id: string) {
     include: {
       reporter: true,
       patches: {
+        where: { score: { gt: AUTO_HIDE_SCORE } },
         include: {
           submitter: true,
           reviews: {
@@ -120,47 +177,84 @@ export async function getBugById(id: string) {
         },
         orderBy: { score: "desc" },
       },
+      reviews: {
+        include: { reviewer: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 }
 
-export async function createBug(input: BugInput, userId: string) {
-  // Validate input
-  const parsed = bugInputSchema.parse(input);
+export async function createBug(input: ReportInput, userId: string) {
+  const parsed = reportInputSchema.parse(input);
 
-  // Content validation
-  const contentCheck = validateContent(parsed.title, parsed.description);
-  if (!contentCheck.valid) {
-    throw new Error(contentCheck.reason);
+  // Content validation — at least errorMessage or description
+  const displayTitle = parsed.title ?? parsed.errorMessage ?? null;
+  const displayDesc = parsed.description ?? parsed.errorMessage ?? null;
+  if (displayDesc) {
+    const contentCheck = validateContent(displayTitle, displayDesc);
+    if (!contentCheck.valid) {
+      throw new Error(contentCheck.reason);
+    }
   }
 
-  // Duplicate check
-  const dupCheck = await checkDuplicate(parsed.title, parsed.description);
+  // Compute fingerprint
+  const fingerprint = computeFingerprint(parsed.library, parsed.errorCode, parsed.errorMessage);
+
+  // Tier 1: fingerprint duplicate check (free)
+  if (fingerprint) {
+    const existing = await findByFingerprint(fingerprint);
+    if (existing) {
+      await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
+        bugId: existing.id,
+      });
+      return {
+        bug: existing,
+        warning: "Duplicate detected via fingerprint match",
+        creditsAwarded: -DUPLICATE_PENALTY,
+        isDuplicate: true,
+      };
+    }
+  }
+
+  // Tier 2/3: embedding duplicate check
+  const embeddingText = [displayTitle, displayDesc].filter(Boolean).join(" ");
+  const dupCheck = await checkDuplicate(embeddingText, fingerprint);
   if (dupCheck.isDuplicate) {
+    await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     throw new Error(
-      `Duplicate detected: ${dupCheck.warning}. Similar bugs: ${dupCheck.similarBugs?.map((b) => b.title).join(", ")}`
+      `Duplicate detected: ${dupCheck.warning}. Similar bugs: ${dupCheck.similarBugs?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
     );
   }
 
   // Generate embedding
-  const embedding = await generateEmbedding(`${parsed.title} ${parsed.description}`);
+  const embedding = await generateEmbedding(embeddingText);
 
   // Create bug
   const bug = await prisma.bug.create({
     data: {
-      title: parsed.title,
-      description: parsed.description,
+      title: parsed.title ?? null,
+      description: parsed.description ?? null,
       library: parsed.library,
       version: parsed.version,
       ecosystem: parsed.ecosystem,
       severity: parsed.severity,
       tags: parsed.tags,
+      errorMessage: parsed.errorMessage ?? null,
+      errorCode: parsed.errorCode ?? null,
+      stackTrace: parsed.stackTrace ?? null,
+      fingerprint,
+      triggerCode: parsed.triggerCode ?? null,
+      expectedBehavior: parsed.expectedBehavior ?? null,
+      actualBehavior: parsed.actualBehavior ?? null,
+      relatedLibraries: parsed.relatedLibraries ?? undefined,
+      environment: parsed.environment ?? undefined,
       reporterId: userId,
     },
     include: { reporter: true },
   });
 
-  // Store embedding if available (raw query since Prisma doesn't support vector type directly)
+  // Store embedding
   if (embedding) {
     const vectorStr = `[${embedding.join(",")}]`;
     await prisma.$executeRawUnsafe(
@@ -181,7 +275,29 @@ export async function createBug(input: BugInput, userId: string) {
     }),
   ]);
 
-  return { bug, warning: dupCheck.warning };
+  // Award credits for reporting
+  let creditsAwarded = REPORT_REWARD;
+  await awardCredits(userId, REPORT_REWARD, "bug_reported", { bugId: bug.id });
+
+  // Handle inline patch
+  let inlinePatchResult = undefined;
+  if (parsed.patch) {
+    inlinePatchResult = await patchService.submitPatch(
+      bug.id,
+      parsed.patch.explanation,
+      parsed.patch.steps,
+      null,
+      userId
+    );
+    creditsAwarded += inlinePatchResult.creditsAwarded;
+  }
+
+  return {
+    bug,
+    warning: dupCheck.warning,
+    creditsAwarded,
+    inlinePatch: inlinePatchResult,
+  };
 }
 
 export async function listBugs(params: {
@@ -232,7 +348,6 @@ export async function updateBug(id: string, input: BugUpdate, userId: string, us
     throw new Error("Only the reporter can edit this bug");
   }
 
-  // Compute diff for audit log
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (value !== undefined) {
@@ -249,7 +364,6 @@ export async function updateBug(id: string, input: BugUpdate, userId: string, us
     include: { reporter: true },
   });
 
-  // Audit + revision
   await Promise.all([
     createBugRevision(id, "update", userId),
     logAudit({
@@ -271,7 +385,6 @@ export async function deleteBug(id: string, userId: string, userRole?: Role) {
     throw new Error("Only the reporter can delete this bug");
   }
 
-  // Log audit with full snapshot before deletion
   await logAudit({
     action: "delete",
     entityType: "bug",
@@ -288,15 +401,39 @@ export async function deleteBug(id: string, userId: string, userRole?: Role) {
   await prisma.bug.delete({ where: { id } });
 }
 
-export async function updateBugStatus(id: string, status: string) {
-  const bug = await prisma.bug.findUnique({ where: { id } });
-  if (!bug) throw new Error("Bug not found");
-
-  return prisma.bug.update({
-    where: { id },
-    data: { status: status as "open" | "confirmed" | "patched" | "closed" },
-    include: { reporter: true },
+export async function computeDerivedStatus(bugId: string) {
+  const bug = await prisma.bug.findUnique({
+    where: { id: bugId },
+    include: {
+      reviews: { where: { targetType: "bug", vote: "up" } },
+      patches: {
+        where: { score: { gt: AUTO_HIDE_SCORE } },
+        orderBy: { score: "desc" },
+        take: 1,
+      },
+    },
   });
+  if (!bug) return;
+
+  const bugUpvotes = bug.reviews.length;
+  const bestPatchScore = bug.patches[0]?.score ?? 0;
+
+  let derivedStatus = bug.status;
+
+  if (bestPatchScore >= CLOSED_SCORE) {
+    derivedStatus = "closed";
+  } else if (bestPatchScore >= PATCHED_SCORE) {
+    derivedStatus = "patched";
+  } else if (bugUpvotes >= CONFIRMED_UPVOTES) {
+    derivedStatus = "confirmed";
+  }
+
+  if (derivedStatus !== bug.status) {
+    await prisma.bug.update({
+      where: { id: bugId },
+      data: { status: derivedStatus },
+    });
+  }
 }
 
 export async function getUserBugs(userId: string) {

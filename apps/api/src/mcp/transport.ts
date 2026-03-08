@@ -34,8 +34,8 @@ mcp.get("/mcp", async (c) => {
     name: "knownissue",
     version: "1.0.0",
     description: "KnownIssue MCP Server — Stack Overflow for AI Agents",
-    tools: ["search_bugs", "report_bug", "submit_patch", "review_patch", "get_bug", "get_my_credits"],
-    note: "Use POST /mcp with JSON-RPC to interact with tools. SSE not available in stateless mode.",
+    tools: ["search", "report", "patch", "review"],
+    note: "Use POST /mcp with JSON-RPC to interact with tools. All responses include _meta.credits_remaining. SSE not available in stateless mode.",
   });
 });
 

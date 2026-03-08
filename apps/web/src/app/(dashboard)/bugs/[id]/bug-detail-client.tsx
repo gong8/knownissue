@@ -9,6 +9,8 @@ import {
   ThumbsDown,
   FileCode,
   Clock,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
-import type { Bug, Patch, Severity } from "@knownissue/shared";
+import type { Bug, Patch, Severity, PatchStep } from "@knownissue/shared";
 
 const SEVERITY_DOT: Record<Severity, string> = {
   critical: "bg-red-400",
@@ -30,6 +32,58 @@ const SEVERITY_DOT: Record<Severity, string> = {
   medium: "bg-yellow-400",
   low: "bg-zinc-400",
 };
+
+// ── Structured Step Renderer ──────────────────────────────────────────────
+
+function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[10px] font-bold text-primary">
+          {index + 1}
+        </span>
+        <Badge variant="outline" className="text-[10px] uppercase">
+          {step.type.replace("_", " ")}
+        </Badge>
+        {step.type === "code_change" && (
+          <span className="font-mono text-xs text-muted-foreground">{step.filePath}</span>
+        )}
+        {step.type === "version_bump" && (
+          <span className="font-mono text-xs text-muted-foreground">{step.package} → {step.to}</span>
+        )}
+        {step.type === "config_change" && (
+          <span className="font-mono text-xs text-muted-foreground">{step.file} [{step.key}]</span>
+        )}
+      </div>
+
+      {step.type === "code_change" && (
+        <div className="space-y-1.5">
+          {step.before && (
+            <pre className="font-mono text-xs leading-relaxed bg-red-500/5 border-l-2 border-red-400/40 p-2 rounded overflow-x-auto whitespace-pre">
+              {step.before}
+            </pre>
+          )}
+          <pre className="font-mono text-xs leading-relaxed bg-green-500/5 border-l-2 border-green-400/40 p-2 rounded overflow-x-auto whitespace-pre">
+            {step.after}
+          </pre>
+        </div>
+      )}
+
+      {step.type === "command" && (
+        <pre className="font-mono text-xs bg-secondary/50 p-2 rounded overflow-x-auto whitespace-pre">
+          $ {step.command}
+        </pre>
+      )}
+
+      {step.type === "config_change" && (
+        <div className="font-mono text-xs">
+          <span className="text-muted-foreground">{step.action}:</span>{" "}
+          {step.value && <span>{step.value}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Patch Row Component ────────────────────────────────────────────────────
 
@@ -46,7 +100,7 @@ function PatchRow({
 }) {
   const [score, setScore] = useState(patch.score);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
-  const [commentText, setCommentText] = useState("");
+  const [noteText, setNoteText] = useState("");
 
   async function handleVote(direction: "up" | "down") {
     if (userVote === direction) {
@@ -62,7 +116,7 @@ function PatchRow({
 
     try {
       const { reviewPatch } = await import("@/app/actions/reviews");
-      const result = await reviewPatch(patch.id, direction, commentText || null);
+      const result = await reviewPatch(patch.id, direction, noteText || null);
       if (result?.authorCreditDelta) {
         const delta = result.authorCreditDelta;
         toast.success(
@@ -81,6 +135,8 @@ function PatchRow({
   const sortedReviews = [...(patch.reviews ?? [])].sort((a, b) =>
     a.vote === "up" && b.vote !== "up" ? -1 : 1
   );
+
+  const steps = (patch.steps ?? []) as PatchStep[];
 
   return (
     <div className={`py-4 ${active ? "bg-surface-hover" : ""}`}>
@@ -102,6 +158,11 @@ function PatchRow({
             <span className="text-xs text-muted-foreground">
               {relativeTime(new Date(patch.createdAt))}
             </span>
+            {patch.versionConstraint && (
+              <Badge variant="outline" className="text-[10px]">
+                {patch.versionConstraint}
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -143,21 +204,32 @@ function PatchRow({
 
       {!isOwner && (
         <Input
-          placeholder="add a comment (optional)"
+          placeholder="add a note (optional)"
           className="mt-2 text-sm font-mono"
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
         />
       )}
 
-      <p className="mt-3 text-sm text-muted-foreground">{patch.description}</p>
+      <p className="mt-3 text-sm text-muted-foreground">{patch.explanation}</p>
 
-      {/* Code block */}
-      <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background p-3">
-        <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
-          {patch.code}
-        </pre>
-      </div>
+      {/* Structured steps */}
+      {steps.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {steps.map((step, i) => (
+            <PatchStepDisplay key={i} step={step} index={i} />
+          ))}
+        </div>
+      )}
+
+      {/* Legacy code block fallback */}
+      {steps.length === 0 && patch.code && (
+        <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background p-3">
+          <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
+            {patch.code}
+          </pre>
+        </div>
+      )}
 
       {/* Reviews */}
       {sortedReviews.length > 0 && (
@@ -182,13 +254,18 @@ function PatchRow({
                   <span className="font-mono text-xs font-medium">
                     {review.reviewer?.githubUsername}
                   </span>
+                  {review.version && (
+                    <Badge variant="outline" className="text-[10px]">
+                      v{review.version}
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {relativeTime(new Date(review.createdAt))}
                   </span>
                 </div>
-                {review.comment && (
+                {review.note && (
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {review.comment}
+                    {review.note}
                   </p>
                 )}
               </div>
@@ -212,13 +289,15 @@ export function BugDetailClient({
   const router = useRouter();
   const [bug, setBug] = useState<Bug>(initialBug);
   const [patchDialogOpen, setPatchDialogOpen] = useState(false);
-  const [patchDescription, setPatchDescription] = useState("");
+  const [patchExplanation, setPatchExplanation] = useState("");
   const [patchCode, setPatchCode] = useState("");
   const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
   const [focusedPatch, setFocusedPatch] = useState(-1);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [bugScore, setBugScore] = useState(bug.score ?? 0);
+  const [bugVote, setBugVote] = useState<"up" | "down" | null>(null);
+  const [stackTraceOpen, setStackTraceOpen] = useState(false);
 
-  // Fetch current user for ownership checks (fails silently for unauthenticated)
   useEffect(() => {
     let cancelled = false;
     async function loadUser() {
@@ -229,7 +308,7 @@ export function BugDetailClient({
           setCurrentUserId(user?.id ?? null);
         }
       } catch {
-        // Silently ignore — user may not be authenticated
+        // Silently ignore
       }
     }
     loadUser();
@@ -237,6 +316,7 @@ export function BugDetailClient({
   }, []);
 
   const sortedPatches = [...(bug.patches ?? [])].sort((a, b) => b.score - a.score);
+  const displayTitle = bug.title ?? bug.errorMessage ?? "Untitled";
 
   // Keyboard: U to go back, J/K between patches
   useEffect(() => {
@@ -260,24 +340,53 @@ export function BugDetailClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, sortedPatches.length]);
 
+  async function handleBugVote(direction: "up" | "down") {
+    if (bugVote === direction) {
+      setBugScore(bug.score ?? 0);
+      setBugVote(null);
+      return;
+    }
+
+    const delta = direction === "up" ? 1 : -1;
+    const undoPrev = bugVote === "up" ? -1 : bugVote === "down" ? 1 : 0;
+    setBugScore((bug.score ?? 0) + delta + undoPrev);
+    setBugVote(direction);
+
+    try {
+      const { reviewTarget } = await import("@/app/actions/reviews");
+      await reviewTarget(bugId, "bug", direction, null);
+      toast.success(
+        direction === "up" ? "Bug report upvoted" : "Bug report downvoted"
+      );
+    } catch {
+      toast.error("Could not save vote");
+    }
+  }
+
   async function handleSubmitPatch() {
-    if (!patchDescription.trim() || !patchCode.trim()) {
-      toast.error("Please fill in both description and code");
+    if (!patchExplanation.trim() || !patchCode.trim()) {
+      toast.error("Please fill in both explanation and code");
       return;
     }
     setIsSubmittingPatch(true);
     try {
       const { submitPatch } = await import("@/app/actions/patches");
-      const result = await submitPatch(bugId, patchDescription, patchCode);
+      // Convert raw code to a single code_change step for simplicity
+      const steps = [{
+        type: "code_change" as const,
+        filePath: "unknown",
+        before: "",
+        after: patchCode,
+      }];
+      const result = await submitPatch(bugId, patchExplanation, steps);
       toast.success("Patch submitted successfully!", {
         description: result?.creditsAwarded
           ? `+${result.creditsAwarded} credits earned`
           : undefined,
       });
       setPatchDialogOpen(false);
-      setPatchDescription("");
+      setPatchExplanation("");
       setPatchCode("");
-      // Refresh bug data to show new patch
       const { fetchBugById } = await import("@/app/actions/bugs");
       const updated = await fetchBugById(bugId);
       if (updated) setBug(updated);
@@ -289,6 +398,8 @@ export function BugDetailClient({
       setIsSubmittingPatch(false);
     }
   }
+
+  const isOwner = currentUserId === bug.reporterId;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -303,9 +414,36 @@ export function BugDetailClient({
 
       {/* Bug header */}
       <div className="space-y-3">
-        <h1 className="text-lg font-semibold leading-tight">{bug.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-lg font-semibold leading-tight">{displayTitle}</h1>
 
-        {/* Compact badge row with dot variants */}
+          {/* Bug voting */}
+          {!isOwner && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${bugVote === "up" ? "text-green-400 bg-green-500/10" : "text-muted-foreground"}`}
+                onClick={() => handleBugVote("up")}
+              >
+                <ThumbsUp className="h-3.5 w-3.5" />
+              </Button>
+              <span className="min-w-[1.5rem] text-center font-mono text-sm font-semibold">
+                {bugScore}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${bugVote === "down" ? "text-red-400 bg-red-500/10" : "text-muted-foreground"}`}
+                onClick={() => handleBugVote("down")}
+              >
+                <ThumbsDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Compact badge row */}
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="dot" dotColor={SEVERITY_DOT[bug.severity]}>{bug.severity}</Badge>
           <Badge variant="dot" dotColor={
@@ -317,6 +455,11 @@ export function BugDetailClient({
             {bug.library}@{bug.version}
           </Badge>
           <Badge variant="outline" className="text-xs">{bug.ecosystem}</Badge>
+          {bug.errorCode && (
+            <Badge variant="destructive" className="font-mono text-xs">
+              {bug.errorCode}
+            </Badge>
+          )}
           {bug.tags.map((tag) => (
             <Badge
               key={tag}
@@ -348,15 +491,87 @@ export function BugDetailClient({
 
       <Separator />
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          description
-        </h2>
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-          {bug.description}
+      {/* Error message (highlighted) */}
+      {bug.errorMessage && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            error message
+          </h2>
+          <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
+            <pre className="font-mono text-sm text-red-400 whitespace-pre-wrap">{bug.errorMessage}</pre>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Description */}
+      {bug.description && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            description
+          </h2>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+            {bug.description}
+          </div>
+        </div>
+      )}
+
+      {/* Trigger code */}
+      {bug.triggerCode && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            trigger code
+          </h2>
+          <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
+            <pre className="font-mono text-xs leading-relaxed whitespace-pre">{bug.triggerCode}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* Expected vs Actual */}
+      {(bug.expectedBehavior || bug.actualBehavior) && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {bug.expectedBehavior && (
+            <div className="space-y-1.5">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                expected
+              </h2>
+              <div className="rounded-md border border-green-500/20 bg-green-500/5 p-3 text-sm">
+                {bug.expectedBehavior}
+              </div>
+            </div>
+          )}
+          {bug.actualBehavior && (
+            <div className="space-y-1.5">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                actual
+              </h2>
+              <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-sm">
+                {bug.actualBehavior}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stack trace (collapsible) */}
+      {bug.stackTrace && (
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setStackTraceOpen(!stackTraceOpen)}
+            className="flex items-center gap-1 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {stackTraceOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            stack trace
+          </button>
+          {stackTraceOpen && (
+            <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
+              <pre className="font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre">
+                {bug.stackTrace}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       <Separator />
 
@@ -384,12 +599,12 @@ export function BugDetailClient({
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground">description</label>
+              <label className="text-xs font-mono text-muted-foreground">explanation</label>
               <Textarea
                 placeholder="Explain your fix..."
                 rows={3}
-                value={patchDescription}
-                onChange={(e) => setPatchDescription(e.target.value)}
+                value={patchExplanation}
+                onChange={(e) => setPatchExplanation(e.target.value)}
               />
             </div>
             <div className="space-y-1">
@@ -411,7 +626,7 @@ export function BugDetailClient({
         </DialogContent>
       </Dialog>
 
-      {/* Patches list -- flat with separators */}
+      {/* Patches list */}
       {sortedPatches.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <FileCode className="mb-2 h-6 w-6" />

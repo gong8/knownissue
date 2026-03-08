@@ -199,9 +199,9 @@ export default function PatchDetailPage() {
       {/* Description */}
       <div className="space-y-1.5">
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          description
+          explanation
         </h2>
-        <p className="text-sm leading-relaxed text-foreground/90">{patch.description}</p>
+        <p className="text-sm leading-relaxed text-foreground/90">{patch.explanation}</p>
       </div>
 
       {/* Code */}
@@ -248,9 +248,9 @@ export default function PatchDetailPage() {
                       {relativeTime(new Date(review.createdAt))}
                     </span>
                   </div>
-                  {review.comment && (
+                  {review.note && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {review.comment}
+                      {review.note}
                     </p>
                   )}
                 </div>

@@ -1,27 +1,21 @@
 import { prisma } from "@knownissue/db";
 import {
-  MIN_TITLE_LENGTH,
-  MIN_DESCRIPTION_LENGTH,
   DUPLICATE_WARN_THRESHOLD,
   DUPLICATE_REJECT_THRESHOLD,
 } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
+import { findByFingerprint } from "./fingerprint";
 
 export function validateContent(
-  title: string,
-  description: string
+  title: string | null,
+  description: string | null
 ): { valid: boolean; reason?: string } {
-  if (title.length < MIN_TITLE_LENGTH) {
+  // At least one of errorMessage or description must be present
+  // (enforced by Zod .refine, but double-check here)
+  if (!title && !description) {
     return {
       valid: false,
-      reason: `Title must be at least ${MIN_TITLE_LENGTH} characters`,
-    };
-  }
-
-  if (description.length < MIN_DESCRIPTION_LENGTH) {
-    return {
-      valid: false,
-      reason: `Description must be at least ${MIN_DESCRIPTION_LENGTH} characters`,
+      reason: "At least one of errorMessage or description is required",
     };
   }
 
@@ -29,23 +23,38 @@ export function validateContent(
 }
 
 export async function checkDuplicate(
-  title: string,
-  description: string
+  text: string,
+  fingerprint?: string | null
 ): Promise<{
   isDuplicate: boolean;
   warning?: string;
   similarBugs?: Array<{ id: string; title: string; similarity: number }>;
 }> {
-  const embedding = await generateEmbedding(`${title} ${description}`);
+  // Tier 1: fingerprint check (fast, free)
+  if (fingerprint) {
+    const existing = await findByFingerprint(fingerprint);
+    if (existing) {
+      return {
+        isDuplicate: true,
+        warning: "A bug with the same error signature already exists",
+        similarBugs: [{
+          id: existing.id,
+          title: existing.title ?? existing.errorMessage ?? "Untitled",
+          similarity: 1.0,
+        }],
+      };
+    }
+  }
+
+  // Tier 2/3: embedding similarity check
+  const embedding = await generateEmbedding(text);
 
   if (!embedding) {
-    // Can't check for duplicates without embeddings
     return { isDuplicate: false };
   }
 
   const vectorStr = `[${embedding.join(",")}]`;
 
-  // Query for similar bugs using pgvector cosine distance
   const similarBugs = await prisma.$queryRaw<
     Array<{ id: string; title: string; similarity: number }>
   >`
