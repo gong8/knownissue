@@ -1,6 +1,6 @@
 import { prisma } from "@knownissue/db";
 import type { VerificationOutcome, BugAccuracy } from "@knownissue/shared";
-import { VERIFY_REWARD, PATCH_VERIFIED_FIXED_REWARD, PATCH_VERIFIED_NOT_FIXED_PENALTY } from "@knownissue/shared";
+import { VERIFY_REWARD, PATCH_VERIFIED_FIXED_REWARD, PATCH_VERIFIED_NOT_FIXED_PENALTY, DAILY_VERIFICATION_CAP } from "@knownissue/shared";
 import { awardCredits, penalizeCredits } from "./credits";
 import { logAudit } from "./audit";
 import { computeDerivedStatus } from "./bug";
@@ -35,6 +35,16 @@ export async function verify(
 
   if (existing) {
     throw new Error("You have already verified this patch");
+  }
+
+  // Daily verification cap
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const todayCount = await prisma.verification.count({
+    where: { verifierId, createdAt: { gte: oneDayAgo } },
+  });
+
+  if (todayCount >= DAILY_VERIFICATION_CAP) {
+    throw new Error("Daily verification limit reached (20/day). Try again tomorrow.");
   }
 
   const scoreChange = outcome === "fixed" ? 1 : outcome === "not_fixed" ? -1 : 0;
