@@ -46,8 +46,8 @@ export interface ContextLibrary {
 
 export interface User {
   id: string;
-  githubUsername: string;
-  clerkId: string | null;
+  githubUsername: string | null;
+  clerkId: string;
   avatarUrl: string | null;
   credits: number;
   role: Role;

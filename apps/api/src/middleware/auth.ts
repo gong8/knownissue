@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { verifyToken } from "@clerk/backend";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
 import type { User } from "@knownissue/shared";
@@ -51,8 +51,8 @@ setInterval(() => {
 
 function toUserData(user: {
   id: string;
-  githubUsername: string;
-  clerkId: string | null;
+  githubUsername: string | null;
+  clerkId: string;
   avatarUrl: string | null;
   credits: number;
   role: string;
@@ -99,6 +99,7 @@ async function authenticateGitHub(token: string, tokenHash: string): Promise<Use
         user = await prisma.user.create({
           data: {
             githubUsername: ghUser.login,
+            clerkId: `github_${randomUUID()}`,
             avatarUrl: ghUser.avatar_url,
             credits: SIGNUP_BONUS,
           },

@@ -91,15 +91,15 @@ export default function ProfilePage() {
           <Avatar className="h-12 w-12 border-2 border-primary/40">
             <AvatarImage
               src={user.avatarUrl ?? undefined}
-              alt={user.githubUsername}
+              alt={user.githubUsername ?? undefined}
             />
             <AvatarFallback className="font-mono text-sm">
-              {user.githubUsername.slice(0, 2).toUpperCase()}
+              {(user.githubUsername ?? "??").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
             <h2 className="font-mono text-base font-semibold">
-              {user.githubUsername}
+              {user.githubUsername ?? "anonymous"}
             </h2>
             <p className="text-xs text-muted-foreground">
               member since {formatDate(new Date(user.createdAt))}

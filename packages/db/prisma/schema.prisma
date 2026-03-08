@@ -92,8 +92,8 @@ enum RelationSource {
 
 model User {
   id             String   @id @default(uuid())
-  githubUsername  String   @unique
-  clerkId        String?  @unique
+  githubUsername  String?  @unique
+  clerkId        String   @unique
   avatarUrl      String?
   credits        Int      @default(5)
   role           Role     @default(user)
@@ -107,6 +107,8 @@ model User {
   creditTransactions CreditTransaction[]
   auditLogs          AuditLog[]
   bugRelations       BugRelation[]
+  oauthAuthCodes     OAuthAuthorizationCode[]
+  oauthAccessTokens  OAuthAccessToken[]
 }
 
 model CreditTransaction {
@@ -290,4 +292,56 @@ model BugRelation {
   @@index([sourceBugId])
   @@index([targetBugId])
   @@index([type])
+}
+
+model OAuthClient {
+  id           String   @id @default(uuid())
+  clientId     String   @unique
+  clientName   String
+  redirectUris String[]
+  grantTypes   String[]
+  createdAt    DateTime @default(now())
+
+  authCodes    OAuthAuthorizationCode[]
+  accessTokens OAuthAccessToken[]
+}
+
+model OAuthAuthorizationCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  clientId      String
+  client        OAuthClient @relation(fields: [clientId], references: [clientId])
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String
+  codeChallenge String
+  scopes        String[]
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model OAuthAccessToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  clientId  String
+  client    OAuthClient @relation(fields: [clientId], references: [clientId])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes    String[]
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  refreshToken OAuthRefreshToken?
+}
+
+model OAuthRefreshToken {
+  id            String    @id @default(uuid())
+  tokenHash     String    @unique
+  accessTokenId String    @unique
+  accessToken   OAuthAccessToken @relation(fields: [accessTokenId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
 }
