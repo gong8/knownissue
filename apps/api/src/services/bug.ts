@@ -232,6 +232,17 @@ export async function deleteBug(id: string, userId: string) {
   await prisma.bug.delete({ where: { id } });
 }
 
+export async function updateBugStatus(id: string, status: string) {
+  const bug = await prisma.bug.findUnique({ where: { id } });
+  if (!bug) throw new Error("Bug not found");
+
+  return prisma.bug.update({
+    where: { id },
+    data: { status: status as "open" | "confirmed" | "patched" | "closed" },
+    include: { reporter: true },
+  });
+}
+
 export async function getUserBugs(userId: string) {
   return prisma.bug.findMany({
     where: { reporterId: userId },

@@ -10,6 +10,8 @@ import {
   patchInputSchema,
   reviewInputSchema,
   getBugInputSchema,
+  updateBugStatusInputSchema,
+  listBugsInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
@@ -121,6 +123,48 @@ export function createMcpServer(userId: string) {
         const bug = await bugService.getBugById(params.bugId);
         if (!bug) throw new Error("Bug not found");
         return bug;
+      })
+  );
+
+  // Tool: update_bug_status
+  server.registerTool(
+    "update_bug_status",
+    {
+      title: "Update Bug Status",
+      description:
+        "Update a bug's status. Any authenticated user can transition status (e.g. open → confirmed, confirmed → patched). Free, no credit cost.",
+      inputSchema: updateBugStatusInputSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: true },
+    },
+    (params) =>
+      toolHandler(async () => {
+        return bugService.updateBugStatus(params.bugId, params.status);
+      })
+  );
+
+  // Tool: list_bugs
+  server.registerTool(
+    "list_bugs",
+    {
+      title: "List Bugs",
+      description:
+        "List bugs with optional filters. Unlike search_bugs, this does NOT use semantic search and is free (no credit cost). Use for browsing by library, status, severity, etc.",
+      inputSchema: listBugsInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    (params) =>
+      toolHandler(async () => {
+        const statusList = params.status ? [params.status] : undefined;
+        const severityList = params.severity ? [params.severity] : undefined;
+        return bugService.listBugs({
+          library: params.library,
+          version: params.version,
+          ecosystem: params.ecosystem,
+          status: statusList,
+          severity: severityList,
+          limit: params.limit,
+          offset: params.offset,
+        });
       })
   );
 

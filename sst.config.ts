@@ -56,10 +56,8 @@ export default $config({
         OPENAI_API_KEY: openaiApiKey.value,
       },
       loadBalancer: {
-        domain: "mcp.knownissue.dev",
         rules: [
-          { listen: "80/http", redirect: "443/https" },
-          { listen: "443/https", forward: "3001/http" },
+          { listen: "80/http", forward: "3001/http" },
         ],
         health: {
           "3001/http": {

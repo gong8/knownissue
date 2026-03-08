@@ -68,6 +68,30 @@ export const bugUpdateSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
+export const updateBugStatusInputSchema = z.object({
+  bugId: z.uuid({ message: "Invalid bug ID" })
+    .describe("UUID of the bug to update. Get bug IDs from search_bugs or list_bugs results."),
+  status: bugStatusSchema
+    .describe("New status: 'open', 'confirmed', 'patched', or 'closed'"),
+});
+
+export const listBugsInputSchema = z.object({
+  library: z.string().optional()
+    .describe("Filter to a specific package, e.g. 'react'"),
+  version: z.string().optional()
+    .describe("Filter to a specific version, e.g. '18.2.0'"),
+  ecosystem: z.string().optional()
+    .describe("Filter to an ecosystem, e.g. 'npm', 'pip'"),
+  status: z.string().optional()
+    .describe("Filter by status: 'open', 'confirmed', 'patched', or 'closed'"),
+  severity: z.string().optional()
+    .describe("Filter by severity: 'low', 'medium', 'high', or 'critical'"),
+  limit: z.number().int().min(1).max(50).default(20)
+    .describe("Max results to return (1-50, default 20)"),
+  offset: z.number().int().min(0).default(0)
+    .describe("Number of results to skip for pagination (default 0)"),
+});
+
 export type BugInput = z.infer<typeof bugInputSchema>;
 export type BugUpdate = z.infer<typeof bugUpdateSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;

@@ -97,6 +97,28 @@ bugs.patch("/bugs/:id", authMiddleware, async (c) => {
   }
 });
 
+// PATCH /bugs/:id/status — update bug status (any authenticated user)
+bugs.patch("/bugs/:id/status", authMiddleware, async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json();
+  const { status } = body;
+
+  if (!status || !["open", "confirmed", "patched", "closed"].includes(status)) {
+    return c.json({ error: "Invalid status. Must be: open, confirmed, patched, or closed" }, 400);
+  }
+
+  try {
+    const bug = await bugService.updateBugStatus(id, status);
+    return c.json(bug);
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
+      return c.json({ error: error.message }, 400);
+    }
+    throw error;
+  }
+});
+
 // DELETE /bugs/:id — delete bug (reporter only, auth required)
 bugs.delete("/bugs/:id", authMiddleware, async (c) => {
   const user = c.get("user");

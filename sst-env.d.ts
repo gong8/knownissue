@@ -6,6 +6,17 @@
 
 declare module "sst" {
   export interface Resource {
+    "ClerkSecretKey": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "OpenaiApiKey": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "Vpc": {
+      "type": "sst.aws.Vpc"
+    }
   }
 }
 /// <reference path="sst-env.d.ts" />
