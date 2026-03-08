@@ -46,3 +46,9 @@ export const RELATION_DISPLAY_CONFIDENCE_MIN = 0.7;
 export const RELATION_MAX_INFERRED_PER_TRIGGER = 5;
 export const RELATION_MAX_DISPLAYED_PER_BUG = 3;
 export const RELATION_INFERENCE_WINDOW_DAYS = 180;
+
+// OAuth 2.1
+export const OAUTH_ACCESS_TOKEN_TTL = 60 * 60 * 1000;
+export const OAUTH_REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
+export const OAUTH_AUTH_CODE_TTL = 60 * 1000;
+export const OAUTH_SCOPES = ["mcp:tools"] as const;
