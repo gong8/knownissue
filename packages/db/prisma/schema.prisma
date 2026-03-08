@@ -37,6 +37,7 @@ enum CreditEventType {
   verification_given
   patch_verified_fixed
   patch_verified_not_fixed
+  bug_reported_deferred
 }
 
 enum Severity {
@@ -135,6 +136,7 @@ model Bug {
   category         BugCategory?
   accessCount      Int          @default(0)
   searchHitCount   Int          @default(0)
+  rewardClaimed    Boolean      @default(false)
 
   reporterId String
   reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
@@ -172,6 +174,7 @@ model Patch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([bugId, submitterId])
   @@index([bugId])
   @@index([submitterId])
 }
