@@ -51,6 +51,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
         clerkId: user.clerkId,
         avatarUrl: user.avatarUrl,
         credits: user.credits,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -99,6 +100,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
         clerkId: user.clerkId,
         avatarUrl: user.avatarUrl,
         credits: user.credits,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -158,6 +160,7 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
         clerkId: user.clerkId,
         avatarUrl: user.avatarUrl,
         credits: user.credits,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -206,6 +209,7 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
         clerkId: user.clerkId,
         avatarUrl: user.avatarUrl,
         credits: user.credits,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });

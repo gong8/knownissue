@@ -4,6 +4,7 @@ import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
 import * as reviewService from "../services/review";
 import { deductCredits, getCredits } from "../services/credits";
+import { getBugRevisions } from "../services/revision";
 import {
   searchBugsInputSchema,
   bugInputSchema,
@@ -12,6 +13,7 @@ import {
   getBugInputSchema,
   updateBugStatusInputSchema,
   listBugsInputSchema,
+  getBugHistoryInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
@@ -162,6 +164,25 @@ export function createMcpServer(userId: string) {
           ecosystem: params.ecosystem,
           status: statusList,
           severity: severityList,
+          limit: params.limit,
+          offset: params.offset,
+        });
+      })
+  );
+
+  // Tool: get_bug_history
+  server.registerTool(
+    "get_bug_history",
+    {
+      title: "Get Bug History",
+      description:
+        "Get the version history of a bug, showing all changes over time. Free, no credit cost.",
+      inputSchema: getBugHistoryInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    (params) =>
+      toolHandler(async () => {
+        return getBugRevisions(params.bugId, {
           limit: params.limit,
           offset: params.offset,
         });

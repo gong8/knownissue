@@ -1,8 +1,10 @@
 import { prisma } from "@knownissue/db";
-import type { BugInput, BugUpdate } from "@knownissue/shared";
+import type { BugInput, BugUpdate, Role } from "@knownissue/shared";
 import { bugInputSchema, bugUpdateSchema } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
 import { checkDuplicate, validateContent } from "./spam";
+import { logAudit } from "./audit";
+import { createBugRevision } from "./revision";
 
 export async function searchBugs(params: {
   query: string;
@@ -168,6 +170,17 @@ export async function createBug(input: BugInput, userId: string) {
     );
   }
 
+  // Audit + revision
+  await Promise.all([
+    createBugRevision(bug.id, "create", userId),
+    logAudit({
+      action: "create",
+      entityType: "bug",
+      entityId: bug.id,
+      actorId: userId,
+    }),
+  ]);
+
   return { bug, warning: dupCheck.warning };
 }
 
@@ -210,24 +223,67 @@ export async function listBugs(params: {
   return { bugs, total };
 }
 
-export async function updateBug(id: string, input: BugUpdate, userId: string) {
+export async function updateBug(id: string, input: BugUpdate, userId: string, userRole?: Role) {
   const parsed = bugUpdateSchema.parse(input);
 
   const bug = await prisma.bug.findUnique({ where: { id } });
   if (!bug) throw new Error("Bug not found");
-  if (bug.reporterId !== userId) throw new Error("Only the reporter can edit this bug");
+  if (bug.reporterId !== userId && userRole !== "admin") {
+    throw new Error("Only the reporter can edit this bug");
+  }
 
-  return prisma.bug.update({
+  // Compute diff for audit log
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value !== undefined) {
+      const oldValue = bug[key as keyof typeof bug];
+      if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
+        changes[key] = { from: oldValue, to: value };
+      }
+    }
+  }
+
+  const updated = await prisma.bug.update({
     where: { id },
     data: parsed,
     include: { reporter: true },
   });
+
+  // Audit + revision
+  await Promise.all([
+    createBugRevision(id, "update", userId),
+    logAudit({
+      action: "update",
+      entityType: "bug",
+      entityId: id,
+      actorId: userId,
+      changes: Object.keys(changes).length > 0 ? changes : undefined,
+    }),
+  ]);
+
+  return updated;
 }
 
-export async function deleteBug(id: string, userId: string) {
+export async function deleteBug(id: string, userId: string, userRole?: Role) {
   const bug = await prisma.bug.findUnique({ where: { id } });
   if (!bug) throw new Error("Bug not found");
-  if (bug.reporterId !== userId) throw new Error("Only the reporter can delete this bug");
+  if (bug.reporterId !== userId && userRole !== "admin") {
+    throw new Error("Only the reporter can delete this bug");
+  }
+
+  // Log audit with full snapshot before deletion
+  await logAudit({
+    action: "delete",
+    entityType: "bug",
+    entityId: id,
+    actorId: userId,
+    changes: {
+      title: { from: bug.title, to: null },
+      description: { from: bug.description, to: null },
+      severity: { from: bug.severity, to: null },
+      status: { from: bug.status, to: null },
+    },
+  });
 
   await prisma.bug.delete({ where: { id } });
 }

@@ -8,6 +8,8 @@ import { bugs } from "./routes/bugs";
 import { patches } from "./routes/patches";
 import { reviews } from "./routes/reviews";
 import { users } from "./routes/users";
+import { revisions } from "./routes/revisions";
+import { audit } from "./routes/audit";
 import { mcp } from "./mcp/transport";
 import type { AppEnv } from "./lib/types";
 
@@ -67,6 +69,8 @@ app.route("/", bugs);
 app.route("/", patches);
 app.route("/", reviews);
 app.route("/", users);
+app.route("/", revisions);
+app.route("/", audit);
 app.route("/", mcp);
 
 // Error handler — hide internals in production

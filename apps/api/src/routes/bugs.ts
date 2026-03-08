@@ -85,7 +85,7 @@ bugs.patch("/bugs/:id", authMiddleware, async (c) => {
   const body = await c.req.json();
 
   try {
-    const bug = await bugService.updateBug(id, body, user.id);
+    const bug = await bugService.updateBug(id, body, user.id, user.role);
     return c.json(bug);
   } catch (error) {
     if (error instanceof Error) {
@@ -125,7 +125,7 @@ bugs.delete("/bugs/:id", authMiddleware, async (c) => {
   const id = c.req.param("id");
 
   try {
-    await bugService.deleteBug(id, user.id);
+    await bugService.deleteBug(id, user.id, user.role);
     return c.json({ ok: true });
   } catch (error) {
     if (error instanceof Error) {

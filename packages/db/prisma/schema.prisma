@@ -9,12 +9,32 @@ datasource db {
   extensions = [vector]
 }
 
+enum Role {
+  user
+  admin
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  rollback
+}
+
+enum EntityType {
+  bug
+  patch
+  review
+  user
+}
+
 model User {
   id             String   @id @default(uuid())
   githubUsername  String   @unique
   clerkId        String?  @unique
   avatarUrl      String?
   credits        Int      @default(10)
+  role           Role     @default(user)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -22,6 +42,7 @@ model User {
   patches            Patch[]
   reviews            Review[]
   creditTransactions CreditTransaction[]
+  auditLogs          AuditLog[]
 }
 
 enum CreditEventType {
@@ -78,7 +99,8 @@ model Bug {
   reporterId String
   reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  patches Patch[]
+  patches   Patch[]
+  revisions BugRevision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,4 +152,38 @@ model Review {
   updatedAt DateTime @updatedAt
 
   @@unique([patchId, reviewerId])
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  action     AuditAction
+  entityType EntityType
+  entityId   String
+  changes    Json?
+  metadata   Json?
+  actorId    String
+  actor      User        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model BugRevision {
+  id          String      @id @default(uuid())
+  version     Int
+  action      AuditAction
+  title       String
+  description String
+  severity    Severity
+  status      BugStatus
+  tags        String[]
+  bugId       String
+  bug         Bug         @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  actorId     String
+  createdAt   DateTime    @default(now())
+
+  @@unique([bugId, version])
+  @@index([bugId, createdAt])
 }

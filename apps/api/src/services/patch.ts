@@ -1,6 +1,7 @@
 import { prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
 import { awardCredits } from "./credits";
+import { logAudit } from "./audit";
 
 export async function submitPatch(
   bugId: string,
@@ -30,6 +31,14 @@ export async function submitPatch(
   const newBalance = await awardCredits(userId, PATCH_REWARD, "patch_submitted", {
     bugId,
     patchId: patch.id,
+  });
+
+  await logAudit({
+    action: "create",
+    entityType: "patch",
+    entityId: patch.id,
+    actorId: userId,
+    metadata: { bugId },
   });
 
   return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance };

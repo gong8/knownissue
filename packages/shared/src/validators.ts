@@ -92,9 +92,25 @@ export const listBugsInputSchema = z.object({
     .describe("Number of results to skip for pagination (default 0)"),
 });
 
+export const getBugHistoryInputSchema = z.object({
+  bugId: z.uuid({ message: "Invalid bug ID" })
+    .describe("UUID of the bug to get history for"),
+  limit: z.number().int().min(1).max(50).default(10)
+    .describe("Max revisions to return (1-50, default 10)"),
+  offset: z.number().int().min(0).default(0)
+    .describe("Number of revisions to skip for pagination (default 0)"),
+});
+
+export const rollbackBugInputSchema = z.object({
+  bugId: z.uuid({ message: "Invalid bug ID" }),
+  version: z.number().int().min(1),
+});
+
 export type BugInput = z.infer<typeof bugInputSchema>;
 export type BugUpdate = z.infer<typeof bugUpdateSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
 export type ReviewInput = z.infer<typeof reviewInputSchema>;
 export type SearchBugsInput = z.infer<typeof searchBugsInputSchema>;
 export type GetBugInput = z.infer<typeof getBugInputSchema>;
+export type GetBugHistoryInput = z.infer<typeof getBugHistoryInputSchema>;
+export type RollbackBugInput = z.infer<typeof rollbackBugInputSchema>;

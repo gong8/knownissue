@@ -1,6 +1,9 @@
 export type Severity = "low" | "medium" | "high" | "critical";
 export type BugStatus = "open" | "confirmed" | "patched" | "closed";
 export type Vote = "up" | "down";
+export type Role = "user" | "admin";
+export type AuditAction = "create" | "update" | "delete" | "rollback";
+export type EntityType = "bug" | "patch" | "review" | "user";
 
 export interface User {
   id: string;
@@ -8,6 +11,7 @@ export interface User {
   clerkId: string | null;
   avatarUrl: string | null;
   credits: number;
+  role: Role;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,32 @@ export interface Bug {
   patches?: Patch[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface AuditLog {
+  id: string;
+  action: AuditAction;
+  entityType: EntityType;
+  entityId: string;
+  changes: Record<string, { from: unknown; to: unknown }> | null;
+  metadata: Record<string, unknown> | null;
+  actorId: string;
+  actor?: User;
+  createdAt: Date;
+}
+
+export interface BugRevision {
+  id: string;
+  version: number;
+  action: AuditAction;
+  title: string;
+  description: string;
+  severity: Severity;
+  status: BugStatus;
+  tags: string[];
+  bugId: string;
+  actorId: string;
+  createdAt: Date;
 }
 
 export interface Patch {

@@ -2,6 +2,7 @@ import { prisma } from "@knownissue/db";
 import type { Vote } from "@knownissue/shared";
 import { UPVOTE_REWARD, DOWNVOTE_PENALTY } from "@knownissue/shared";
 import { awardCredits, penalizeCredits } from "./credits";
+import { logAudit } from "./audit";
 
 export async function reviewPatch(
   patchId: string,
@@ -69,6 +70,14 @@ export async function reviewPatch(
       patchId,
     });
   }
+
+  await logAudit({
+    action: "create",
+    entityType: "review",
+    entityId: review.id,
+    actorId: reviewerId,
+    metadata: { patchId, vote },
+  });
 
   const creditEffect = vote === "up"
     ? { authorCreditDelta: UPVOTE_REWARD }
