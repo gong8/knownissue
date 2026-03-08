@@ -15,6 +15,7 @@ export default $config({
   async run() {
     // ---- Secrets (set via: npx sst secret set <Name> <value>) ----
     const clerkSecretKey = new sst.Secret("ClerkSecretKey");
+    const clerkPublishableKey = new sst.Secret("ClerkPublishableKey");
     const openaiApiKey = new sst.Secret("OpenaiApiKey");
 
     // ---- Networking ----
@@ -51,8 +52,10 @@ export default $config({
         NODE_ENV: "production",
         API_PORT: "3001",
         CORS_ORIGIN: "https://knownissue.dev",
+        API_BASE_URL: "https://mcp.knownissue.dev", // public URL for OAuth metadata endpoints
         DATABASE_URL: $interpolate`postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.database}`,
         CLERK_SECRET_KEY: clerkSecretKey.value,
+        CLERK_PUBLISHABLE_KEY: clerkPublishableKey.value,
         OPENAI_API_KEY: openaiApiKey.value,
       },
       loadBalancer: {

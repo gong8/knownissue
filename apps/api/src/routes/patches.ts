@@ -6,7 +6,8 @@ import type { AppEnv } from "../lib/types";
 
 const patches = new Hono<AppEnv>();
 
-patches.use("/*", authMiddleware);
+patches.use("/bugs/*", authMiddleware);
+patches.use("/patches/*", authMiddleware);
 
 // POST /bugs/:bugId/patches — submit patch
 patches.post("/bugs/:bugId/patches", async (c) => {

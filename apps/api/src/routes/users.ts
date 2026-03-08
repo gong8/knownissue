@@ -8,7 +8,7 @@ import type { AppEnv } from "../lib/types";
 
 const users = new Hono<AppEnv>();
 
-users.use("/*", authMiddleware);
+users.use("/users/*", authMiddleware);
 
 // GET /users/me — current user profile
 users.get("/users/me", async (c) => {

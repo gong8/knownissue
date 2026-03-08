@@ -6,7 +6,7 @@ import type { AppEnv } from "../lib/types";
 
 const verifications = new Hono<AppEnv>();
 
-verifications.use("/*", authMiddleware);
+verifications.use("/verifications/*", authMiddleware);
 
 // POST /verifications — verify a patch
 verifications.post("/verifications", async (c) => {
