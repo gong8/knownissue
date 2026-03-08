@@ -24,7 +24,8 @@ export function validateContent(
 
 export async function checkDuplicate(
   text: string,
-  fingerprint?: string | null
+  fingerprint?: string | null,
+  userId?: string
 ): Promise<{
   isDuplicate: boolean;
   warning?: string;
@@ -47,7 +48,7 @@ export async function checkDuplicate(
   }
 
   // Tier 2/3: embedding similarity check
-  const embedding = await generateEmbedding(text);
+  const embedding = await generateEmbedding(text, userId);
 
   if (!embedding) {
     return { isDuplicate: false };

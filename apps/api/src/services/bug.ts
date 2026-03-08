@@ -58,7 +58,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
   }
 
   // Tier 3: embedding/semantic search
-  const embedding = await generateEmbedding(query);
+  const embedding = await generateEmbedding(query, userId);
 
   if (embedding) {
     const vectorStr = `[${embedding.join(",")}]`;
@@ -282,7 +282,7 @@ export async function createBug(input: ReportInput, userId: string) {
 
   // Tier 2/3: embedding duplicate check
   const embeddingText = [displayTitle, displayDesc].filter(Boolean).join(" ");
-  const dupCheck = await checkDuplicate(embeddingText, fingerprint);
+  const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
     await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     throw new Error(
@@ -291,7 +291,7 @@ export async function createBug(input: ReportInput, userId: string) {
   }
 
   // Generate embedding
-  const embedding = await generateEmbedding(embeddingText);
+  const embedding = await generateEmbedding(embeddingText, userId);
 
   // Denormalize context libraries
   const contextLibraries = parsed.context?.map((c) => c.name) ?? [];
