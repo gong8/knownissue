@@ -23,8 +23,9 @@ import { createBugRevision } from "./revision";
 import { awardCredits, penalizeCredits } from "./credits";
 import * as patchService from "./patch";
 import { claimReportReward } from "./reward";
-import { createRelation } from "./relations";
+import { createRelation, loadRelatedBugs } from "./relations";
 import { inferRelationsForBug } from "./relationInference";
+import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
 
 export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
@@ -35,8 +36,12 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     if (fingerprint) {
       const bug = await findByFingerprint(fingerprint);
       if (bug) {
+        const relatedMap = await loadRelatedBugs([bug.id], {
+          minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+          maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+        });
         return {
-          bugs: [bug],
+          bugs: [{ ...bug, relatedBugs: relatedMap.get(bug.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 1, confidence: 1.0 },
         };
@@ -50,8 +55,12 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     if (fingerprint) {
       const bug = await findByFingerprint(fingerprint);
       if (bug) {
+        const relatedMap = await loadRelatedBugs([bug.id], {
+          minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+          maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+        });
         return {
-          bugs: [bug],
+          bugs: [{ ...bug, relatedBugs: relatedMap.get(bug.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 2, confidence: 0.95 },
         };
@@ -140,8 +149,19 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       patches: patchesByBug.filter((p) => p.bugId === bug.id),
     }));
 
+    // Load related bugs for all results
+    const relatedMap = await loadRelatedBugs(bugIds, {
+      minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+      maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+    });
+
+    const bugsWithRelations = bugsWithPatches.map((bug, i) => ({
+      ...bug,
+      relatedBugs: relatedMap.get(bugIds[i]) ?? [],
+    }));
+
     return {
-      bugs: bugsWithPatches,
+      bugs: bugsWithRelations,
       total: countResult[0].count,
       _meta: { matchTier: 3 },
     };
@@ -204,7 +224,18 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     await Promise.all(bugIds.map((id) => claimReportReward(id, userId)));
   }
 
-  return { bugs, total, _meta: { matchTier: 3 } };
+  // Load related bugs for text search results
+  const relatedMap = await loadRelatedBugs(bugIds, {
+    minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+  });
+
+  const bugsWithRelations = bugs.map((bug) => ({
+    ...bug,
+    relatedBugs: relatedMap.get(bug.id) ?? [],
+  }));
+
+  return { bugs: bugsWithRelations, total, _meta: { matchTier: 3 } };
 }
 
 export async function getBugById(id: string) {

@@ -5,8 +5,9 @@ import { awardCredits, getCredits } from "./credits";
 import { logAudit } from "./audit";
 import { computeDerivedStatus } from "./bug";
 import { claimReportReward } from "./reward";
-import { createRelation } from "./relations";
+import { createRelation, loadRelatedBugs } from "./relations";
 import { inferRelationsForPatch } from "./relationInference";
+import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
 
 export async function submitPatch(
   bugId: string,
@@ -161,7 +162,15 @@ export async function getPatchForAgent(patchId: string, userId: string) {
     // Unique constraint violation — access already recorded, do nothing
   }
 
-  return patch;
+  const relatedMap = await loadRelatedBugs([patch.bugId], {
+    minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+  });
+
+  return {
+    ...patch,
+    relatedBugs: relatedMap.get(patch.bugId) ?? [],
+  };
 }
 
 export async function getUserPatches(userId: string) {
