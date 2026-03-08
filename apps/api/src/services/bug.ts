@@ -17,8 +17,9 @@ import { logAudit } from "./audit";
 import { createBugRevision } from "./revision";
 import { awardCredits, penalizeCredits } from "./credits";
 import * as patchService from "./patch";
+import { claimReportReward } from "./reward";
 
-export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }) {
+export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
 
   // Tier 1: fingerprint match via errorCode
@@ -110,6 +111,11 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       );
     }
 
+    // Trigger deferred report rewards for matched bugs
+    if (userId && bugIds.length > 0) {
+      await Promise.all(bugIds.map((id) => claimReportReward(id, userId)));
+    }
+
     // Load patches for each bug
     const patchesByBug = bugIds.length > 0
       ? await prisma.patch.findMany({
@@ -184,6 +190,11 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = ANY($1::text[])`,
       bugIds
     );
+  }
+
+  // Trigger deferred report rewards for matched bugs
+  if (userId && bugIds.length > 0) {
+    await Promise.all(bugIds.map((id) => claimReportReward(id, userId)));
   }
 
   return { bugs, total, _meta: { matchTier: 3 } };

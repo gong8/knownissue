@@ -133,6 +133,9 @@ export async function getPatchForAgent(patchId: string, userId: string) {
 
     // Recompute derived status after accessCount change
     await computeDerivedStatus(patch.bugId);
+
+    // Trigger deferred report reward
+    await claimReportReward(patch.bugId, userId);
   } catch {
     // Unique constraint violation — access already recorded, do nothing
   }

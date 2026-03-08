@@ -63,7 +63,7 @@ export function createMcpServer(userId: string) {
     (params) =>
       toolHandler(async () => {
         await deductCredits(userId, SEARCH_COST, "search");
-        return bugService.searchBugs(params);
+        return bugService.searchBugs(params, userId);
       }, userId)
   );
 
