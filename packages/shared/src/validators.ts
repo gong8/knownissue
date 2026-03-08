@@ -160,6 +160,15 @@ export const verificationInputSchema = z.object({
     .describe("Whether the bug report itself was accurate"),
 });
 
+export const myActivityInputSchema = z.object({
+  type: z.enum(["bugs", "patches", "verifications"]).optional()
+    .describe("Filter to a specific activity type. Omit to see all."),
+  outcome: z.enum(["fixed", "not_fixed", "partial"]).optional()
+    .describe("Filter patches by verification outcome they received"),
+  limit: z.number().int().min(1).max(50).optional()
+    .describe("Max recent items per category (default 10)"),
+});
+
 // ── REST API Schemas (kept for web dashboard compat) ──────────────────────
 
 export const bugUpdateSchema = z.object({
@@ -185,5 +194,6 @@ export type ReportInput = z.infer<typeof reportInputSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
 export type GetPatchInput = z.infer<typeof getPatchInputSchema>;
 export type VerificationInput = z.infer<typeof verificationInputSchema>;
+export type MyActivityInput = z.infer<typeof myActivityInputSchema>;
 export type BugUpdate = z.infer<typeof bugUpdateSchema>;
 export type PatchStepInput = z.infer<typeof patchStepSchema>;
