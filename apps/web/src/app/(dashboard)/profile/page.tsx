@@ -1,22 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { ListItem } from "@/components/list-item";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchCurrentUser,
   fetchUserStats,
-  fetchUserBugs,
-  fetchUserPatches,
 } from "@/app/actions/user";
-import { statusColor, formatDate } from "@/lib/helpers";
-import type { User, Bug, Patch } from "@knownissue/shared";
+import { formatDate } from "@/lib/helpers";
+import type { User } from "@knownissue/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const MCP_ENDPOINT = `${API_URL}/mcp`;
@@ -31,27 +25,21 @@ export default function ProfilePage() {
     patchesSubmitted: number;
     verificationsGiven: number;
   } | null>(null);
-  const [bugs, setBugs] = useState<Bug[]>([]);
-  const [patches, setPatches] = useState<(Patch & { bug?: { id: string; title: string } })[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       fetchCurrentUser(),
       fetchUserStats(),
-      fetchUserBugs(),
-      fetchUserPatches(),
     ])
-      .then(([userData, statsData, bugsData, patchesData]) => {
+      .then(([userData, statsData]) => {
         if (!cancelled) {
           setUser(userData);
           setStats(statsData);
-          setBugs(bugsData);
-          setPatches(patchesData);
         }
       })
       .catch(() => {
-        // Graceful degradation — show empty state
+        // Graceful degradation -- show empty state
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -77,25 +65,18 @@ export default function ProfilePage() {
             <Skeleton className="mt-1 h-3 w-40" />
           </div>
         </div>
+        <div>
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-2 h-3 w-64" />
+          <Skeleton className="mt-3 h-10 w-full" />
+        </div>
         <div className="flex items-baseline gap-8">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <div key={i}>
               <Skeleton className="h-8 w-12" />
               <Skeleton className="mt-1 h-3 w-14" />
             </div>
           ))}
-        </div>
-        <div>
-          <Skeleton className="h-9 w-48" />
-          <div className="mt-4 rounded-lg border border-border">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-5 w-16" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     );
@@ -128,102 +109,15 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Inline stats row */}
-      {stats && (
-        <div className="flex items-baseline gap-8">
-          <div>
-            <span className="text-2xl font-bold font-mono">{stats.credits}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">credits</span>
-          </div>
-          <div>
-            <span className="text-2xl font-bold font-mono">{stats.bugsReported}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">bugs</span>
-          </div>
-          <div>
-            <span className="text-2xl font-bold font-mono">{stats.patchesSubmitted}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">patches</span>
-          </div>
-          <div>
-            <span className="text-2xl font-bold font-mono">{stats.verificationsGiven}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">verifications</span>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs -- underline style */}
-      <Tabs defaultValue="bugs" className="w-full">
-        <TabsList>
-          <TabsTrigger value="bugs">my bugs</TabsTrigger>
-          <TabsTrigger value="patches">my patches</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="bugs">
-          <div className="rounded-lg border border-border">
-            {bugs.length === 0 ? (
-              <div className="flex items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm font-mono">no bugs reported yet.</p>
-              </div>
-            ) : (
-              bugs.map((bug) => (
-                <Link key={bug.id} href={`/bugs/${bug.id}`}>
-                  <ListItem className="gap-3 cursor-pointer">
-                    <span className="flex-1 truncate text-sm font-medium">{bug.title}</span>
-                    <Badge variant="secondary" className="font-mono text-xs">
-                      {bug.library}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={statusColor[bug.status] + " text-xs"}
-                    >
-                      {bug.status}
-                    </Badge>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDate(new Date(bug.createdAt))}
-                    </span>
-                  </ListItem>
-                </Link>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="patches">
-          <div className="rounded-lg border border-border">
-            {patches.length === 0 ? (
-              <div className="flex items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm font-mono">no patches submitted yet.</p>
-              </div>
-            ) : (
-              patches.map((patch) => (
-                <Link key={patch.id} href={`/bugs/${patch.bugId}`}>
-                  <ListItem className="gap-3 cursor-pointer">
-                    <span className="flex-1 truncate text-sm font-medium">
-                      {patch.bug?.title ?? patch.bugId}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 font-mono text-xs tabular-nums"
-                    >
-                      +{patch.score}
-                    </Badge>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDate(new Date(patch.createdAt))}
-                    </span>
-                  </ListItem>
-                </Link>
-              ))
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* MCP Connection */}
+      {/* MCP Connection (primary focus) */}
       <div>
         <p className="mb-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
           mcp connection
         </p>
         <p className="mb-3 text-sm text-muted-foreground">
           Connect your AI agent to [knownissue] via the Model Context Protocol.
+          Add the endpoint below to your MCP client configuration and authenticate
+          with a GitHub personal access token.
         </p>
         <div className="flex items-center gap-2">
           <code className="flex-1 rounded-md border border-border bg-surface px-4 py-2 font-mono text-sm text-foreground">
@@ -239,6 +133,24 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      {/* Inline stats row (no credits) */}
+      {stats && (
+        <div className="flex items-baseline gap-8">
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.bugsReported}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">bugs reported</span>
+          </div>
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.patchesSubmitted}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">patches submitted</span>
+          </div>
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.verificationsGiven}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">verifications given</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
