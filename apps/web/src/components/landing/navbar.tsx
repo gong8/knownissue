@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 lg:px-10">
         <Link
           href="/"
           className="font-mono text-sm font-semibold text-foreground"

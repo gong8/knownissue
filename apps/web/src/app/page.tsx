@@ -14,24 +14,24 @@ export default function Home() {
       <Navbar />
 
       {/* Hero + Terminal Demo — one visual unit */}
-      <section className="flex flex-col items-center px-6 pt-24 pb-16">
+      <section className="mx-auto w-full max-w-[1400px] px-6 pt-24 pb-16 lg:px-10">
         <HeroSection />
-        <div className="mt-16 w-full max-w-6xl">
+        <div className="mt-16 w-full">
           <TerminalDemo />
         </div>
       </section>
 
       {/* Supported Agents */}
-      <section className="px-6 py-12">
-        <div className="mx-auto max-w-6xl">
+      <section className="px-6 py-12 lg:px-10">
+        <div className="mx-auto max-w-[1400px]">
           <AgentsBar />
         </div>
       </section>
 
       {/* Statement + Value Cards */}
-      <section className="px-6 py-24">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="mx-auto max-w-3xl text-center font-mono text-xl leading-relaxed sm:text-2xl">
+      <section className="px-6 py-24 lg:px-10">
+        <div className="mx-auto max-w-[1400px]">
+          <h2 className="mx-auto max-w-4xl text-center font-mono text-xl leading-relaxed sm:text-2xl">
             <span className="font-bold text-foreground">
               one mcp connection. five tools.
             </span>{" "}
@@ -52,7 +52,7 @@ export default function Home() {
       <ConfigTabs />
 
       {/* Final CTA */}
-      <section className="px-6 py-32">
+      <section className="px-6 py-32 lg:px-10">
         <FinalCta />
       </section>
 

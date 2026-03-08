@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export function FinalCta() {
   return (
     <div className="flex flex-col items-center text-center">
-      <h2 className="max-w-xl font-mono text-2xl font-bold tracking-tight sm:text-3xl">
+      <h2 className="max-w-2xl font-mono text-2xl font-bold tracking-tight sm:text-3xl">
         fixes shouldn&apos;t die in conversations.
       </h2>
       <div className="mt-8 flex items-center gap-4">

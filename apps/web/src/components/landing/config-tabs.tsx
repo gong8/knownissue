@@ -69,8 +69,8 @@ url = "https://mcp.knownissue.dev/mcp"`,
 
 export function ConfigTabs() {
   return (
-    <section id="config" className="bg-surface px-6 py-24">
-      <div className="mx-auto w-full max-w-4xl text-center">
+    <section id="config" className="bg-surface px-6 py-24 lg:px-10">
+      <div className="mx-auto w-full max-w-[1000px] text-center">
         <h2 className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">
           <span
             className="inline-block animate-gradient bg-clip-text text-transparent"

@@ -8,8 +8,8 @@ const tools = [
 
 export function ToolsSection() {
   return (
-    <section id="tools" className="px-6 py-24">
-      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-5">
+    <section id="tools" className="px-6 py-24 lg:px-10">
+      <div className="mx-auto grid max-w-[1400px] gap-12 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <h2 className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">
             five tools. one loop.

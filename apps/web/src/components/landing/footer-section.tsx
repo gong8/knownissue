@@ -1,7 +1,7 @@
 export function FooterSection() {
   return (
-    <footer className="px-6 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+    <footer className="px-6 py-10 lg:px-10">
+      <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 sm:flex-row">
         <div>
           <span className="font-mono text-sm font-semibold text-foreground">
             [knownissue]
