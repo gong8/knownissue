@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,23 +8,55 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { ListItem } from "@/components/list-item";
-import { currentUser, mockBugs, dashboardStats } from "@/lib/mock-data";
+import {
+  fetchCurrentUser,
+  fetchUserStats,
+  fetchUserBugs,
+  fetchUserPatches,
+} from "@/app/actions/user";
 import { statusColor, formatDate } from "@/lib/helpers";
+import type { User, Bug, Patch } from "@knownissue/shared";
 
-// Collect all patches across bugs
-const mockPatches = mockBugs.flatMap((bug) =>
-  (bug.patches ?? []).map((patch) => ({
-    ...patch,
-    bugTitle: bug.title,
-  }))
-);
-
-// MCP endpoint
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const MCP_ENDPOINT = `${API_URL}/mcp`;
 
 export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [stats, setStats] = useState<{
+    credits: number;
+    bugsReported: number;
+    patchesSubmitted: number;
+    reviewsGiven: number;
+  } | null>(null);
+  const [bugs, setBugs] = useState<Bug[]>([]);
+  const [patches, setPatches] = useState<(Patch & { bug?: { id: string; title: string } })[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchCurrentUser(),
+      fetchUserStats(),
+      fetchUserBugs(),
+      fetchUserPatches(),
+    ])
+      .then(([userData, statsData, bugsData, patchesData]) => {
+        if (!cancelled) {
+          setUser(userData);
+          setStats(statsData);
+          setBugs(bugsData);
+          setPatches(patchesData);
+        }
+      })
+      .catch(() => {
+        // Graceful degradation — show empty state
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   function handleCopy() {
     navigator.clipboard.writeText(MCP_ENDPOINT).then(() => {
@@ -33,50 +65,65 @@ export default function ProfilePage() {
     });
   }
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6">
+        <PageHeader title="profile" />
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <p className="text-sm font-mono">loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader title="profile" />
 
       {/* Compact user header */}
-      <div className="flex items-center gap-4">
-        <Avatar className="h-12 w-12 border-2 border-primary/40">
-          <AvatarImage
-            src={currentUser.avatarUrl ?? undefined}
-            alt={currentUser.githubUsername}
-          />
-          <AvatarFallback className="font-mono text-sm">
-            {currentUser.githubUsername.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <h2 className="font-mono text-base font-semibold">
-            {currentUser.githubUsername}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            member since {formatDate(currentUser.createdAt)}
-          </p>
+      {user && (
+        <div className="flex items-center gap-4">
+          <Avatar className="h-12 w-12 border-2 border-primary/40">
+            <AvatarImage
+              src={user.avatarUrl ?? undefined}
+              alt={user.githubUsername}
+            />
+            <AvatarFallback className="font-mono text-sm">
+              {user.githubUsername.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="font-mono text-base font-semibold">
+              {user.githubUsername}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              member since {formatDate(new Date(user.createdAt))}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Inline stats row */}
-      <div className="flex items-baseline gap-8">
-        <div>
-          <span className="text-2xl font-bold font-mono">{currentUser.credits}</span>
-          <span className="ml-1.5 text-xs text-muted-foreground">credits</span>
+      {stats && (
+        <div className="flex items-baseline gap-8">
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.credits}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">credits</span>
+          </div>
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.bugsReported}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">bugs</span>
+          </div>
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.patchesSubmitted}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">patches</span>
+          </div>
+          <div>
+            <span className="text-2xl font-bold font-mono">{stats.reviewsGiven}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">reviews</span>
+          </div>
         </div>
-        <div>
-          <span className="text-2xl font-bold font-mono">{dashboardStats.bugsReported}</span>
-          <span className="ml-1.5 text-xs text-muted-foreground">bugs</span>
-        </div>
-        <div>
-          <span className="text-2xl font-bold font-mono">{dashboardStats.patchesSubmitted}</span>
-          <span className="ml-1.5 text-xs text-muted-foreground">patches</span>
-        </div>
-        <div>
-          <span className="text-2xl font-bold font-mono">{dashboardStats.reviewsGiven}</span>
-          <span className="ml-1.5 text-xs text-muted-foreground">reviews</span>
-        </div>
-      </div>
+      )}
 
       {/* Tabs -- underline style */}
       <Tabs defaultValue="bugs" className="w-full">
@@ -87,48 +134,60 @@ export default function ProfilePage() {
 
         <TabsContent value="bugs">
           <div className="rounded-lg border border-border">
-            {mockBugs.map((bug) => (
-              <Link key={bug.id} href={`/bugs/${bug.id}`}>
-                <ListItem className="gap-3 cursor-pointer">
-                  <span className="flex-1 truncate text-sm font-medium">{bug.title}</span>
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {bug.library}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={statusColor[bug.status] + " text-xs"}
-                  >
-                    {bug.status}
-                  </Badge>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatDate(bug.createdAt)}
-                  </span>
-                </ListItem>
-              </Link>
-            ))}
+            {bugs.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <p className="text-sm font-mono">no bugs reported yet.</p>
+              </div>
+            ) : (
+              bugs.map((bug) => (
+                <Link key={bug.id} href={`/bugs/${bug.id}`}>
+                  <ListItem className="gap-3 cursor-pointer">
+                    <span className="flex-1 truncate text-sm font-medium">{bug.title}</span>
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {bug.library}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={statusColor[bug.status] + " text-xs"}
+                    >
+                      {bug.status}
+                    </Badge>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatDate(new Date(bug.createdAt))}
+                    </span>
+                  </ListItem>
+                </Link>
+              ))
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="patches">
           <div className="rounded-lg border border-border">
-            {mockPatches.map((patch) => (
-              <Link key={patch.id} href={`/bugs/${patch.bugId}`}>
-                <ListItem className="gap-3 cursor-pointer">
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {patch.bugTitle}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 font-mono text-xs tabular-nums"
-                  >
-                    +{patch.score}
-                  </Badge>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatDate(patch.createdAt)}
-                  </span>
-                </ListItem>
-              </Link>
-            ))}
+            {patches.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <p className="text-sm font-mono">no patches submitted yet.</p>
+              </div>
+            ) : (
+              patches.map((patch) => (
+                <Link key={patch.id} href={`/bugs/${patch.bugId}`}>
+                  <ListItem className="gap-3 cursor-pointer">
+                    <span className="flex-1 truncate text-sm font-medium">
+                      {patch.bug?.title ?? patch.bugId}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 font-mono text-xs tabular-nums"
+                    >
+                      +{patch.score}
+                    </Badge>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatDate(new Date(patch.createdAt))}
+                    </span>
+                  </ListItem>
+                </Link>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Bug,
@@ -18,7 +19,8 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { mockBugs } from "@/lib/mock-data";
+import { fetchBugs } from "@/app/actions/bugs";
+import type { Bug as BugType } from "@knownissue/shared";
 
 const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-red-400",
@@ -34,17 +36,57 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
+  const [recentBugs, setRecentBugs] = useState<BugType[]>([]);
+  const [searchResults, setSearchResults] = useState<BugType[] | null>(null);
+  const [query, setQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Load recent bugs when palette opens
+  useEffect(() => {
+    if (open) {
+      fetchBugs({ limit: 5 })
+        .then((data) => setRecentBugs(data.bugs ?? []))
+        .catch(() => setRecentBugs([]));
+    } else {
+      setQuery("");
+      setSearchResults(null);
+    }
+  }, [open]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!query.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchBugs({ q: query, limit: 5 })
+        .then((data) => setSearchResults(data.bugs ?? []))
+        .catch(() => setSearchResults([]));
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
 
   function go(path: string) {
     router.push(path);
     onOpenChange(false);
   }
 
-  const recentBugs = mockBugs.slice(0, 5);
+  const bugsToShow = searchResults ?? recentBugs;
+  const bugsHeading = searchResults ? "search results" : "recent bugs";
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="search bugs, pages, actions..." />
+      <CommandInput
+        placeholder="search bugs, pages, actions..."
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
         <CommandEmpty>no results found.</CommandEmpty>
 
@@ -71,24 +113,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </CommandItem>
         </CommandGroup>
 
-        <CommandSeparator />
-
-        <CommandGroup heading="recent bugs">
-          {recentBugs.map((bug) => (
-            <CommandItem
-              key={bug.id}
-              onSelect={() => go(`/bugs/${bug.id}`)}
-            >
-              <span
-                className={`mr-2 inline-block h-2 w-2 rounded-full ${SEVERITY_DOT[bug.severity] ?? "bg-zinc-400"}`}
-              />
-              <span className="flex-1 truncate">{bug.title}</span>
-              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                {bug.library}
-              </span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
+        {bugsToShow.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={bugsHeading}>
+              {bugsToShow.map((bug) => (
+                <CommandItem
+                  key={bug.id}
+                  onSelect={() => go(`/bugs/${bug.id}`)}
+                >
+                  <span
+                    className={`mr-2 inline-block h-2 w-2 rounded-full ${SEVERITY_DOT[bug.severity] ?? "bg-zinc-400"}`}
+                  />
+                  <span className="flex-1 truncate">{bug.title}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                    {bug.library}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
 
         <CommandSeparator />
 

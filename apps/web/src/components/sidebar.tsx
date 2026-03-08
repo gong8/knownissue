@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Bug,
@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import { UserButton } from "@clerk/nextjs";
-import { currentUser } from "@/lib/mock-data";
+import { fetchUserStats } from "@/app/actions/user";
 
 const navItems = [
   { href: "/dashboard", label: "dashboard", icon: LayoutDashboard, shortcut: "G D" },
@@ -31,6 +31,13 @@ interface SidebarProps {
 export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchUserStats()
+      .then((stats) => setCredits(stats.credits))
+      .catch(() => setCredits(null));
+  }, [pathname]);
 
   return (
     <aside
@@ -111,9 +118,9 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-3">
           <UserButton />
-          {!collapsed && (
+          {!collapsed && credits !== null && (
             <div className="flex flex-col">
-              <span className="font-mono text-sm font-medium">{currentUser.credits}</span>
+              <span className="font-mono text-sm font-medium">{credits}</span>
               <span className="text-xs text-muted-foreground">credits</span>
             </div>
           )}

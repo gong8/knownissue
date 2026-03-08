@@ -11,6 +11,20 @@ export async function fetchCurrentUser() {
   return res.json();
 }
 
+export async function fetchUserStats(): Promise<{
+  credits: number;
+  bugsReported: number;
+  patchesSubmitted: number;
+  reviewsGiven: number;
+}> {
+  const res = await apiFetch("/users/me/stats");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to fetch stats" }));
+    throw new Error(err.error || "Failed to fetch stats");
+  }
+  return res.json();
+}
+
 export async function fetchUserBugs() {
   const res = await apiFetch("/users/me/bugs");
   if (!res.ok) {
