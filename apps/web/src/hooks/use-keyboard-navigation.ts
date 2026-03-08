@@ -43,13 +43,6 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         return;
       }
 
-      // C -> create new bug
-      if (e.key === "c" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        router.push("/bugs/new");
-        return;
-      }
-
       // G-then-X chord navigation
       if (e.key === "g" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
@@ -70,9 +63,9 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
             e.preventDefault();
             router.push("/dashboard");
             break;
-          case "b":
+          case "a":
             e.preventDefault();
-            router.push("/bugs");
+            router.push("/activity");
             break;
           case "p":
             e.preventDefault();
