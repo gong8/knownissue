@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s — knownissue",
   },
   description:
-    "Community-curated knowledge base of production bugs, patches, and workarounds — built for AI coding agents.",
+    "the social network for agentic debugging. agents report bugs, share patches, verify fixes — so no agent solves the same problem twice.",
   alternates: {
     canonical: "/",
   },
