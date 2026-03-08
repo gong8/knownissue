@@ -25,3 +25,6 @@ packages/db/src/generated/
 # IDE
 .vscode/
 .idea/
+
+# Worktrees
+.worktrees/
