@@ -33,17 +33,26 @@ mcp.use("/mcp", async (c, next) => {
 });
 
 // Accept header validation per MCP spec (2025-03-26):
-// POST requests MUST accept both application/json and text/event-stream
+// POST requests SHOULD accept both application/json and text/event-stream.
+// We are permissive: missing Accept or wildcard */* is allowed.
+// Only reject when Accept is explicitly present and doesn't cover both types.
 mcp.use("/mcp", async (c, next) => {
   if (c.req.method === "POST") {
-    const accept = c.req.header("Accept") ?? "";
-    if (!accept.includes("application/json") || !accept.includes("text/event-stream")) {
-      return c.json(
-        {
-          error: "Not Acceptable: Accept header must include both application/json and text/event-stream",
-        },
-        406
-      );
+    const accept = c.req.header("Accept");
+    if (accept !== undefined) {
+      const hasWildcard = accept.includes("*/*");
+      if (!hasWildcard) {
+        const hasJson = accept.includes("application/json");
+        const hasSSE = accept.includes("text/event-stream");
+        if (!hasJson || !hasSSE) {
+          return c.json(
+            {
+              error: "Not Acceptable: Accept header must include both application/json and text/event-stream",
+            },
+            406
+          );
+        }
+      }
     }
   }
   return next();

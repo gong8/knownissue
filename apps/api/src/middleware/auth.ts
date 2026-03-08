@@ -8,6 +8,8 @@ import type { User } from "@knownissue/shared";
 import type { AppEnv } from "../lib/types";
 import { getApiBaseUrl } from "../oauth/utils";
 
+type AuthResult = { user: User; scopes?: string[] };
+
 // GitHub token cache (deprecated path — will be removed before launch)
 const validGhCache = new Map<string, { user: User; expiresAt: number }>();
 const invalidGhCache = new Map<string, number>();
@@ -49,7 +51,7 @@ function toUser(row: {
 /**
  * Strategy 1: knownissue OAuth access token (ki_xxx)
  */
-async function authenticateKnownissueToken(token: string): Promise<User | null> {
+async function authenticateKnownissueToken(token: string): Promise<AuthResult | null> {
   if (!token.startsWith("ki_")) return null;
 
   const hash = sha256(token);
@@ -70,13 +72,13 @@ async function authenticateKnownissueToken(token: string): Promise<User | null> 
     if (tokenResource !== serverResource) return null;
   }
 
-  return toUser(record.user);
+  return { user: toUser(record.user), scopes: record.scopes };
 }
 
 /**
  * Strategy 2: Clerk JWT
  */
-async function authenticateClerkJwt(token: string): Promise<User | null> {
+async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
   try {
     const authorizedParties = process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
@@ -103,7 +105,7 @@ async function authenticateClerkJwt(token: string): Promise<User | null> {
       });
     }
 
-    return toUser(user);
+    return { user: toUser(user) };
   } catch {
     return null;
   }
@@ -112,12 +114,12 @@ async function authenticateClerkJwt(token: string): Promise<User | null> {
 /**
  * Strategy 3: GitHub PAT (DEPRECATED — remove before launch)
  */
-async function authenticateGitHubPat(token: string): Promise<User | null> {
+async function authenticateGitHubPat(token: string): Promise<AuthResult | null> {
   const hash = sha256(token);
 
   // Check caches
   const cached = validGhCache.get(hash);
-  if (cached && Date.now() <= cached.expiresAt) return cached.user;
+  if (cached && Date.now() <= cached.expiresAt) return { user: cached.user };
 
   const invalidAt = invalidGhCache.get(hash);
   if (invalidAt && Date.now() <= invalidAt) return null;
@@ -155,7 +157,7 @@ async function authenticateGitHubPat(token: string): Promise<User | null> {
 
     const userData = toUser(user);
     validGhCache.set(hash, { user: userData, expiresAt: Date.now() + GH_VALID_TTL });
-    return userData;
+    return { user: userData };
   } catch {
     return null;
   }
@@ -164,18 +166,18 @@ async function authenticateGitHubPat(token: string): Promise<User | null> {
 /**
  * Resolve auth: tries all strategies in order.
  */
-async function resolveUser(token: string): Promise<User | null> {
+async function resolveUser(token: string): Promise<AuthResult | null> {
   // Strategy 1: knownissue token
-  const kiUser = await authenticateKnownissueToken(token);
-  if (kiUser) return kiUser;
+  const kiResult = await authenticateKnownissueToken(token);
+  if (kiResult) return kiResult;
 
   // Strategy 2: Clerk JWT
-  const clerkUser = await authenticateClerkJwt(token);
-  if (clerkUser) return clerkUser;
+  const clerkResult = await authenticateClerkJwt(token);
+  if (clerkResult) return clerkResult;
 
   // Strategy 3: GitHub PAT (deprecated)
-  const ghUser = await authenticateGitHubPat(token);
-  if (ghUser) return ghUser;
+  const ghResult = await authenticateGitHubPat(token);
+  if (ghResult) return ghResult;
 
   return null;
 }
@@ -194,13 +196,13 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     throw new HTTPException(401, { message: "Authorization header required" });
   }
 
-  const user = await resolveUser(token);
+  const result = await resolveUser(token);
 
-  if (!user) {
+  if (!result) {
     throw new HTTPException(401, { message: "Invalid or expired token" });
   }
 
-  c.set("user", user);
+  c.set("user", result.user);
   return next();
 });
 
@@ -208,9 +210,9 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
   const token = extractToken(c);
 
   if (token) {
-    const user = await resolveUser(token);
-    if (user) {
-      c.set("user", user);
+    const result = await resolveUser(token);
+    if (result) {
+      c.set("user", result.user);
     }
   }
 
@@ -239,6 +241,7 @@ function mcpUnauthorized(
 
 /**
  * MCP-specific auth middleware: returns OAuth-compliant 401 with WWW-Authenticate.
+ * Enforces scope checks for OAuth tokens — requires "mcp:tools" scope.
  */
 export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   const token = extractToken(c);
@@ -247,15 +250,30 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     throw mcpUnauthorized("Authorization required");
   }
 
-  const user = await resolveUser(token);
+  const result = await resolveUser(token);
 
-  if (!user) {
+  if (!result) {
     throw mcpUnauthorized("Invalid or expired token", {
       code: "invalid_token",
       description: "The access token is invalid or expired",
     });
   }
 
-  c.set("user", user);
+  c.set("user", result.user);
+
+  // Enforce scope for OAuth tokens (scopes defined = OAuth token)
+  // Clerk/GitHub auth has no scopes — implicit full access
+  if (result.scopes && !result.scopes.includes("mcp:tools")) {
+    throw new HTTPException(403, {
+      res: new Response(
+        JSON.stringify({ error: "Forbidden: insufficient scope" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+    });
+  }
+
   return next();
 });

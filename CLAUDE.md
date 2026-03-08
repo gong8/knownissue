@@ -170,6 +170,6 @@ See `.env.example` at repo root. Each app loads its own `.env.local`:
 - pgvector columns are `Unsupported` in Prisma — you MUST use raw queries for any embedding operations. Never try to include `embedding` in Prisma `select`/`include`.
 - The MCP server creates a fresh `McpServer` instance per request and closes it after. This is intentional — stateless mode for horizontal scaling.
 - `apps/web` depends on `@knownissue/shared` but NOT `@knownissue/db` — the web app never touches the database directly, only through the API.
-- Clerk JWT verification is currently payload-only (no JWKS signature check). Do not ship to production without fixing this.
+- Clerk JWT verification uses `@clerk/backend` `verifyToken` with `secretKey`, which performs full JWKS-based signature verification and claim validation (exp, iss, azp via `authorizedParties`).
 - CORS is hardcoded to `http://localhost:3000` in `apps/api/src/index.ts`. Production will use `knownissue.dev` (dashboard) and `mcp.knownissue.dev` (API/MCP endpoint).
 - `contextLibraries` on Bug is denormalized from `context` — always set both when creating bugs. The GIN index on `contextLibraries` enables efficient array containment queries.

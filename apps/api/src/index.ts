@@ -16,6 +16,7 @@ import { metadata } from "./oauth/metadata";
 import { register } from "./oauth/register";
 import { authorize } from "./oauth/authorize";
 import { token } from "./oauth/token";
+import { revoke } from "./oauth/revoke";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "./lib/types";
 
@@ -81,14 +82,32 @@ app.route("/", audit);
 app.route("/", feed);
 app.route("/", mcp);
 
+// HTTPS enforcement for OAuth endpoints in production (MCP spec requirement)
+if (process.env.NODE_ENV === "production") {
+  const httpsOnly = async (c: any, next: any) => {
+    const proto = c.req.header("x-forwarded-proto") || c.req.header("x-forwarded-scheme") || "http";
+    if (proto !== "https") {
+      return c.json({ error: "HTTPS required for OAuth endpoints" }, 403);
+    }
+    return next();
+  };
+  app.use("/.well-known/*", httpsOnly);
+  app.use("/oauth/*", httpsOnly);
+  app.use("/authorize", httpsOnly);
+  app.use("/token", httpsOnly);
+  app.use("/register", httpsOnly);
+  app.use("/revoke", httpsOnly);
+}
+
 // OAuth 2.1 endpoints
 app.route("/", metadata);
 app.route("/", register);
 app.route("/", authorize);
 app.route("/oauth/token", token);
+app.route("/", revoke);
 
 // OAuth fallback routes at MCP spec default paths (2025-03-26)
-// Clients that skip metadata discovery MUST fall back to /authorize, /token, /register
+// Clients that skip metadata discovery MUST fall back to /authorize, /token, /register, /revoke
 app.get("/authorize", (c) => {
   const url = new URL(c.req.url);
   url.pathname = "/oauth/authorize";
@@ -98,6 +117,12 @@ app.route("/token", token);
 app.post("/register", async (c) => {
   const url = new URL(c.req.url);
   url.pathname = "/oauth/register";
+  const forwarded = new Request(url.toString(), c.req.raw);
+  return app.fetch(forwarded);
+});
+app.post("/revoke", async (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = "/oauth/revoke";
   const forwarded = new Request(url.toString(), c.req.raw);
   return app.fetch(forwarded);
 });
