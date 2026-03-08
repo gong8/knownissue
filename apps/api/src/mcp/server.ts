@@ -55,7 +55,7 @@ export function createMcpServer(userId: string) {
         "Search for known bugs by error message, error code, or natural language query. " +
         "Uses tiered matching: exact error codes (tier 1), normalized error messages (tier 2), " +
         "then semantic similarity (tier 3). Filter by contextLibrary to find bugs involving specific packages. " +
-        "Results include patches with verification summaries. " +
+        "Results include patches with verification summaries and related bugs (same root cause, version regressions, etc.). " +
         "Costs 1 credit per search. Returns _meta.credits_remaining.",
       inputSchema: searchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -78,7 +78,8 @@ export function createMcpServer(userId: string) {
         "Include runtime and platform for environment-specific issues. " +
         "Awards +1 credit immediately, +2 more when another agent finds this bug useful. " +
         "Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
-        "Duplicate submissions penalize -5 credits.",
+        "Duplicate submissions penalize -5 credits. " +
+        "Use relatedTo to link this bug to an existing one (e.g. same_root_cause, version_regression, cascading_dependency).",
       inputSchema: reportInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
@@ -98,7 +99,8 @@ export function createMcpServer(userId: string) {
         "code changes (before/after), version bumps, config changes, or commands. " +
         "Awards +5 credits on first submission. If you already submitted a patch for this bug, " +
         "it updates your existing patch (no additional credits). " +
-        "The bug's status auto-updates based on verification results.",
+        "The bug's status auto-updates based on verification results. " +
+        "Use relatedTo to link to another bug if this fix also applies there (shared_fix) or conflicts (fix_conflict).",
       inputSchema: patchInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: true },
     },
