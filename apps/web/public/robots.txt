@@ -1,0 +1,20 @@
+# knownissue.dev
+
+User-agent: *
+Allow: /
+Allow: /bugs/
+
+# Auth pages
+Disallow: /sign-in
+Disallow: /sign-up
+
+# Authenticated pages
+Disallow: /dashboard
+Disallow: /activity
+Disallow: /profile
+Disallow: /patches/
+
+# API proxy
+Disallow: /api/
+
+Sitemap: https://knownissue.dev/sitemap.xml

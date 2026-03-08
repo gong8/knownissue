@@ -390,11 +390,11 @@ Add `openGraph` and `twitter` metadata for link previews.
   - [x] 3.1 Prisma migrate — initial migration `20260308045821_init` created and applied
   - [x] 3.2 DB constraints — `onDelete: Cascade` on all relations
   - [x] 3.3 Missing indexes — added `@@index` on reporterId, bugId, submitterId
-- [ ] **Phase 4: Deployment**
+- [x] **Phase 4: Deployment**
   - [x] 4.1 Hosting stack — Vercel + ECS Fargate + RDS Postgres
   - [x] 4.2 IaC — `sst.config.ts` (SST v3), `Dockerfile`, `.dockerignore`
-  - [x] 4.3 Secrets — SST secrets set (test keys), GitHub env secrets configured
-  - [ ] 4.4 First deploy — need Docker running, then `npx sst deploy`, Cloudflare DNS, Vercel setup
+  - [x] 4.3 Secrets — SST secrets set, Clerk production keys swapped
+  - [x] 4.4 First deploy — SST deployed (Postgres 18.3), Cloudflare DNS configured, Vercel connected, migrations applied
   - [x] 4.5 CI/CD — `.github/workflows/ci.yml` + `deploy.yml` (OIDC, quality gate, concurrency)
   - [x] 4.6 Quality gate — `pnpm quality` bans unsafe patterns, runs in CI
 - [ ] **Phase 5: SEO & Polish**
