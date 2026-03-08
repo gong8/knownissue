@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { toast } from "sonner";
 import {
   FileCode,
   Clock,
@@ -15,15 +14,12 @@ import {
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
 import type { Bug, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
 
@@ -46,7 +42,7 @@ const OUTCOME_COLOR = {
   partial: "text-yellow-400",
 };
 
-// ── Structured Step Renderer ──────────────────────────────────────────────
+// -- Structured Step Renderer --
 
 function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
   return (
@@ -62,7 +58,7 @@ function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
           <span className="font-mono text-xs text-muted-foreground">{step.filePath}</span>
         )}
         {step.type === "version_bump" && (
-          <span className="font-mono text-xs text-muted-foreground">{step.package} → {step.to}</span>
+          <span className="font-mono text-xs text-muted-foreground">{step.package} &rarr; {step.to}</span>
         )}
         {step.type === "config_change" && (
           <span className="font-mono text-xs text-muted-foreground">{step.file} [{step.key}]</span>
@@ -98,7 +94,7 @@ function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
   );
 }
 
-// ── Verification Summary ──────────────────────────────────────────────────
+// -- Verification Summary --
 
 function VerificationSummary({ verifications }: { verifications: Verification[] }) {
   if (verifications.length === 0) return null;
@@ -120,7 +116,7 @@ function VerificationSummary({ verifications }: { verifications: Verification[] 
   );
 }
 
-// ── Patch Row Component ────────────────────────────────────────────────────
+// -- Patch Row Component --
 
 function PatchRow({
   patch,
@@ -234,7 +230,7 @@ function PatchRow({
   );
 }
 
-// ── Bug Detail Client Component ──────────────────────────────────────────
+// -- Bug Detail Client Component --
 
 export function BugDetailClient({
   bugId,
@@ -244,11 +240,7 @@ export function BugDetailClient({
   initialBug: Bug;
 }) {
   const router = useRouter();
-  const [bug, setBug] = useState<Bug>(initialBug);
-  const [patchDialogOpen, setPatchDialogOpen] = useState(false);
-  const [patchExplanation, setPatchExplanation] = useState("");
-  const [patchCode, setPatchCode] = useState("");
-  const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
+  const [bug] = useState<Bug>(initialBug);
   const [focusedPatch, setFocusedPatch] = useState(-1);
   const [stackTraceOpen, setStackTraceOpen] = useState(false);
 
@@ -263,7 +255,7 @@ export function BugDetailClient({
 
       if (e.key === "u") {
         e.preventDefault();
-        router.push("/bugs");
+        router.push("/activity");
       } else if (e.key === "j") {
         e.preventDefault();
         setFocusedPatch((prev) => Math.min(prev + 1, sortedPatches.length - 1));
@@ -277,48 +269,12 @@ export function BugDetailClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, sortedPatches.length]);
 
-  async function handleSubmitPatch() {
-    if (!patchExplanation.trim() || !patchCode.trim()) {
-      toast.error("Please fill in both explanation and code");
-      return;
-    }
-    setIsSubmittingPatch(true);
-    try {
-      const { submitPatch } = await import("@/app/actions/patches");
-      // Convert raw code to a single code_change step for simplicity
-      const steps = [{
-        type: "code_change" as const,
-        filePath: "unknown",
-        before: "",
-        after: patchCode,
-      }];
-      const result = await submitPatch(bugId, patchExplanation, steps);
-      toast.success("Patch submitted successfully!", {
-        description: result?.creditsAwarded
-          ? `+${result.creditsAwarded} credits earned`
-          : undefined,
-      });
-      setPatchDialogOpen(false);
-      setPatchExplanation("");
-      setPatchCode("");
-      const { fetchBugById } = await import("@/app/actions/bugs");
-      const updated = await fetchBugById(bugId);
-      if (updated) setBug(updated);
-    } catch {
-      toast.error("Failed to submit patch", {
-        description: "The API server may be unavailable.",
-      });
-    } finally {
-      setIsSubmittingPatch(false);
-    }
-  }
-
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
-        <Link href="/bugs" className="hover:text-foreground transition-colors">
-          bugs
+        <Link href="/activity" className="hover:text-foreground transition-colors">
+          activity
         </Link>
         <span>/</span>
         <span className="text-foreground">KI-{bug.id.slice(0, 8)}</span>
@@ -506,54 +462,13 @@ export function BugDetailClient({
             ({sortedPatches.length})
           </span>
         </h2>
-        <Button size="sm" onClick={() => setPatchDialogOpen(true)} className="font-mono">
-          <FileCode className="mr-1.5 h-3.5 w-3.5" />
-          submit patch
-        </Button>
       </div>
-
-      <Dialog open={patchDialogOpen} onOpenChange={setPatchDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-sm">submit a patch</DialogTitle>
-            <DialogDescription>
-              Provide a fix for this bug. You&apos;ll earn 5 credits.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground">explanation</label>
-              <Textarea
-                placeholder="Explain your fix..."
-                rows={3}
-                value={patchExplanation}
-                onChange={(e) => setPatchExplanation(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground">code</label>
-              <Textarea
-                placeholder="Paste your fix code..."
-                rows={8}
-                className="font-mono text-sm"
-                value={patchCode}
-                onChange={(e) => setPatchCode(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button size="sm" onClick={handleSubmitPatch} disabled={isSubmittingPatch} className="font-mono">
-                {isSubmittingPatch ? "submitting..." : "submit patch"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Patches list */}
       {sortedPatches.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <FileCode className="mb-2 h-6 w-6" />
-          <p className="font-mono text-sm">no patches yet. be the first.</p>
+          <p className="font-mono text-sm">no patches yet.</p>
         </div>
       ) : (
         <div className="divide-y divide-border">
