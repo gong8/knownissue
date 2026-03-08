@@ -186,15 +186,16 @@ export async function inferRelationsForBug(
   }
 
   // --- Rule 3: cascading_dependency ---
-  // New bug's library in existing bug's contextLibraries (same reporter, 24h window)
-  // Also reverse: existing bug's library in new bug's contextLibraries
+  // Directionality: source = cause, target = effect ("fixing/upgrading source causes target")
+  // Same reporter, 24h window
   if (hasBudget()) {
     const twentyFourHoursAgo = new Date(
       bug.createdAt.getTime() - 24 * 60 * 60 * 1000
     );
     const laterCutoff = cutoff > twentyFourHoursAgo ? cutoff : twentyFourHoursAgo;
 
-    // Forward: new bug's library appears in existing bug's contextLibraries
+    // Forward: candidates that depend on new bug's library (it appears in their contextLibraries)
+    // New bug is the cause (source) -- a break in its library cascades to the candidate (target)
     const forwardCandidates = await prisma.bug.findMany({
       where: {
         id: { not: bug.id },
@@ -208,8 +209,7 @@ export async function inferRelationsForBug(
 
     for (const candidate of forwardCandidates) {
       if (!hasBudget()) break;
-      // The bug whose library appears in the other's context is the "cause" (source)
-      // New bug's library is in candidate's contextLibraries, so new bug is the cause
+      // source=bug (cause), target=candidate (effect)
       await tryInfer(bug.id, candidate.id, "cascading_dependency", 0.7, {
         rule: "cascading_dependency",
         direction: "forward",
@@ -217,7 +217,8 @@ export async function inferRelationsForBug(
       });
     }
 
-    // Reverse: existing bug's library in new bug's contextLibraries
+    // Reverse: candidates whose library the new bug depends on (appears in new bug's contextLibraries)
+    // Candidate is the cause (source) -- a break in its library cascades to the new bug (target)
     if (hasBudget() && bug.contextLibraries.length > 0) {
       const reverseCandidates = await prisma.bug.findMany({
         where: {
@@ -232,7 +233,7 @@ export async function inferRelationsForBug(
 
       for (const candidate of reverseCandidates) {
         if (!hasBudget()) break;
-        // Candidate's library is in new bug's contextLibraries, so candidate is the cause
+        // source=candidate (cause), target=bug (effect)
         await tryInfer(
           candidate.id,
           bug.id,
@@ -477,9 +478,10 @@ export async function inferRelationsForPatch(
           const ourVersion = packageVersions.get(otherStep.package);
           // Same package, different target version = conflict
           if (ourVersion && ourVersion !== otherStep.to) {
+            const otherIsOlder = otherPatch.bug.createdAt <= currentBug.createdAt;
             await tryInfer(
-              otherPatch.bugId,
-              bugId,
+              otherIsOlder ? otherPatch.bugId : bugId,
+              otherIsOlder ? bugId : otherPatch.bugId,
               "fix_conflict",
               0.9,
               {
