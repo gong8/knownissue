@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { dark } from "@clerk/themes";
 import { ui } from "@clerk/ui";
+import { dark } from "@clerk/ui/themes";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -33,21 +33,12 @@ export default function RootLayout({
     <ClerkProvider
       ui={ui}
       appearance={{
-        baseTheme: dark,
+        theme: dark,
         variables: {
           colorPrimary: "hsl(245, 58%, 51%)",
-          colorBackground: "hsl(0, 0%, 7%)",
-          colorForeground: "hsl(0, 0%, 93%)",
-          colorNeutral: "hsl(0, 0%, 93%)",
-          colorMutedForeground: "hsl(0, 0%, 70%)",
-          colorInput: "hsl(0, 0%, 9%)",
-          colorInputForeground: "hsl(0, 0%, 93%)",
-          colorBorder: "hsl(0, 0%, 15%)",
-          colorDanger: "hsl(0, 62%, 50%)",
           borderRadius: "0.375rem",
           fontFamily:
             "var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif",
-          fontSize: "14px",
         },
       }}
     >

@@ -23,7 +23,7 @@
   --color-accent-foreground: hsl(0 0% 100%);
   --color-destructive: hsl(0 62% 50%);
   --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(0 0% 13%);
+  --color-border: hsl(0 0% 15%);
   --color-input: hsl(0 0% 15%);
   --color-ring: hsl(245 58% 51%);
   --radius-sm: 0.125rem;
@@ -32,7 +32,7 @@
   --radius-xl: 0.5rem;
 }
 
-* {
+*:not([class^="cl-"]) {
   border-color: var(--color-border);
 }
 
