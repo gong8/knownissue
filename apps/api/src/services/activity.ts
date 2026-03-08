@@ -6,7 +6,7 @@ export async function getMyActivity(
   userId: string,
   filters: { type?: string; outcome?: string; limit?: number }
 ) {
-  const limit = filters.limit ?? DEFAULT_LIMIT;
+  const limit = Math.min(filters.limit ?? DEFAULT_LIMIT, 50);
   const showBugs = !filters.type || filters.type === "bugs";
   const showPatches = !filters.type || filters.type === "patches";
   const showVerifications = !filters.type || filters.type === "verifications";
@@ -101,7 +101,7 @@ export async function getMyActivity(
 }
 
 async function getSummary(userId: string) {
-  const [bugCount, patchCount, verificationCount, user] =
+  const [bugCount, patchCount, verificationCount, user, earned, spent] =
     await Promise.all([
       prisma.bug.count({ where: { reporterId: userId } }),
       prisma.patch.count({ where: { submitterId: userId } }),
@@ -110,18 +110,15 @@ async function getSummary(userId: string) {
         where: { id: userId },
         select: { credits: true },
       }),
+      prisma.creditTransaction.aggregate({
+        where: { userId, amount: { gt: 0 } },
+        _sum: { amount: true },
+      }),
+      prisma.creditTransaction.aggregate({
+        where: { userId, amount: { lt: 0 } },
+        _sum: { amount: true },
+      }),
     ]);
-
-  const [earned, spent] = await Promise.all([
-    prisma.creditTransaction.aggregate({
-      where: { userId, amount: { gt: 0 } },
-      _sum: { amount: true },
-    }),
-    prisma.creditTransaction.aggregate({
-      where: { userId, amount: { lt: 0 } },
-      _sum: { amount: true },
-    }),
-  ]);
 
   return {
     bugsReported: bugCount,
@@ -206,6 +203,5 @@ async function getActionableBugs(userId: string) {
       status: true,
     },
     orderBy: { updatedAt: "desc" },
-    take: 10,
   });
 }
