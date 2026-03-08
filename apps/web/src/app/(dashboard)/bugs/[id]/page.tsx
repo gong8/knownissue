@@ -60,7 +60,7 @@ export default async function BugDetailPage({ params }: Props) {
         description,
         author: {
           "@type": "Person",
-          name: bug.reporter?.githubUsername,
+          name: bug.reporter?.githubUsername ?? "anonymous",
         },
         datePublished: bug.createdAt,
         dateModified: bug.updatedAt,

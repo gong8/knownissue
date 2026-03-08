@@ -145,7 +145,7 @@ function PatchRow({
               </AvatarFallback>
             </Avatar>
             <span className="font-mono text-sm">
-              {patch.submitter?.githubUsername}
+              {patch.submitter?.githubUsername ?? "anonymous"}
             </span>
             <span className="text-xs text-muted-foreground">
               {relativeTime(new Date(patch.createdAt))}
@@ -201,7 +201,7 @@ function PatchRow({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-medium">
-                      {v.verifier?.githubUsername}
+                      {v.verifier?.githubUsername ?? "anonymous"}
                     </span>
                     <Badge variant="outline" className="text-[10px]">
                       {v.outcome.replace("_", " ")}
@@ -359,7 +359,7 @@ export function BugDetailClient({
             </AvatarFallback>
           </Avatar>
           <span className="font-mono text-sm">
-            {bug.reporter?.githubUsername}
+            {bug.reporter?.githubUsername ?? "anonymous"}
           </span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />

@@ -109,7 +109,7 @@ export default function PatchDetailPage() {
           </Avatar>
           <div>
             <span className="font-mono text-sm font-medium">
-              {patch.submitter?.githubUsername}
+              {patch.submitter?.githubUsername ?? "anonymous"}
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -243,7 +243,7 @@ export default function PatchDetailPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-medium">
-                        {v.verifier?.githubUsername}
+                        {v.verifier?.githubUsername ?? "anonymous"}
                       </span>
                       <Badge variant="outline" className="text-[10px]">
                         {v.outcome.replace("_", " ")}

@@ -12,10 +12,14 @@ import { revisions } from "./routes/revisions";
 import { audit } from "./routes/audit";
 import { feed } from "./routes/feed";
 import { mcp } from "./mcp/transport";
+import { metadata } from "./oauth/metadata";
+import { register } from "./oauth/register";
+import { authorize } from "./oauth/authorize";
+import { token } from "./oauth/token";
 import type { AppEnv } from "./lib/types";
 
 // Validate required environment variables
-const required = ["DATABASE_URL", "CLERK_SECRET_KEY"] as const;
+const required = ["DATABASE_URL", "CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY"] as const;
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`Missing required environment variable: ${key}`);
@@ -74,6 +78,12 @@ app.route("/", revisions);
 app.route("/", audit);
 app.route("/", feed);
 app.route("/", mcp);
+
+// OAuth 2.1 endpoints
+app.route("/", metadata);
+app.route("/", register);
+app.route("/", authorize);
+app.route("/oauth/token", token);
 
 // Error handler — hide internals in production
 app.onError((err, c) => {

@@ -143,7 +143,7 @@ feed.get("/feed", async (c) => {
         b."ecosystem",
         b."status"::text AS "status",
         b."createdAt" AS "created_at",
-        u."githubUsername" AS "actor",
+        COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
         b."id" AS "bug_id",
         COALESCE(b."title", '') AS "bug_title"
@@ -170,7 +170,7 @@ feed.get("/feed", async (c) => {
         bg."ecosystem",
         bg."status"::text AS "status",
         p."createdAt" AS "created_at",
-        u."githubUsername" AS "actor",
+        COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
         bg."id" AS "bug_id",
         COALESCE(bg."title", '') AS "bug_title"
@@ -198,7 +198,7 @@ feed.get("/feed", async (c) => {
         bg."ecosystem",
         bg."status"::text AS "status",
         v."createdAt" AS "created_at",
-        u."githubUsername" AS "actor",
+        COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
         bg."id" AS "bug_id",
         COALESCE(bg."title", '') AS "bug_title"
