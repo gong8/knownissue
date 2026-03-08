@@ -7,6 +7,8 @@ import { generateAuthCode, hashToken, AUTH_CODE_TTL } from "./utils.js";
 
 const authorize = new Hono();
 
+const SUPPORTED_SCOPES = ["mcp:tools"];
+
 // GET /oauth/authorize — serves consent page with Clerk sign-in
 authorize.get("/oauth/authorize", async (c) => {
   const clientId = c.req.query("client_id");
@@ -16,6 +18,15 @@ authorize.get("/oauth/authorize", async (c) => {
   const codeChallengeMethod = c.req.query("code_challenge_method");
   const state = c.req.query("state") ?? "";
   const scope = c.req.query("scope") ?? "mcp:tools";
+  const resource = c.req.query("resource") ?? "";
+
+  const scopeTokens = scope.split(" ").filter(Boolean);
+  if (scopeTokens.some((s) => !SUPPORTED_SCOPES.includes(s))) {
+    return c.json({
+      error: "invalid_scope",
+      error_description: "Unsupported scope. Supported: mcp:tools",
+    }, 400);
+  }
 
   // Validate required params
   if (!clientId || !redirectUri || !responseType || !codeChallenge || !codeChallengeMethod) {
@@ -210,7 +221,7 @@ authorize.get("/oauth/authorize", async (c) => {
     type="text/javascript"
   ></script>
 
-  <script id="oauth-config" type="application/json">${raw(JSON.stringify({ clientId, redirectUri, codeChallenge, state, scope, clientName }).replace(/</g, "\\u003c"))}</script>
+  <script id="oauth-config" type="application/json">${raw(JSON.stringify({ clientId, redirectUri, codeChallenge, state, scope, clientName, resource }).replace(/</g, "\\u003c"))}</script>
   <script>
     const CONFIG = JSON.parse(document.getElementById("oauth-config").textContent);
 
@@ -244,7 +255,10 @@ authorize.get("/oauth/authorize", async (c) => {
       }
 
       document.getElementById("btn-deny").addEventListener("click", () => {
-        window.close();
+        const deny = new URL(CONFIG.redirectUri);
+        deny.searchParams.set("error", "access_denied");
+        if (CONFIG.state) deny.searchParams.set("state", CONFIG.state);
+        window.location.href = deny.toString();
       });
 
       document.getElementById("btn-approve").addEventListener("click", async () => {
@@ -266,6 +280,7 @@ authorize.get("/oauth/authorize", async (c) => {
               code_challenge: CONFIG.codeChallenge,
               scope: CONFIG.scope,
               state: CONFIG.state,
+              resource: CONFIG.resource,
               session_token: sessionToken,
             }),
           });
@@ -305,6 +320,7 @@ authorize.post("/oauth/approve", async (c) => {
     code_challenge: codeChallenge,
     scope,
     state,
+    resource,
     session_token: sessionToken,
   } = body as {
     client_id?: string;
@@ -312,6 +328,7 @@ authorize.post("/oauth/approve", async (c) => {
     code_challenge?: string;
     scope?: string;
     state?: string;
+    resource?: string;
     session_token?: string;
   };
 
@@ -369,9 +386,17 @@ authorize.post("/oauth/approve", async (c) => {
     });
   }
 
+  const resolvedScope = scope ?? "mcp:tools";
+  const scopeTokens = resolvedScope.split(" ").filter(Boolean);
+  if (scopeTokens.some((s) => !SUPPORTED_SCOPES.includes(s))) {
+    return c.json({
+      error: "invalid_scope",
+      error_description: "Unsupported scope. Supported: mcp:tools",
+    }, 400);
+  }
+
   // Generate auth code and store hash
   const code = generateAuthCode();
-  const resolvedScope = scope ?? "mcp:tools";
 
   await prisma.oAuthAuthorizationCode.create({
     data: {
@@ -381,6 +406,7 @@ authorize.post("/oauth/approve", async (c) => {
       redirectUri,
       codeChallenge,
       scopes: resolvedScope.split(" "),
+      resource: resource || null,
       expiresAt: new Date(Date.now() + AUTH_CODE_TTL),
     },
   });

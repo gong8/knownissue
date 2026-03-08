@@ -42,6 +42,7 @@ async function handleAuthorizationCode(c: any, body: any) {
   const codeVerifier = typeof body.code_verifier === "string" ? body.code_verifier : String(body.code_verifier || "");
   const redirectUri = typeof body.redirect_uri === "string" ? body.redirect_uri : String(body.redirect_uri || "");
   const clientId = typeof body.client_id === "string" ? body.client_id : String(body.client_id || "");
+  const resource = typeof body.resource === "string" ? body.resource : undefined;
 
   if (!code || !codeVerifier || !redirectUri || !clientId) {
     return c.json(
@@ -64,16 +65,6 @@ async function handleAuthorizationCode(c: any, body: any) {
       {
         error: "invalid_grant",
         error_description: "Invalid authorization code",
-      },
-      400
-    );
-  }
-
-  if (authCode.usedAt) {
-    return c.json(
-      {
-        error: "invalid_grant",
-        error_description: "Authorization code has already been used",
       },
       400
     );
@@ -119,13 +110,40 @@ async function handleAuthorizationCode(c: any, body: any) {
     );
   }
 
-  await prisma.oAuthAuthorizationCode.update({
-    where: { code: hashedCode },
+  // RFC 8707: validate resource indicator
+  // If the auth code was issued with a resource, the token request must match
+  if (authCode.resource && resource !== authCode.resource) {
+    return c.json(
+      {
+        error: "invalid_grant",
+        error_description: "Resource indicator does not match",
+      },
+      400
+    );
+  }
+
+  // Atomically mark the code as used — prevents TOCTOU race where two
+  // concurrent requests both pass validation before either marks it used.
+  const { count } = await prisma.oAuthAuthorizationCode.updateMany({
+    where: { code: hashedCode, usedAt: null },
     data: { usedAt: new Date() },
   });
 
+  if (count === 0) {
+    return c.json(
+      {
+        error: "invalid_grant",
+        error_description: "Authorization code has already been used",
+      },
+      400
+    );
+  }
+
   const accessToken = generateToken(ACCESS_TOKEN_PREFIX);
   const refreshToken = generateToken(REFRESH_TOKEN_PREFIX);
+
+  // Store resource from the auth code (or from the token request if code had none)
+  const resolvedResource = authCode.resource ?? resource ?? null;
 
   const accessTokenRecord = await prisma.oAuthAccessToken.create({
     data: {
@@ -133,6 +151,7 @@ async function handleAuthorizationCode(c: any, body: any) {
       clientId,
       userId: authCode.userId,
       scopes: authCode.scopes,
+      resource: resolvedResource,
       expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL),
     },
   });
@@ -150,6 +169,7 @@ async function handleAuthorizationCode(c: any, body: any) {
     token_type: "Bearer",
     expires_in: Math.floor(ACCESS_TOKEN_TTL / 1000),
     refresh_token: refreshToken,
+    scope: authCode.scopes.join(" "),
   });
 }
 
@@ -236,6 +256,7 @@ async function handleRefreshToken(c: any, body: any) {
       clientId,
       userId: refreshTokenRecord.accessToken.userId,
       scopes: refreshTokenRecord.accessToken.scopes,
+      resource: refreshTokenRecord.accessToken.resource,
       expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL),
     },
   });
@@ -253,5 +274,6 @@ async function handleRefreshToken(c: any, body: any) {
     token_type: "Bearer",
     expires_in: Math.floor(ACCESS_TOKEN_TTL / 1000),
     refresh_token: newRefreshToken,
+    scope: refreshTokenRecord.accessToken.scopes.join(" "),
   });
 }

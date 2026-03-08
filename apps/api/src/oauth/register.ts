@@ -4,6 +4,9 @@ import { generateClientId, isValidRedirectUri } from "./utils.js";
 
 const register = new Hono();
 
+const SUPPORTED_GRANT_TYPES = ["authorization_code", "refresh_token"];
+const SUPPORTED_RESPONSE_TYPES = ["code"];
+
 register.post("/oauth/register", async (c) => {
   const body = await c.req.json().catch(() => null);
 
@@ -36,7 +39,20 @@ register.post("/oauth/register", async (c) => {
   }
 
   const resolvedGrantTypes = grant_types ?? ["authorization_code"];
+  if (resolvedGrantTypes.some((g) => !SUPPORTED_GRANT_TYPES.includes(g))) {
+    return c.json({
+      error: "invalid_client_metadata",
+      error_description: "Unsupported grant_type. Supported: authorization_code, refresh_token",
+    }, 400);
+  }
+
   const resolvedResponseTypes = response_types ?? ["code"];
+  if (resolvedResponseTypes.some((r) => !SUPPORTED_RESPONSE_TYPES.includes(r))) {
+    return c.json({
+      error: "invalid_client_metadata",
+      error_description: "Unsupported response_type. Supported: code",
+    }, 400);
+  }
 
   const clientId = generateClientId();
 
@@ -51,10 +67,12 @@ register.post("/oauth/register", async (c) => {
 
   return c.json({
     client_id: clientId,
+    client_id_issued_at: Math.floor(Date.now() / 1000),
     client_name,
     redirect_uris,
     grant_types: resolvedGrantTypes,
     response_types: resolvedResponseTypes,
+    token_endpoint_auth_method: "none",
   }, 201);
 });
 

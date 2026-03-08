@@ -316,6 +316,7 @@ model OAuthAuthorizationCode {
   redirectUri   String
   codeChallenge String
   scopes        String[]
+  resource      String?
   expiresAt     DateTime
   usedAt        DateTime?
   createdAt     DateTime  @default(now())
@@ -329,6 +330,7 @@ model OAuthAccessToken {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   scopes    String[]
+  resource  String?
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())

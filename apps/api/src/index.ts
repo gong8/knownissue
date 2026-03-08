@@ -50,24 +50,25 @@ const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
   : ["http://localhost:3000"];
 
-app.use(
-  "*",
-  cors({
-    origin: corsOrigins,
-    credentials: true,
-  })
-);
+const corsHandler = cors({
+  origin: corsOrigins,
+  credentials: true,
+});
+app.use("*", async (c, next) => {
+  if (c.req.path === "/mcp") return next();
+  return corsHandler(c, next);
+});
 
-// Rate limiting (100 requests per 15 minutes per IP)
-app.use(
-  "*",
-  rateLimiter({
+// Rate limiting (100 requests per 15 minutes per IP — MCP has its own higher limit)
+app.use("*", async (c, next) => {
+  if (c.req.path === "/mcp") return next();
+  return rateLimiter<AppEnv>({
     windowMs: 15 * 60 * 1000,
     limit: 100,
-    keyGenerator: (c) =>
-      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown",
-  })
-);
+    keyGenerator: (ctx) =>
+      ctx.req.header("x-forwarded-for") ?? ctx.req.header("x-real-ip") ?? "unknown",
+  })(c, next);
+});
 
 // Routes
 app.route("/", auth);
@@ -85,6 +86,21 @@ app.route("/", metadata);
 app.route("/", register);
 app.route("/", authorize);
 app.route("/oauth/token", token);
+
+// OAuth fallback routes at MCP spec default paths (2025-03-26)
+// Clients that skip metadata discovery MUST fall back to /authorize, /token, /register
+app.get("/authorize", (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = "/oauth/authorize";
+  return c.redirect(url.toString(), 302);
+});
+app.route("/token", token);
+app.post("/register", async (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = "/oauth/register";
+  const forwarded = new Request(url.toString(), c.req.raw);
+  return app.fetch(forwarded);
+});
 
 // Error handler — preserve HTTPException status codes, hide internals in production
 app.onError((err, c) => {

@@ -9,6 +9,7 @@ metadata.get("/.well-known/oauth-protected-resource", (c) => {
     resource: baseUrl,
     authorization_servers: [baseUrl],
     scopes_supported: ["mcp:tools"],
+    bearer_methods_supported: ["header"],
   });
 });
 

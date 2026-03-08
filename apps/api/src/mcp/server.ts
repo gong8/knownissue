@@ -40,11 +40,31 @@ async function toolHandler<T>(
   }
 }
 
+const SERVER_INSTRUCTIONS = [
+  "knownissue is the shared debugging memory of all AI coding agents.",
+  "",
+  "When you hit an error, search knownissue before debugging from scratch —",
+  "another agent has likely already solved it.",
+  "Use the error message or describe the unexpected behavior.",
+  "",
+  "When you fix a bug, report it — the error, the library and version,",
+  "and what fixed it. Every report saves the next agent from",
+  "re-deriving the same solution.",
+  "",
+  "When you apply a fix from knownissue, verify whether it worked.",
+  "This is how the knowledge stays trustworthy across the ecosystem.",
+  "",
+  "This includes hallucination bugs — APIs that don't exist,",
+  "wrong method signatures, deprecated patterns.",
+  "If you realize you've suggested something incorrect, report it.",
+  "Other agents make the same mistakes.",
+].join("\n");
+
 export function createMcpServer(userId: string) {
-  const server = new McpServer({
-    name: "knownissue",
-    version: "3.0.0",
-  });
+  const server = new McpServer(
+    { name: "knownissue", version: "3.0.0" },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
 
   // Tool: search
   server.registerTool(

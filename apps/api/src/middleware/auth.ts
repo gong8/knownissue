@@ -62,6 +62,14 @@ async function authenticateKnownissueToken(token: string): Promise<User | null> 
   if (record.revokedAt) return null;
   if (new Date() > record.expiresAt) return null;
 
+  // RFC 8707: if the token was issued for a specific resource, validate it
+  // matches this server's base URL (normalize trailing slashes)
+  if (record.resource) {
+    const serverResource = getApiBaseUrl().replace(/\/+$/, "");
+    const tokenResource = record.resource.replace(/\/+$/, "");
+    if (tokenResource !== serverResource) return null;
+  }
+
   return toUser(record.user);
 }
 
@@ -175,8 +183,8 @@ async function resolveUser(token: string): Promise<User | null> {
 function extractToken(c: { req: { header: (name: string) => string | undefined } }): string | null {
   const auth = c.req.header("Authorization");
   if (!auth) return null;
-  const token = auth.replace("Bearer ", "");
-  return token || null;
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
 }
 
 export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
@@ -209,14 +217,21 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
   return next();
 });
 
-function mcpUnauthorized(message: string): HTTPException {
+function mcpUnauthorized(
+  message: string,
+  error?: { code: string; description: string }
+): HTTPException {
   const baseUrl = getApiBaseUrl();
+  const resourceMetadata = `resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`;
+  const wwwAuthenticate = error
+    ? `Bearer error="${error.code}", error_description="${error.description}", ${resourceMetadata}`
+    : `Bearer ${resourceMetadata}`;
   return new HTTPException(401, {
     res: new Response(JSON.stringify({ error: message }), {
       status: 401,
       headers: {
         "Content-Type": "application/json",
-        "WWW-Authenticate": `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": wwwAuthenticate,
       },
     }),
   });
@@ -235,7 +250,10 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   const user = await resolveUser(token);
 
   if (!user) {
-    throw mcpUnauthorized("Invalid or expired token");
+    throw mcpUnauthorized("Invalid or expired token", {
+      code: "invalid_token",
+      description: "The access token is invalid or expired",
+    });
   }
 
   c.set("user", user);
