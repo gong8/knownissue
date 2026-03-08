@@ -33,13 +33,10 @@ export function Navbar() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/sign-in"
-            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            sign in
-          </Link>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="font-mono text-xs" asChild>
+            <Link href="/sign-in">sign in</Link>
+          </Button>
           <Button size="sm" className="font-mono text-xs" asChild>
             <Link href="/sign-up">sign up</Link>
           </Button>

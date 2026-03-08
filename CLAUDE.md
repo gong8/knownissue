@@ -45,7 +45,7 @@ pnpm prisma db seed        # Seed database (uses prisma/seed.ts)
 Dual-strategy auth middleware (`apps/api/src/middleware/auth.ts`):
 
 1. **GitHub PAT** — validates against `api.github.com/user`, auto-creates User on first auth. This is how MCP clients authenticate.
-2. **Clerk JWT** — decodes payload (no signature verification yet — TODO for prod), looks up by `clerkId`. This is how the web dashboard authenticates.
+2. **Clerk JWT** — verified via `@clerk/backend` `verifyToken` with cryptographic signature check, looks up by `clerkId`. This is how the web dashboard authenticates.
 
 Both strategies auto-create users with `SIGNUP_BONUS` (5) credits. The web frontend uses `@clerk/nextjs` middleware (`apps/web/src/proxy.ts`) to protect non-public routes.
 
