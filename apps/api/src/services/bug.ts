@@ -9,6 +9,11 @@ import {
   ACCESS_COUNT_THRESHOLD,
   PATCHED_FIXED_COUNT,
   CLOSED_FIXED_COUNT,
+  REPORT_THROTTLE_NEW,
+  REPORT_THROTTLE_MATURE,
+  REPORT_THROTTLE_ESTABLISHED,
+  ACCOUNT_AGE_MATURE,
+  ACCOUNT_AGE_ESTABLISHED,
 } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
 import { computeFingerprint, findByFingerprint } from "./fingerprint";
@@ -221,6 +226,30 @@ export async function getBugById(id: string) {
 
 export async function createBug(input: ReportInput, userId: string) {
   const parsed = reportInputSchema.parse(input);
+
+  // Report throttle — sliding window by account age
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const accountAge = Date.now() - user.createdAt.getTime();
+
+  let maxReportsPerHour: number;
+  if (accountAge >= ACCOUNT_AGE_ESTABLISHED) {
+    maxReportsPerHour = REPORT_THROTTLE_ESTABLISHED;
+  } else if (accountAge >= ACCOUNT_AGE_MATURE) {
+    maxReportsPerHour = REPORT_THROTTLE_MATURE;
+  } else {
+    maxReportsPerHour = REPORT_THROTTLE_NEW;
+  }
+
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const recentReportCount = await prisma.bug.count({
+    where: { reporterId: userId, createdAt: { gte: oneHourAgo } },
+  });
+
+  if (recentReportCount >= maxReportsPerHour) {
+    throw new Error(
+      `Report limit reached (${maxReportsPerHour}/hour). Try again later.`
+    );
+  }
 
   // Content validation — at least errorMessage or description
   const displayTitle = parsed.title ?? parsed.errorMessage ?? null;
