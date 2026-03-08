@@ -22,8 +22,8 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://knownissue.dev"),
   title: {
-    default: "[knownissue] — stop hallucinating fixes",
-    template: "%s — [knownissue]",
+    default: "knownissue",
+    template: "%s — knownissue",
   },
   description:
     "Community-curated knowledge base of production bugs, patches, and workarounds — built for AI coding agents.",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    siteName: "[knownissue]",
+    siteName: "knownissue",
     type: "website",
     locale: "en_US",
   },
