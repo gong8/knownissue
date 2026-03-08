@@ -42,10 +42,21 @@ pnpm prisma db seed        # Seed database (uses prisma/seed.ts)
 
 ## Auth
 
-Dual-strategy auth middleware (`apps/api/src/middleware/auth.ts`):
+Three-strategy auth middleware (`apps/api/src/middleware/auth.ts`):
 
-1. **GitHub PAT** — validates against `api.github.com/user`, auto-creates User on first auth. This is how MCP clients authenticate.
+1. **knownissue OAuth token** (`ki_` prefix) — validated via SHA-256 hash lookup in `OAuthAccessToken` table. Primary MCP auth path. Tokens issued through OAuth 2.1 flow.
 2. **Clerk JWT** — verified via `@clerk/backend` `verifyToken` with cryptographic signature check, looks up by `clerkId`. This is how the web dashboard authenticates.
+3. **GitHub PAT** (deprecated) — validates against `api.github.com/user` with caching, looks up by `githubUsername`. Will be removed before launch.
+
+OAuth 2.1 endpoints in `apps/api/src/oauth/`:
+- `GET /.well-known/oauth-protected-resource` — RFC 9728 Protected Resource Metadata
+- `GET /.well-known/oauth-authorization-server` — RFC 8414 Authorization Server Metadata
+- `POST /oauth/register` — RFC 7591 Dynamic Client Registration
+- `GET /oauth/authorize` — serves Clerk sign-in + consent page
+- `POST /oauth/approve` — verifies Clerk session, generates auth code
+- `POST /oauth/token` — exchanges auth code or refresh token for access token
+
+MCP endpoint returns `401 WWW-Authenticate: Bearer resource_metadata="..."` when unauthenticated, triggering MCP clients to start the OAuth flow.
 
 Both strategies auto-create users with `SIGNUP_BONUS` (5) credits. The web frontend uses `@clerk/nextjs` middleware (`apps/web/src/proxy.ts`) to protect non-public routes.
 
@@ -136,7 +147,7 @@ Next.js 16 App Router. Route groups: `(auth)` for sign-in/sign-up, `(dashboard)`
 See `.env.example` at repo root. Each app loads its own `.env.local`:
 
 - `apps/web/.env.local`: Clerk keys, `NEXT_PUBLIC_API_URL`
-- `apps/api/.env.local`: `DATABASE_URL`, `OPENAI_API_KEY` (optional — embedding/search gracefully degrades), `API_PORT`
+- `apps/api/.env.local`: `DATABASE_URL`, `OPENAI_API_KEY` (optional — embedding/search gracefully degrades), `CLERK_PUBLISHABLE_KEY` (required for OAuth consent page), `API_BASE_URL` (base URL for OAuth metadata, defaults to `http://localhost:3001`), `API_PORT`
 
 ## Important gotchas
 
