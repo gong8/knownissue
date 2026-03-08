@@ -17,7 +17,7 @@ dist/
 out/
 
 # Prisma
-packages/db/prisma/generated/
+packages/db/src/generated/
 
 # OS
 .DS_Store
