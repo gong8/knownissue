@@ -100,8 +100,8 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
         return next();
       }
     }
-  } catch {
-    // Not a valid JWT
+  } catch (e) {
+    console.error("[auth] Strategy 2 (Clerk JWT) failed:", e);
   }
 
   throw new HTTPException(401, { message: "Invalid or expired token" });

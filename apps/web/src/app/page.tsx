@@ -23,7 +23,7 @@ export default function Home() {
               href="/sign-in"
               className="inline-flex h-10 items-center rounded-md bg-primary px-6 font-mono text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              sign in with github
+              sign in
             </Link>
           </div>
         </div>
@@ -127,7 +127,7 @@ interface Patch {
             href="/sign-in"
             className="inline-flex h-10 items-center rounded-md bg-primary px-6 font-mono text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            sign in with github
+            sign in
           </Link>
         </div>
       </section>
