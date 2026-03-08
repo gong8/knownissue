@@ -55,5 +55,6 @@ export function isValidRedirectUri(uri: string): boolean {
 }
 
 export function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || `http://localhost:${process.env.API_PORT || 3001}`;
+  const url = process.env.API_BASE_URL || `http://localhost:${process.env.API_PORT || 3001}`;
+  return url.replace(/\/+$/, "");
 }

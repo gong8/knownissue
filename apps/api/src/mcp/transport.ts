@@ -48,7 +48,7 @@ mcp.use("/mcp", async (c, next) => {
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id",
+        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
         "Access-Control-Expose-Headers": "Mcp-Session-Id",
         "Access-Control-Max-Age": "86400",
       },
@@ -58,7 +58,7 @@ mcp.use("/mcp", async (c, next) => {
   return next();
 });
 
-// Accept header validation per MCP spec (2025-03-26):
+// Accept header validation per MCP spec (2025-06-18):
 // POST requests SHOULD accept both application/json and text/event-stream.
 // We are permissive: missing Accept or wildcard */* is allowed.
 // Only reject when Accept is explicitly present and doesn't cover both types.
