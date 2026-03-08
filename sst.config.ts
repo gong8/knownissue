@@ -25,7 +25,7 @@ export default $config({
     // ---- Database ----
     const database = new sst.aws.Postgres("Database", {
       vpc,
-      version: "16.4",
+      version: "18.3",
       instance: "t4g.micro",
       storage: "20 GB",
     });

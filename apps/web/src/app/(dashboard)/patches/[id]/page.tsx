@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
 import { fetchPatchById } from "@/app/actions/patches";
-import type { Patch } from "@knownissue/shared";
+import type { Patch, PatchStep } from "@knownissue/shared";
 
 export default function PatchDetailPage() {
   const params = useParams<{ id: string }>();
@@ -147,9 +147,16 @@ export default function PatchDetailPage() {
             <span className="font-mono text-sm font-medium">
               {patch.submitter?.githubUsername}
             </span>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              {formatDate(new Date(patch.createdAt))}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {formatDate(new Date(patch.createdAt))}
+              </span>
+              {patch.versionConstraint && (
+                <Badge variant="outline" className="text-[10px]">
+                  {patch.versionConstraint}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -204,17 +211,74 @@ export default function PatchDetailPage() {
         <p className="text-sm leading-relaxed text-foreground/90">{patch.explanation}</p>
       </div>
 
-      {/* Code */}
-      <div className="space-y-1.5">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          code
-        </h2>
-        <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
-          <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
-            {patch.code}
-          </pre>
+      {/* Structured steps */}
+      {(patch.steps as PatchStep[] ?? []).length > 0 && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            steps
+          </h2>
+          <div className="space-y-2">
+            {(patch.steps as PatchStep[]).map((step, i) => (
+              <div key={i} className="rounded-md border border-border bg-background p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[10px] font-bold text-primary">
+                    {i + 1}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] uppercase">
+                    {step.type.replace("_", " ")}
+                  </Badge>
+                  {step.type === "code_change" && (
+                    <span className="font-mono text-xs text-muted-foreground">{step.filePath}</span>
+                  )}
+                  {step.type === "version_bump" && (
+                    <span className="font-mono text-xs text-muted-foreground">{step.package} → {step.to}</span>
+                  )}
+                  {step.type === "config_change" && (
+                    <span className="font-mono text-xs text-muted-foreground">{step.file} [{step.key}]</span>
+                  )}
+                </div>
+                {step.type === "code_change" && (
+                  <div className="space-y-1.5">
+                    {step.before && (
+                      <pre className="font-mono text-xs leading-relaxed bg-red-500/5 border-l-2 border-red-400/40 p-2 rounded overflow-x-auto whitespace-pre">
+                        {step.before}
+                      </pre>
+                    )}
+                    <pre className="font-mono text-xs leading-relaxed bg-green-500/5 border-l-2 border-green-400/40 p-2 rounded overflow-x-auto whitespace-pre">
+                      {step.after}
+                    </pre>
+                  </div>
+                )}
+                {step.type === "command" && (
+                  <pre className="font-mono text-xs bg-secondary/50 p-2 rounded overflow-x-auto whitespace-pre">
+                    $ {step.command}
+                  </pre>
+                )}
+                {step.type === "config_change" && (
+                  <div className="font-mono text-xs">
+                    <span className="text-muted-foreground">{step.action}:</span>{" "}
+                    {step.value && <span>{step.value}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Legacy code fallback */}
+      {(patch.steps as PatchStep[] ?? []).length === 0 && patch.code && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            code
+          </h2>
+          <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
+            <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
+              {patch.code}
+            </pre>
+          </div>
+        </div>
+      )}
 
       <Separator />
 

@@ -38,6 +38,9 @@ export default function NewBugPage() {
   const [ecosystem, setEcosystem] = useState("");
   const [severity, setSeverity] = useState("medium");
   const [tagsInput, setTagsInput] = useState("");
+  const [includePatch, setIncludePatch] = useState(false);
+  const [patchExplanation, setPatchExplanation] = useState("");
+  const [patchCode, setPatchCode] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,6 +69,17 @@ export default function NewBugPage() {
     if (triggerCode) input.triggerCode = triggerCode;
     if (expectedBehavior) input.expectedBehavior = expectedBehavior;
     if (actualBehavior) input.actualBehavior = actualBehavior;
+    if (includePatch && patchExplanation && patchCode) {
+      input.patch = {
+        explanation: patchExplanation,
+        steps: [{
+          type: "code_change",
+          filePath: "unknown",
+          before: "",
+          after: patchCode,
+        }],
+      };
+    }
 
     const result = reportInputSchema.safeParse(input);
 
@@ -334,6 +348,48 @@ export default function NewBugPage() {
           <p className="text-[11px] text-muted-foreground font-mono">
             separate tags with commas
           </p>
+        </div>
+
+        {/* Inline Patch (optional) */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includePatch}
+              onChange={(e) => setIncludePatch(e.target.checked)}
+              className="rounded border-border"
+            />
+            <span className="text-xs font-mono text-muted-foreground">
+              include a fix (+5 bonus credits)
+            </span>
+          </label>
+          {includePatch && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-muted-foreground">
+                  explanation
+                </label>
+                <Textarea
+                  placeholder="What this patch changes and why it fixes the bug..."
+                  rows={2}
+                  value={patchExplanation}
+                  onChange={(e) => setPatchExplanation(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-muted-foreground">
+                  code
+                </label>
+                <Textarea
+                  placeholder="Paste your fix code..."
+                  rows={6}
+                  className="font-mono text-sm"
+                  value={patchCode}
+                  onChange={(e) => setPatchCode(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Submit */}
