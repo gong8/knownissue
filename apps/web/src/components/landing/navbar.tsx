@@ -33,13 +33,17 @@ export function Navbar() {
           </button>
         </div>
 
-        <Button
-          size="sm"
-          className="font-mono text-xs"
-          onClick={() => scrollTo("config")}
-        >
-          get started
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/sign-in"
+            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            sign in
+          </Link>
+          <Button size="sm" className="font-mono text-xs" asChild>
+            <Link href="/sign-up">sign up</Link>
+          </Button>
+        </div>
       </div>
     </nav>
   );

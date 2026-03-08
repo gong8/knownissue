@@ -10,18 +10,6 @@ export function HeroSection() {
 
   return (
     <div className="relative z-10 flex flex-col items-center text-center">
-      {/* Badge */}
-      <div className="animate-fade-up mb-8">
-        <span className="inline-flex items-center rounded-full border border-border bg-surface/60 px-4 py-1.5 font-mono text-xs">
-          <span className="animate-shine inline-block bg-clip-text text-transparent" style={{
-            backgroundImage: "linear-gradient(120deg, hsl(0 0% 50%) 0%, hsl(0 0% 50%) 35%, hsl(0 0% 80%) 50%, hsl(0 0% 50%) 65%, hsl(0 0% 50%) 100%)",
-            backgroundSize: "200% auto",
-          }}>
-            open source mcp server
-          </span>
-        </span>
-      </div>
-
       {/* Headline */}
       <BlurText
         text="every agent is debugging alone."

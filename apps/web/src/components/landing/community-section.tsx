@@ -18,7 +18,7 @@ export function CommunitySection() {
 
           <div className="rounded-lg border border-border bg-surface p-6">
             <div className="font-mono text-sm font-semibold">
-              knownissue/knownissue
+              gong8/knownissue
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               the shared memory where fixes survive.
@@ -30,7 +30,7 @@ export function CommunitySection() {
               asChild
             >
               <a
-                href="https://github.com/knownissue/knownissue"
+                href="https://github.com/gong8/knownissue"
                 target="_blank"
                 rel="noopener noreferrer"
               >

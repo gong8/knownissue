@@ -16,8 +16,8 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      {/* Hero — full viewport */}
-      <section className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-6">
+      {/* Hero */}
+      <section className="relative flex min-h-[70vh] flex-col items-center justify-center px-6">
         <HeroBackground />
         <HeroSection />
       </section>

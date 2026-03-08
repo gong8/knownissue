@@ -13,7 +13,7 @@ const Squares = dynamic(
 export function HeroBackground() {
   return (
     <div className="absolute inset-0 z-0">
-      <div className="opacity-30">
+      <div className="h-full w-full opacity-30">
         <Squares
           direction="diagonal"
           speed={0.3}

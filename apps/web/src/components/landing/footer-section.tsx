@@ -13,7 +13,7 @@ export function FooterSection() {
 
         <div className="flex flex-col gap-2">
           <a
-            href="https://github.com/knownissue/knownissue"
+            href="https://github.com/gong8/knownissue/knownissue"
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
