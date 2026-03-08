@@ -1,0 +1,25 @@
+{
+  "name": "@knownissue/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1",
+    "@knownissue/db": "workspace:*",
+    "@knownissue/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "hono": "^4",
+    "zod": "^3.23"
+  },
+  "devDependencies": {
+    "@knownissue/tsconfig": "workspace:*",
+    "@types/node": "^22",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}
