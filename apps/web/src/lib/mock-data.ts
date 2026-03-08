@@ -3,7 +3,7 @@ import type { Bug, Patch, Review, User } from "@knownissue/shared";
 // ── Mock Users ──────────────────────────────────────────────────────────────
 
 export const currentUser: User = {
-  id: "usr_001",
+  id: "a1b2c3d4-0001-4000-8000-000000000001",
   githubUsername: "janedoe",
   clerkId: "clerk_001",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=jane",
@@ -13,7 +13,7 @@ export const currentUser: User = {
 };
 
 const userAlice: User = {
-  id: "usr_002",
+  id: "a1b2c3d4-0002-4000-8000-000000000002",
   githubUsername: "alice-ml",
   clerkId: "clerk_002",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=alice",
@@ -23,7 +23,7 @@ const userAlice: User = {
 };
 
 const userBob: User = {
-  id: "usr_003",
+  id: "a1b2c3d4-0003-4000-8000-000000000003",
   githubUsername: "bobbuilds",
   clerkId: "clerk_003",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=bob",
@@ -33,7 +33,7 @@ const userBob: User = {
 };
 
 const userCarla: User = {
-  id: "usr_004",
+  id: "a1b2c3d4-0004-4000-8000-000000000004",
   githubUsername: "carla-rust",
   clerkId: "clerk_004",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=carla",
@@ -43,7 +43,7 @@ const userCarla: User = {
 };
 
 const userDan: User = {
-  id: "usr_005",
+  id: "a1b2c3d4-0005-4000-8000-000000000005",
   githubUsername: "dan-ops",
   clerkId: "clerk_005",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=dan",
@@ -56,41 +56,41 @@ const userDan: User = {
 
 const reviews: Review[] = [
   {
-    id: "rev_001",
+    id: "b1b2c3d4-0001-4000-8000-000000000001",
     vote: "up",
     comment: "Clean fix, verified this resolves the memory leak in production.",
-    patchId: "pat_001",
+    patchId: "c1b2c3d4-0001-4000-8000-000000000001",
     reviewerId: userAlice.id,
     reviewer: userAlice,
     createdAt: new Date("2026-03-05T14:22:00Z"),
     updatedAt: new Date("2026-03-05T14:22:00Z"),
   },
   {
-    id: "rev_002",
+    id: "b1b2c3d4-0002-4000-8000-000000000002",
     vote: "up",
     comment: "Works for me on Node 22. Good catch on the cleanup handler.",
-    patchId: "pat_001",
+    patchId: "c1b2c3d4-0001-4000-8000-000000000001",
     reviewerId: userDan.id,
     reviewer: userDan,
     createdAt: new Date("2026-03-06T09:10:00Z"),
     updatedAt: new Date("2026-03-06T09:10:00Z"),
   },
   {
-    id: "rev_003",
+    id: "b1b2c3d4-0003-4000-8000-000000000003",
     vote: "down",
     comment:
       "This only masks the issue. The root cause is the event listener not being removed on unmount.",
-    patchId: "pat_002",
+    patchId: "c1b2c3d4-0002-4000-8000-000000000002",
     reviewerId: userBob.id,
     reviewer: userBob,
     createdAt: new Date("2026-03-06T11:45:00Z"),
     updatedAt: new Date("2026-03-06T11:45:00Z"),
   },
   {
-    id: "rev_004",
+    id: "b1b2c3d4-0004-4000-8000-000000000004",
     vote: "up",
     comment: null,
-    patchId: "pat_002",
+    patchId: "c1b2c3d4-0002-4000-8000-000000000002",
     reviewerId: userCarla.id,
     reviewer: userCarla,
     createdAt: new Date("2026-03-07T08:30:00Z"),
@@ -102,7 +102,7 @@ const reviews: Review[] = [
 
 const patches: Patch[] = [
   {
-    id: "pat_001",
+    id: "c1b2c3d4-0001-4000-8000-000000000001",
     description:
       "Add proper cleanup of the AbortController in useEffect to prevent memory leak when the component unmounts during an in-flight request.",
     code: `// Before (leaks):
@@ -124,7 +124,7 @@ useEffect(() => {
   return () => controller.abort();
 }, []);`,
     score: 12,
-    bugId: "bug_001",
+    bugId: "d1b2c3d4-0001-4000-8000-000000000001",
     submitterId: userBob.id,
     submitter: userBob,
     reviews: [reviews[0], reviews[1]],
@@ -132,7 +132,7 @@ useEffect(() => {
     updatedAt: new Date("2026-03-06T09:10:00Z"),
   },
   {
-    id: "pat_002",
+    id: "c1b2c3d4-0002-4000-8000-000000000002",
     description:
       "Wrap the fetch call with a mounted flag to skip state updates after unmount.",
     code: `useEffect(() => {
@@ -145,7 +145,7 @@ useEffect(() => {
   return () => { mounted = false; };
 }, []);`,
     score: 3,
-    bugId: "bug_001",
+    bugId: "d1b2c3d4-0001-4000-8000-000000000001",
     submitterId: userCarla.id,
     submitter: userCarla,
     reviews: [reviews[2], reviews[3]],
@@ -158,7 +158,7 @@ useEffect(() => {
 
 export const mockBugs: Bug[] = [
   {
-    id: "bug_001",
+    id: "d1b2c3d4-0001-4000-8000-000000000001",
     title: "Memory leak in useEffect cleanup when using fetch with React 19",
     description:
       "When using fetch inside a useEffect hook in React 19, unmounting the component before the request completes causes a memory leak. The AbortController pattern from React 18 no longer works correctly with the new compiler optimizations. This affects any component that makes API calls in useEffect and can be unmounted before the response arrives.\n\nReproduction steps:\n1. Create a component that fetches data in useEffect\n2. Mount and quickly unmount it in rapid succession\n3. Observe memory growth in DevTools heap snapshot\n\nExpected: Memory should be freed when the component unmounts.\nActual: Closures from the fetch promise chain keep references alive.",
@@ -176,7 +176,7 @@ export const mockBugs: Bug[] = [
     updatedAt: new Date("2026-03-07T08:30:00Z"),
   },
   {
-    id: "bug_002",
+    id: "d1b2c3d4-0002-4000-8000-000000000002",
     title: "langchain ConversationBufferMemory drops system message after 4096 tokens",
     description:
       "When using ConversationBufferMemory with ChatOpenAI, the system message is silently dropped once the conversation exceeds 4096 tokens. This causes the LLM to lose its persona and instructions mid-conversation.",
@@ -194,7 +194,7 @@ export const mockBugs: Bug[] = [
     updatedAt: new Date("2026-03-05T09:30:00Z"),
   },
   {
-    id: "bug_003",
+    id: "d1b2c3d4-0003-4000-8000-000000000003",
     title: "Prisma Client fails silently on BigInt columns with PostgreSQL 16",
     description:
       "Prisma Client returns null for BigInt columns when using PostgreSQL 16 with the new extended query protocol. No error is thrown, leading to data corruption downstream.",
@@ -212,7 +212,7 @@ export const mockBugs: Bug[] = [
     updatedAt: new Date("2026-03-06T11:00:00Z"),
   },
   {
-    id: "bug_004",
+    id: "d1b2c3d4-0004-4000-8000-000000000004",
     title: "tiktoken encoding mismatch for cl100k_base with special tokens",
     description:
       "When encoding strings containing special tokens like <|endoftext|>, tiktoken returns different token IDs compared to the OpenAI API tokenizer. This causes token count mismatches and unexpected API billing.",
@@ -230,7 +230,7 @@ export const mockBugs: Bug[] = [
     updatedAt: new Date("2026-03-01T08:20:00Z"),
   },
   {
-    id: "bug_005",
+    id: "d1b2c3d4-0005-4000-8000-000000000005",
     title: "Axum panics on concurrent WebSocket connections with Tower middleware",
     description:
       "Using axum 0.8 with tower-http's CorsLayer and more than 64 concurrent WebSocket connections causes a panic in the hyper connection pool. The error is 'called Option::unwrap() on a None value' in the connection upgrade handler.",
@@ -248,7 +248,7 @@ export const mockBugs: Bug[] = [
     updatedAt: new Date("2026-03-07T22:10:00Z"),
   },
   {
-    id: "bug_006",
+    id: "d1b2c3d4-0006-4000-8000-000000000006",
     title: "go-chi middleware chain loses request context after r.WithContext",
     description:
       "When using chi.Router with a custom middleware that calls r.WithContext, downstream handlers receive the original context instead of the new one. This breaks deadline propagation and tracing.",

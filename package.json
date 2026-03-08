@@ -8,7 +8,7 @@
     "db:generate": "turbo db:generate"
   },
   "devDependencies": {
-    "turbo": "^2"
+    "turbo": "^2.8.14"
   },
   "packageManager": "pnpm@9.15.4"
 }

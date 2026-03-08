@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { ListItem } from "@/components/list-item";
-import { FilterBar, type FilterState, type SortOption } from "@/components/filter-bar";
+import { FilterBar, type FilterState } from "@/components/filter-bar";
 import { useListKeyboard } from "@/hooks/use-list-keyboard";
-import { mockBugs } from "@/lib/mock-data";
 import { relativeTime } from "@/lib/helpers";
 import type { Severity, BugStatus } from "@knownissue/shared";
 
@@ -35,6 +33,22 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   low: 3,
 };
 
+type ApiBug = {
+  id: string;
+  title: string;
+  library: string;
+  version: string;
+  ecosystem: string;
+  severity: Severity;
+  status: BugStatus;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  reporter?: { githubUsername: string; avatarUrl?: string };
+  _count?: { patches: number };
+  patches?: unknown[];
+};
+
 export default function BugsPage() {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -47,56 +61,73 @@ export default function BugsPage() {
   });
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [bugs, setBugs] = useState<ApiBug[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const filteredBugs = useMemo(() => {
-    let bugs = mockBugs.filter((bug) => {
-      if (filters.search && !bug.title.toLowerCase().includes(filters.search.toLowerCase())) {
-        return false;
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const { fetchBugs } = await import("@/app/actions/bugs");
+        const params: Record<string, string | number> = {
+          page,
+          limit: pageSize,
+        };
+        if (filters.search) params.q = filters.search;
+        // API supports single values for these filters
+        if (filters.severities.size === 1) params.severity = [...filters.severities][0];
+        if (filters.statuses.size === 1) params.status = [...filters.statuses][0];
+        if (filters.ecosystems.size === 1) params.ecosystem = [...filters.ecosystems][0];
+        const data = await fetchBugs(params);
+        if (!cancelled) {
+          setBugs(data.bugs ?? []);
+          setTotal(data.total ?? 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setBugs([]);
+          setTotal(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      if (filters.severities.size > 0 && !filters.severities.has(bug.severity)) {
-        return false;
-      }
-      if (filters.statuses.size > 0 && !filters.statuses.has(bug.status)) {
-        return false;
-      }
-      if (filters.ecosystems.size > 0 && !filters.ecosystems.has(bug.ecosystem)) {
-        return false;
-      }
-      return true;
-    });
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [filters.search, filters.severities, filters.statuses, filters.ecosystems, page]);
 
-    // Sort
+  // Client-side sort (API returns by latest)
+  const sortedBugs = useMemo(() => {
+    const list = [...bugs];
     switch (filters.sort) {
-      case "latest":
-        bugs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
       case "oldest":
-        bugs.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         break;
       case "severity":
-        bugs.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+        list.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
         break;
       case "patches":
-        bugs.sort((a, b) => (b.patches?.length ?? 0) - (a.patches?.length ?? 0));
+        list.sort((a, b) => (b._count?.patches ?? b.patches?.length ?? 0) - (a._count?.patches ?? a.patches?.length ?? 0));
         break;
+      // "latest" is the default from API
     }
+    return list;
+  }, [bugs, filters.sort]);
 
-    return bugs;
-  }, [filters]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredBugs.length / pageSize));
-  const paginatedBugs = filteredBugs.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
     setPage(1);
-  }, [filters]);
+  }, [filters.search, filters.severities, filters.statuses, filters.ecosystems]);
 
   const handleSelect = useCallback(
     (index: number) => {
-      const bug = paginatedBugs[index];
+      const bug = sortedBugs[index];
       if (bug) router.push(`/bugs/${bug.id}`);
     },
-    [paginatedBugs, router]
+    [sortedBugs, router]
   );
 
   const handleFocusSearch = useCallback(() => {
@@ -104,7 +135,7 @@ export default function BugsPage() {
   }, []);
 
   const { focusedIndex } = useListKeyboard({
-    itemCount: paginatedBugs.length,
+    itemCount: sortedBugs.length,
     onSelect: handleSelect,
     onFocusSearch: handleFocusSearch,
   });
@@ -124,14 +155,19 @@ export default function BugsPage() {
 
       {/* Bug list */}
       <div className="rounded-lg border border-border">
-        {paginatedBugs.length === 0 && (
+        {loading && (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <p className="text-sm font-mono">loading...</p>
+          </div>
+        )}
+        {!loading && sortedBugs.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Search className="mb-3 h-6 w-6" />
             <p className="text-sm font-mono">no bugs match your filters.</p>
           </div>
         )}
 
-        {paginatedBugs.map((bug, i) => (
+        {sortedBugs.map((bug, i) => (
           <Link key={bug.id} href={`/bugs/${bug.id}`}>
             <ListItem active={focusedIndex === i} className="gap-3 cursor-pointer">
               {/* Severity dot */}
@@ -153,16 +189,16 @@ export default function BugsPage() {
               </span>
 
               {/* Patches count */}
-              {bug.patches && bug.patches.length > 0 && (
+              {(bug._count?.patches ?? 0) > 0 && (
                 <span className="hidden shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground sm:inline-flex">
                   <FileCode className="h-3 w-3" />
-                  {bug.patches.length}
+                  {bug._count?.patches}
                 </span>
               )}
 
               {/* Time */}
               <span className="shrink-0 text-xs text-muted-foreground">
-                {relativeTime(bug.createdAt)}
+                {relativeTime(new Date(bug.createdAt))}
               </span>
             </ListItem>
           </Link>

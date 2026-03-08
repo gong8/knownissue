@@ -21,9 +21,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { getMockBugById } from "@/lib/mock-data";
 import { severityColor, statusColor, relativeTime, formatDate, initials } from "@/lib/helpers";
-import type { Patch, Severity, BugStatus } from "@knownissue/shared";
+import type { Bug, Patch, Severity, BugStatus } from "@knownissue/shared";
 
 const SEVERITY_DOT: Record<Severity, string> = {
   critical: "bg-red-400",
@@ -38,10 +37,12 @@ function PatchRow({
   patch,
   rank,
   active,
+  isOwner,
 }: {
   patch: Patch;
   rank: number;
   active?: boolean;
+  isOwner?: boolean;
 }) {
   const [score, setScore] = useState(patch.score);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
@@ -91,49 +92,55 @@ function PatchRow({
               {patch.submitter?.githubUsername}
             </span>
             <span className="text-xs text-muted-foreground">
-              {relativeTime(patch.createdAt)}
+              {relativeTime(new Date(patch.createdAt))}
             </span>
           </div>
         </div>
 
         {/* Vote buttons */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-7 w-7 ${
-              userVote === "up"
-                ? "text-green-400 bg-green-500/10"
-                : "text-muted-foreground"
-            }`}
-            onClick={() => handleVote("up")}
-          >
-            <ThumbsUp className="h-3.5 w-3.5" />
-          </Button>
+          {!isOwner && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 ${
+                userVote === "up"
+                  ? "text-green-400 bg-green-500/10"
+                  : "text-muted-foreground"
+              }`}
+              onClick={() => handleVote("up")}
+            >
+              <ThumbsUp className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <span className="min-w-[1.5rem] text-center font-mono text-sm font-semibold">
             {score}
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-7 w-7 ${
-              userVote === "down"
-                ? "text-red-400 bg-red-500/10"
-                : "text-muted-foreground"
-            }`}
-            onClick={() => handleVote("down")}
-          >
-            <ThumbsDown className="h-3.5 w-3.5" />
-          </Button>
+          {!isOwner && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 ${
+                userVote === "down"
+                  ? "text-red-400 bg-red-500/10"
+                  : "text-muted-foreground"
+              }`}
+              onClick={() => handleVote("down")}
+            >
+              <ThumbsDown className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
-      <Input
-        placeholder="add a comment (optional)"
-        className="mt-2 text-sm font-mono"
-        value={commentText}
-        onChange={(e) => setCommentText(e.target.value)}
-      />
+      {!isOwner && (
+        <Input
+          placeholder="add a comment (optional)"
+          className="mt-2 text-sm font-mono"
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+        />
+      )}
 
       <p className="mt-3 text-sm text-muted-foreground">{patch.description}</p>
 
@@ -168,7 +175,7 @@ function PatchRow({
                     {review.reviewer?.githubUsername}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {relativeTime(review.createdAt)}
+                    {relativeTime(new Date(review.createdAt))}
                   </span>
                 </div>
                 {review.comment && (
@@ -191,12 +198,40 @@ export default function BugDetailPage() {
   const params = useParams();
   const router = useRouter();
   const bugId = params.id as string;
-  const bug = getMockBugById(bugId);
+  const [bug, setBug] = useState<Bug | null>(null);
+  const [loading, setLoading] = useState(true);
   const [patchDialogOpen, setPatchDialogOpen] = useState(false);
   const [patchDescription, setPatchDescription] = useState("");
   const [patchCode, setPatchCode] = useState("");
   const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
   const [focusedPatch, setFocusedPatch] = useState(-1);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [{ fetchBugById }, { fetchCurrentUser }] = await Promise.all([
+          import("@/app/actions/bugs"),
+          import("@/app/actions/user"),
+        ]);
+        const [data, user] = await Promise.all([
+          fetchBugById(bugId),
+          fetchCurrentUser().catch(() => null),
+        ]);
+        if (!cancelled) {
+          setBug(data);
+          setCurrentUserId(user?.id ?? null);
+        }
+      } catch {
+        if (!cancelled) setBug(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [bugId]);
 
   const sortedPatches = bug ? [...(bug.patches ?? [])].sort((a, b) => b.score - a.score) : [];
 
@@ -235,6 +270,10 @@ export default function BugDetailPage() {
       setPatchDialogOpen(false);
       setPatchDescription("");
       setPatchCode("");
+      // Refresh bug data to show new patch
+      const { fetchBugById } = await import("@/app/actions/bugs");
+      const updated = await fetchBugById(bugId);
+      if (updated) setBug(updated);
     } catch {
       toast.error("Failed to submit patch", {
         description: "The API server may be unavailable.",
@@ -242,6 +281,14 @@ export default function BugDetailPage() {
     } finally {
       setIsSubmittingPatch(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-muted-foreground">
+        <p className="font-mono text-sm">loading...</p>
+      </div>
+    );
   }
 
   if (!bug) {
@@ -266,7 +313,7 @@ export default function BugDetailPage() {
           bugs
         </Link>
         <span>/</span>
-        <span className="text-foreground">{bug.id.replace("bug_", "KI-")}</span>
+        <span className="text-foreground">KI-{bug.id.slice(0, 8)}</span>
       </nav>
 
       {/* Bug header */}
@@ -309,7 +356,7 @@ export default function BugDetailPage() {
           </span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {formatDate(bug.createdAt)}
+            {formatDate(new Date(bug.createdAt))}
           </span>
         </div>
       </div>
@@ -393,6 +440,7 @@ export default function BugDetailPage() {
               patch={patch}
               rank={i + 1}
               active={focusedPatch === i}
+              isOwner={currentUserId === patch.submitterId}
             />
           ))}
         </div>
