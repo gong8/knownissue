@@ -1,22 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
   ThumbsUp,
   ThumbsDown,
-  ArrowLeft,
   FileCode,
   Clock,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,16 +23,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { getMockBugById } from "@/lib/mock-data";
 import { severityColor, statusColor, relativeTime, formatDate, initials } from "@/lib/helpers";
-import type { Patch } from "@knownissue/shared";
+import type { Patch, Severity, BugStatus } from "@knownissue/shared";
 
-// ── Patch Card Component ────────────────────────────────────────────────────
+const SEVERITY_DOT: Record<Severity, string> = {
+  critical: "bg-red-400",
+  high: "bg-orange-400",
+  medium: "bg-yellow-400",
+  low: "bg-zinc-400",
+};
 
-function PatchCard({
+// ── Patch Row Component ────────────────────────────────────────────────────
+
+function PatchRow({
   patch,
   rank,
+  active,
 }: {
   patch: Patch;
   rank: number;
+  active?: boolean;
 }) {
   const [score, setScore] = useState(patch.score);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
@@ -52,18 +54,15 @@ function PatchCard({
       return;
     }
 
-    // Optimistic update
     const delta = direction === "up" ? 1 : -1;
     const undoPrev = userVote === "up" ? -1 : userVote === "down" ? 1 : 0;
     setScore(patch.score + delta + undoPrev);
     setUserVote(direction);
 
-    // Try to submit review to API
     try {
       const { reviewPatch } = await import("@/app/actions/reviews");
       await reviewPatch(patch.id, direction, commentText || null);
     } catch {
-      // API may not be running — keep optimistic state, show toast
       toast.error("Could not save vote", {
         description: "The API server may be unavailable.",
       });
@@ -75,118 +74,114 @@ function PatchCard({
   );
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-              #{rank}
+    <div className={`py-4 ${active ? "bg-surface-hover" : ""}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-bold text-primary">
+            #{rank}
+          </span>
+          <div className="flex items-center gap-2">
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={patch.submitter?.avatarUrl ?? undefined} />
+              <AvatarFallback className="text-[9px]">
+                {initials(patch.submitter?.githubUsername ?? "??")}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-mono text-sm">
+              {patch.submitter?.githubUsername}
             </span>
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={patch.submitter?.avatarUrl ?? undefined} />
-                <AvatarFallback className="text-[10px]">
-                  {initials(patch.submitter?.githubUsername ?? "??")}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">
-                {patch.submitter?.githubUsername}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {relativeTime(patch.createdAt)}
-              </span>
-            </div>
-          </div>
-
-          {/* Score + vote buttons */}
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 ${
-                userVote === "up"
-                  ? "text-green-400 bg-green-500/10"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => handleVote("up")}
-            >
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[2rem] text-center text-sm font-semibold">
-              {score}
+            <span className="text-xs text-muted-foreground">
+              {relativeTime(patch.createdAt)}
             </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 ${
-                userVote === "down"
-                  ? "text-red-400 bg-red-500/10"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => handleVote("down")}
-            >
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
           </div>
         </div>
-        <Input
-          placeholder="Add a comment (optional)"
-          className="mt-2 text-sm"
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-        />
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Description */}
-        <p className="text-sm text-muted-foreground">{patch.description}</p>
-
-        {/* Code block */}
-        <div className="overflow-x-auto rounded-lg border border-border bg-background p-4">
-          <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
-            {patch.code}
-          </pre>
+        {/* Vote buttons */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 ${
+              userVote === "up"
+                ? "text-green-400 bg-green-500/10"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => handleVote("up")}
+          >
+            <ThumbsUp className="h-3.5 w-3.5" />
+          </Button>
+          <span className="min-w-[1.5rem] text-center font-mono text-sm font-semibold">
+            {score}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 ${
+              userVote === "down"
+                ? "text-red-400 bg-red-500/10"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => handleVote("down")}
+          >
+            <ThumbsDown className="h-3.5 w-3.5" />
+          </Button>
         </div>
+      </div>
 
-        {/* Reviews */}
-        {sortedReviews.length > 0 && (
-          <div className="space-y-2 pt-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Reviews
-            </p>
-            {sortedReviews.map((review) => (
-              <div
-                key={review.id}
-                className="flex items-start gap-3 rounded-lg bg-secondary/50 px-4 py-3"
-              >
-                <div className="mt-0.5">
-                  {review.vote === "up" ? (
-                    <ThumbsUp className="h-3.5 w-3.5 text-green-400" />
-                  ) : (
-                    <ThumbsDown className="h-3.5 w-3.5 text-red-400" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {review.reviewer?.githubUsername}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {relativeTime(review.createdAt)}
-                    </span>
-                  </div>
-                  {review.comment && (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {review.comment}
-                    </p>
-                  )}
-                </div>
+      <Input
+        placeholder="add a comment (optional)"
+        className="mt-2 text-sm font-mono"
+        value={commentText}
+        onChange={(e) => setCommentText(e.target.value)}
+      />
+
+      <p className="mt-3 text-sm text-muted-foreground">{patch.description}</p>
+
+      {/* Code block */}
+      <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background p-3">
+        <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre">
+          {patch.code}
+        </pre>
+      </div>
+
+      {/* Reviews */}
+      {sortedReviews.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            reviews
+          </p>
+          {sortedReviews.map((review) => (
+            <div
+              key={review.id}
+              className="flex items-start gap-2 rounded-md bg-secondary/50 px-3 py-2"
+            >
+              <div className="mt-0.5">
+                {review.vote === "up" ? (
+                  <ThumbsUp className="h-3 w-3 text-green-400" />
+                ) : (
+                  <ThumbsDown className="h-3 w-3 text-red-400" />
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-medium">
+                    {review.reviewer?.githubUsername}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {relativeTime(review.createdAt)}
+                  </span>
+                </div>
+                {review.comment && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {review.comment}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -194,12 +189,38 @@ function PatchCard({
 
 export default function BugDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const bugId = params.id as string;
   const bug = getMockBugById(bugId);
   const [patchDialogOpen, setPatchDialogOpen] = useState(false);
   const [patchDescription, setPatchDescription] = useState("");
   const [patchCode, setPatchCode] = useState("");
   const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
+  const [focusedPatch, setFocusedPatch] = useState(-1);
+
+  const sortedPatches = bug ? [...(bug.patches ?? [])].sort((a, b) => b.score - a.score) : [];
+
+  // Keyboard: U to go back, J/K between patches
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+
+      if (e.key === "u") {
+        e.preventDefault();
+        router.push("/bugs");
+      } else if (e.key === "j") {
+        e.preventDefault();
+        setFocusedPatch((prev) => Math.min(prev + 1, sortedPatches.length - 1));
+      } else if (e.key === "k") {
+        e.preventDefault();
+        setFocusedPatch((prev) => Math.max(prev - 1, 0));
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router, sortedPatches.length]);
 
   async function handleSubmitPatch() {
     if (!patchDescription.trim() || !patchCode.trim()) {
@@ -226,47 +247,44 @@ export default function BugDetailPage() {
   if (!bug) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-        <p className="text-lg font-medium">Bug not found</p>
-        <p className="mt-1 text-sm">
-          No bug exists with ID &ldquo;{bugId}&rdquo;
+        <p className="font-mono text-sm">bug not found</p>
+        <p className="mt-1 text-xs">
+          no bug exists with id &ldquo;{bugId}&rdquo;
         </p>
-        <Button variant="outline" asChild className="mt-6">
-          <Link href="/bugs">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to bugs
-          </Link>
+        <Button variant="outline" size="sm" asChild className="mt-4 font-mono">
+          <Link href="/bugs">back to bugs</Link>
         </Button>
       </div>
     );
   }
 
-  const sortedPatches = [...(bug.patches ?? [])].sort(
-    (a, b) => b.score - a.score
-  );
-
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      {/* Back link */}
-      <Link
-        href="/bugs"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to bugs
-      </Link>
+    <div className="mx-auto max-w-4xl space-y-5">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
+        <Link href="/bugs" className="hover:text-foreground transition-colors">
+          bugs
+        </Link>
+        <span>/</span>
+        <span className="text-foreground">{bug.id.replace("bug_", "KI-")}</span>
+      </nav>
 
       {/* Bug header */}
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold leading-tight">{bug.title}</h1>
+      <div className="space-y-3">
+        <h1 className="text-lg font-semibold leading-tight">{bug.title}</h1>
 
-        {/* Badge row */}
+        {/* Compact badge row with dot variants */}
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={severityColor[bug.severity]}>{bug.severity}</Badge>
-          <Badge className={statusColor[bug.status]}>{bug.status}</Badge>
-          <Badge variant="secondary">
+          <Badge variant="dot" dotColor={SEVERITY_DOT[bug.severity]}>{bug.severity}</Badge>
+          <Badge variant="dot" dotColor={
+            bug.status === "open" ? "bg-blue-400" :
+            bug.status === "confirmed" ? "bg-purple-400" :
+            bug.status === "patched" ? "bg-green-400" : "bg-zinc-400"
+          }>{bug.status}</Badge>
+          <Badge variant="secondary" className="font-mono text-xs">
             {bug.library}@{bug.version}
           </Badge>
-          <Badge variant="outline">{bug.ecosystem}</Badge>
+          <Badge variant="outline" className="text-xs">{bug.ecosystem}</Badge>
           {bug.tags.map((tag) => (
             <Badge
               key={tag}
@@ -279,32 +297,29 @@ export default function BugDetailPage() {
         </div>
 
         {/* Reporter info */}
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
+        <div className="flex items-center gap-2">
+          <Avatar className="h-6 w-6">
             <AvatarImage src={bug.reporter?.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className="text-[9px]">
               {initials(bug.reporter?.githubUsername ?? "??")}
             </AvatarFallback>
           </Avatar>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium">
-              {bug.reporter?.githubUsername}
-            </span>
-            <span className="text-muted-foreground">reported</span>
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              {formatDate(bug.createdAt)}
-            </span>
-          </div>
+          <span className="font-mono text-sm">
+            {bug.reporter?.githubUsername}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {formatDate(bug.createdAt)}
+          </span>
         </div>
       </div>
 
       <Separator />
 
       {/* Description */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Description
+      <div className="space-y-1.5">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          description
         </h2>
         <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
           {bug.description}
@@ -313,31 +328,31 @@ export default function BugDetailPage() {
 
       <Separator />
 
-      {/* Submit Patch button */}
+      {/* Patches header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          Patches{" "}
+        <h2 className="text-sm font-mono">
+          patches{" "}
           <span className="text-muted-foreground">
             ({sortedPatches.length})
           </span>
         </h2>
-        <Button onClick={() => setPatchDialogOpen(true)}>
-          <FileCode className="mr-2 h-4 w-4" />
-          Submit Patch
+        <Button size="sm" onClick={() => setPatchDialogOpen(true)} className="font-mono">
+          <FileCode className="mr-1.5 h-3.5 w-3.5" />
+          submit patch
         </Button>
       </div>
 
       <Dialog open={patchDialogOpen} onOpenChange={setPatchDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Submit a Patch</DialogTitle>
+            <DialogTitle className="font-mono text-sm">submit a patch</DialogTitle>
             <DialogDescription>
               Provide a fix for this bug. You&apos;ll earn 5 karma points.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Description</label>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1">
+              <label className="text-xs font-mono text-muted-foreground">description</label>
               <Textarea
                 placeholder="Explain your fix..."
                 rows={3}
@@ -345,8 +360,8 @@ export default function BugDetailPage() {
                 onChange={(e) => setPatchDescription(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Code</label>
+            <div className="space-y-1">
+              <label className="text-xs font-mono text-muted-foreground">code</label>
               <Textarea
                 placeholder="Paste your fix code..."
                 rows={8}
@@ -356,26 +371,29 @@ export default function BugDetailPage() {
               />
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSubmitPatch} disabled={isSubmittingPatch}>
-                {isSubmittingPatch ? "Submitting..." : "Submit Patch"}
+              <Button size="sm" onClick={handleSubmitPatch} disabled={isSubmittingPatch} className="font-mono">
+                {isSubmittingPatch ? "submitting..." : "submit patch"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Patches list */}
+      {/* Patches list -- flat with separators */}
       {sortedPatches.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <FileCode className="mb-3 h-8 w-8" />
-            <p className="text-sm">No patches yet. Be the first to submit one.</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <FileCode className="mb-2 h-6 w-6" />
+          <p className="font-mono text-sm">no patches yet. be the first.</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="divide-y divide-border">
           {sortedPatches.map((patch, i) => (
-            <PatchCard key={patch.id} patch={patch} rank={i + 1} />
+            <PatchRow
+              key={patch.id}
+              patch={patch}
+              rank={i + 1}
+              active={focusedPatch === i}
+            />
           ))}
         </div>
       )}

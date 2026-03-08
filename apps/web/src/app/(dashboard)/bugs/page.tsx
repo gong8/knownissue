@@ -1,238 +1,196 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, FileCode } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
+import { ListItem } from "@/components/list-item";
+import { FilterBar, type FilterState, type SortOption } from "@/components/filter-bar";
+import { useListKeyboard } from "@/hooks/use-list-keyboard";
 import { mockBugs } from "@/lib/mock-data";
-import { severityColor, statusColor, relativeTime } from "@/lib/helpers";
+import { relativeTime } from "@/lib/helpers";
 import type { Severity, BugStatus } from "@knownissue/shared";
 
-const ecosystems = ["all", "node", "python", "go", "rust", "other"] as const;
-const libraries = ["all", ...new Set(mockBugs.map((b) => b.library))];
-const statuses: ("all" | BugStatus)[] = [
-  "all",
-  "open",
-  "confirmed",
-  "patched",
-  "closed",
-];
-const severities: Severity[] = ["critical", "high", "medium", "low"];
+const SEVERITY_DOT: Record<Severity, string> = {
+  critical: "bg-red-400",
+  high: "bg-orange-400",
+  medium: "bg-yellow-400",
+  low: "bg-zinc-400",
+};
 
-// ── Page Component ──────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<BugStatus, string> = {
+  open: "text-blue-400",
+  confirmed: "text-purple-400",
+  patched: "text-green-400",
+  closed: "text-zinc-400",
+};
+
+const SEVERITY_ORDER: Record<Severity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
 
 export default function BugsPage() {
-  const [search, setSearch] = useState("");
-  const [ecosystem, setEcosystem] = useState<string>("all");
-  const [library, setLibrary] = useState<string>("all");
-  const [status, setStatus] = useState<string>("all");
-  const [activeSeverities, setActiveSeverities] = useState<Set<Severity>>(
-    new Set()
-  );
+  const router = useRouter();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    severities: new Set(),
+    statuses: new Set(),
+    ecosystems: new Set(),
+    sort: "latest",
+  });
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  function toggleSeverity(s: Severity) {
-    setActiveSeverities((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s);
-      else next.add(s);
-      return next;
-    });
-  }
-
   const filteredBugs = useMemo(() => {
-    return mockBugs.filter((bug) => {
-      if (search && !bug.title.toLowerCase().includes(search.toLowerCase())) {
+    let bugs = mockBugs.filter((bug) => {
+      if (filters.search && !bug.title.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
       }
-      if (ecosystem !== "all" && bug.ecosystem !== ecosystem) return false;
-      if (library !== "all" && bug.library !== library) return false;
-      if (status !== "all" && bug.status !== status) return false;
-      if (
-        activeSeverities.size > 0 &&
-        !activeSeverities.has(bug.severity)
-      ) {
+      if (filters.severities.size > 0 && !filters.severities.has(bug.severity)) {
+        return false;
+      }
+      if (filters.statuses.size > 0 && !filters.statuses.has(bug.status)) {
+        return false;
+      }
+      if (filters.ecosystems.size > 0 && !filters.ecosystems.has(bug.ecosystem)) {
         return false;
       }
       return true;
     });
-  }, [search, ecosystem, library, status, activeSeverities]);
+
+    // Sort
+    switch (filters.sort) {
+      case "latest":
+        bugs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        break;
+      case "oldest":
+        bugs.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        break;
+      case "severity":
+        bugs.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+        break;
+      case "patches":
+        bugs.sort((a, b) => (b.patches?.length ?? 0) - (a.patches?.length ?? 0));
+        break;
+    }
+
+    return bugs;
+  }, [filters]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBugs.length / pageSize));
   const paginatedBugs = filteredBugs.slice((page - 1) * pageSize, page * pageSize);
 
-  // Reset page to 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, ecosystem, library, status, activeSeverities]);
+  }, [filters]);
+
+  const handleSelect = useCallback(
+    (index: number) => {
+      const bug = paginatedBugs[index];
+      if (bug) router.push(`/bugs/${bug.id}`);
+    },
+    [paginatedBugs, router]
+  );
+
+  const handleFocusSearch = useCallback(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  const { focusedIndex } = useListKeyboard({
+    itemCount: paginatedBugs.length,
+    onSelect: handleSelect,
+    onFocusSearch: handleFocusSearch,
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Bugs</h1>
-          <p className="mt-1 text-muted-foreground">
-            Browse and search known issues across libraries
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/bugs/new">Report Bug</Link>
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="bugs"
+        actions={
+          <Button asChild size="sm">
+            <Link href="/bugs/new">report bug</Link>
+          </Button>
+        }
+      />
 
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search bugs by title..."
-          className="pl-10"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Filter row */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Ecosystem filter */}
-        <Select value={ecosystem} onValueChange={setEcosystem}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Ecosystem" />
-          </SelectTrigger>
-          <SelectContent>
-            {ecosystems.map((eco) => (
-              <SelectItem key={eco} value={eco}>
-                {eco === "all" ? "All ecosystems" : eco}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Library filter */}
-        <Select value={library} onValueChange={setLibrary}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Library" />
-          </SelectTrigger>
-          <SelectContent>
-            {libraries.map((lib) => (
-              <SelectItem key={lib} value={lib}>
-                {lib === "all" ? "All libraries" : lib}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Status filter */}
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statuses.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s === "all" ? "All statuses" : s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Severity toggle badges */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">Severity:</span>
-          {severities.map((s) => (
-            <button
-              key={s}
-              onClick={() => toggleSeverity(s)}
-              className="focus:outline-none"
-            >
-              <Badge
-                className={`cursor-pointer transition-opacity ${
-                  activeSeverities.size === 0 || activeSeverities.has(s)
-                    ? severityColor[s]
-                    : "opacity-30 " + severityColor[s]
-                }`}
-              >
-                {s}
-              </Badge>
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterBar ref={searchRef} filters={filters} onFiltersChange={setFilters} />
 
       {/* Bug list */}
-      <div className="space-y-3">
+      <div className="rounded-lg border border-border">
         {paginatedBugs.length === 0 && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Search className="mb-3 h-8 w-8" />
-              <p className="text-sm">No bugs match your filters.</p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Search className="mb-3 h-6 w-6" />
+            <p className="text-sm font-mono">no bugs match your filters.</p>
+          </div>
         )}
 
-        {paginatedBugs.map((bug) => (
+        {paginatedBugs.map((bug, i) => (
           <Link key={bug.id} href={`/bugs/${bug.id}`}>
-            <Card className="transition-colors hover:border-primary/30 hover:bg-card/80">
-              <CardContent className="flex items-start justify-between gap-4 p-5">
-                <div className="min-w-0 flex-1 space-y-2">
-                  {/* Title */}
-                  <p className="text-sm font-medium leading-snug">
-                    {bug.title}
-                  </p>
+            <ListItem active={focusedIndex === i} className="gap-3 cursor-pointer">
+              {/* Severity dot */}
+              <span className={`h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[bug.severity]}`} />
 
-                  {/* Badges row */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {bug.library}@{bug.version}
-                    </Badge>
-                    <Badge className={`text-xs ${severityColor[bug.severity]}`}>
-                      {bug.severity}
-                    </Badge>
-                    <Badge className={`text-xs ${statusColor[bug.status]}`}>
-                      {bug.status}
-                    </Badge>
-                    {bug.patches && bug.patches.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <FileCode className="h-3 w-3" />
-                        {bug.patches.length}{" "}
-                        {bug.patches.length === 1 ? "patch" : "patches"}
-                      </span>
-                    )}
-                  </div>
-                </div>
+              {/* Title */}
+              <span className="flex-1 truncate text-sm font-medium">
+                {bug.title}
+              </span>
 
-                {/* Timestamp */}
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {relativeTime(bug.createdAt)}
+              {/* Library@version */}
+              <span className="hidden shrink-0 font-mono text-xs text-muted-foreground sm:inline">
+                {bug.library}@{bug.version}
+              </span>
+
+              {/* Status */}
+              <span className={`shrink-0 font-mono text-xs ${STATUS_COLOR[bug.status]}`}>
+                {bug.status}
+              </span>
+
+              {/* Patches count */}
+              {bug.patches && bug.patches.length > 0 && (
+                <span className="hidden shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground sm:inline-flex">
+                  <FileCode className="h-3 w-3" />
+                  {bug.patches.length}
                 </span>
-              </CardContent>
-            </Card>
+              )}
+
+              {/* Time */}
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {relativeTime(bug.createdAt)}
+              </span>
+            </ListItem>
           </Link>
         ))}
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-center gap-2 pt-2">
-        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-          Previous
+      <div className="flex items-center justify-center gap-2 pt-1">
+        <Button
+          variant="outline"
+          size="xs"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="font-mono"
+        >
+          prev
         </Button>
-        <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-          Next
+        <span className="font-mono text-xs text-muted-foreground">
+          {page} / {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="xs"
+          disabled={page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          className="font-mono"
+        >
+          next
         </Button>
       </div>
     </div>

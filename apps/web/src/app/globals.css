@@ -6,6 +6,9 @@
 
   --color-background: hsl(0 0% 7%);
   --color-foreground: hsl(0 0% 93%);
+  --color-surface: hsl(0 0% 9%);
+  --color-surface-hover: hsl(0 0% 12%);
+  --color-surface-active: hsl(245 30% 15%);
   --color-card: hsl(0 0% 10%);
   --color-card-foreground: hsl(0 0% 93%);
   --color-popover: hsl(0 0% 10%);
@@ -20,13 +23,13 @@
   --color-accent-foreground: hsl(0 0% 100%);
   --color-destructive: hsl(0 62% 50%);
   --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(0 0% 15%);
+  --color-border: hsl(0 0% 13%);
   --color-input: hsl(0 0% 15%);
   --color-ring: hsl(245 58% 51%);
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
 }
 
 * {
@@ -37,4 +40,56 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.delay-75 { animation-delay: 75ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-1000 { animation-delay: 1000ms; }
+
+/* View transitions */
+::view-transition-old(root) {
+  animation: fade-in 0.15s ease-out reverse;
+}
+
+::view-transition-new(root) {
+  animation: fade-in 0.15s ease-out;
 }

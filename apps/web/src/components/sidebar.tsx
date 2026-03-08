@@ -4,74 +4,173 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  LayoutDashboard,
   Bug,
-  Home,
   PlusCircle,
   User,
   ChevronLeft,
   ChevronRight,
+  Search,
+  AlertTriangle,
+  UserCheck,
+  ShieldOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Kbd } from "@/components/ui/kbd";
 import { UserButton } from "@clerk/nextjs";
 import { currentUser } from "@/lib/mock-data";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/bugs", label: "Bugs", icon: Bug },
-  { href: "/bugs/new", label: "Report Bug", icon: PlusCircle },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/dashboard", label: "dashboard", icon: LayoutDashboard, shortcut: "G D" },
+  { href: "/bugs", label: "bugs", icon: Bug, shortcut: "G B" },
+  { href: "/bugs/new", label: "report bug", icon: PlusCircle, shortcut: "C" },
+  { href: "/profile", label: "profile", icon: User, shortcut: "G P" },
 ];
 
-export function Sidebar() {
+const quickFilters = [
+  { label: "critical", icon: AlertTriangle, href: "/bugs?severity=critical" },
+  { label: "my bugs", icon: UserCheck, href: "/bugs?reporter=me" },
+  { label: "unpatched", icon: ShieldOff, href: "/bugs?status=open" },
+];
+
+const ecosystems = [
+  { label: "node", href: "/bugs?ecosystem=node" },
+  { label: "python", href: "/bugs?ecosystem=python" },
+  { label: "go", href: "/bugs?ecosystem=go" },
+  { label: "rust", href: "/bugs?ecosystem=rust" },
+];
+
+interface SidebarProps {
+  onOpenCommandPalette?: () => void;
+}
+
+export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col border-r border-border bg-card transition-all duration-200",
-        collapsed ? "w-16" : "w-60"
+        "flex h-screen flex-col border-r border-border bg-surface transition-all duration-200",
+        collapsed ? "w-[52px]" : "w-60"
       )}
     >
-      <div className="flex h-14 items-center justify-between px-4">
+      {/* Header */}
+      <div className="flex h-12 items-center justify-between px-3">
         {!collapsed && (
-          <span className="text-lg font-semibold">KnownIssue</span>
+          <span className="font-mono text-sm font-semibold text-foreground">[knownissue]</span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="rounded-md p-1 text-muted-foreground hover:bg-surface-hover hover:text-foreground"
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-4">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              <item.icon size={18} />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+      {/* Search trigger */}
+      {!collapsed && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={onOpenCommandPalette}
+            className="flex h-8 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-surface-hover"
+          >
+            <Search size={14} />
+            <span className="flex-1 text-left text-xs">search...</span>
+            <Kbd>&#8984;K</Kbd>
+          </button>
+        </div>
+      )}
+      {collapsed && (
+        <div className="flex justify-center pb-2">
+          <button
+            onClick={onOpenCommandPalette}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+          >
+            <Search size={16} />
+          </button>
+        </div>
+      )}
+
+      <div className="mx-3 border-t border-border" />
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
+        <div className="space-y-0.5">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex h-8 items-center gap-3 rounded-md px-3 text-sm font-mono transition-colors",
+                  isActive
+                    ? "border-l-2 border-l-primary text-foreground bg-surface-hover"
+                    : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                )}
+              >
+                <item.icon size={16} />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    <span className="text-[10px] text-muted-foreground/50">{item.shortcut}</span>
+                  </>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        {!collapsed && (
+          <>
+            <div className="mx-1 my-3 border-t border-border" />
+
+            {/* Quick filters */}
+            <div className="space-y-0.5">
+              <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                quick filters
+              </p>
+              {quickFilters.map((filter) => (
+                <Link
+                  key={filter.label}
+                  href={filter.href}
+                  className="flex h-7 items-center gap-3 rounded-md px-3 text-sm font-mono text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <filter.icon size={14} />
+                  <span>{filter.label}</span>
+                </Link>
+              ))}
+            </div>
+
+            <div className="mx-1 my-3 border-t border-border" />
+
+            {/* Ecosystems */}
+            <div className="space-y-0.5">
+              <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                ecosystems
+              </p>
+              {ecosystems.map((eco) => (
+                <Link
+                  key={eco.label}
+                  href={eco.href}
+                  className="flex h-7 items-center gap-3 rounded-md px-3 text-sm font-mono text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <span>{eco.label}</span>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
-      <div className="border-t border-border p-4">
+      {/* Bottom: user */}
+      <div className="border-t border-border p-3">
         <div className="flex items-center gap-3">
           <UserButton />
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-medium">{currentUser.karma}</span>
+              <span className="font-mono text-sm font-medium">{currentUser.karma}</span>
               <span className="text-xs text-muted-foreground">karma</span>
             </div>
           )}
