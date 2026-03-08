@@ -332,7 +332,7 @@ Add `openGraph` and `twitter` metadata for link previews.
   - [x] 2.4 Pagination validation — clamps page/limit, rejects NaN
   - [x] 2.5 Health check with DB — `GET /health` runs `SELECT 1` against Postgres
 - [x] **Phase 3: Database**
-  - [ ] 3.1 Prisma migrate — scripts added (`db:migrate`, `db:migrate:dev`), run `pnpm db:migrate:dev --name init` when DB is running
+  - [x] 3.1 Prisma migrate — initial migration `20260308045821_init` created and applied
   - [x] 3.2 DB constraints — `onDelete: Cascade` on all relations
   - [x] 3.3 Missing indexes — added `@@index` on reporterId, bugId, submitterId
 - [ ] **Phase 4: Deployment**
