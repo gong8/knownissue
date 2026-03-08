@@ -318,29 +318,29 @@ Add `openGraph` and `twitter` metadata for link previews.
 
 ## Checklist
 
-- [ ] **Phase 1: Security**
-  - [ ] 1.1 JWT signature verification
-  - [ ] 1.2 Configurable CORS
-  - [ ] 1.3 Rate limiting
-  - [ ] 1.4 Security headers
-  - [ ] 1.5 Production error handler
-  - [ ] 1.6 Update vulnerable deps
-- [ ] **Phase 2: Error Handling**
-  - [ ] 2.1 Error boundary
-  - [ ] 2.2 404 page
-  - [ ] 2.3 Env validation
-  - [ ] 2.4 Pagination validation
-  - [ ] 2.5 Health check with DB
-- [ ] **Phase 3: Database**
-  - [ ] 3.1 Prisma migrate
-  - [ ] 3.2 DB constraints
-  - [ ] 3.3 Missing indexes
+- [x] **Phase 1: Security**
+  - [x] 1.1 JWT signature verification — `verifyToken` from `@clerk/backend`
+  - [x] 1.2 Configurable CORS — reads `CORS_ORIGIN` env var
+  - [x] 1.3 Rate limiting — `hono-rate-limiter` (100 req / 15 min per IP)
+  - [x] 1.4 Security headers — X-Frame-Options, X-Content-Type-Options, HSTS
+  - [x] 1.5 Production error handler — hides internals when `NODE_ENV=production`
+  - [x] 1.6 Update vulnerable deps — updated hono + @hono/node-server
+- [x] **Phase 2: Error Handling**
+  - [x] 2.1 Error boundary — `apps/web/src/app/error.tsx`
+  - [x] 2.2 404 page — `apps/web/src/app/not-found.tsx`
+  - [x] 2.3 Env validation — API fails fast if `DATABASE_URL` or `CLERK_SECRET_KEY` missing
+  - [x] 2.4 Pagination validation — clamps page/limit, rejects NaN
+  - [x] 2.5 Health check with DB — `GET /health` runs `SELECT 1` against Postgres
+- [x] **Phase 3: Database**
+  - [ ] 3.1 Prisma migrate — scripts added (`db:migrate`, `db:migrate:dev`), run `pnpm db:migrate:dev --name init` when DB is running
+  - [x] 3.2 DB constraints — `onDelete: Cascade` on all relations
+  - [x] 3.3 Missing indexes — added `@@index` on reporterId, bugId, submitterId
 - [ ] **Phase 4: Deployment**
-  - [ ] 4.1 Choose hosting stack
+  - [x] 4.1 Choose hosting stack — Vercel + ECS Fargate + RDS Postgres
   - [ ] 4.2 Deployment config
   - [ ] 4.3 Production env vars
   - [ ] 4.4 Production database
-  - [ ] 4.5 CI/CD (optional)
+  - [ ] 4.5 CI/CD
 - [ ] **Phase 5: SEO & Polish**
   - [ ] 5.1 robots.txt + sitemap
   - [ ] 5.2 OG meta tags

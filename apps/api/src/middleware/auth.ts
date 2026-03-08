@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
+import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
 import type { AppEnv } from "../lib/types";
@@ -60,48 +61,52 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     // Not a valid GitHub token, try next strategy
   }
 
-  // Strategy 2: Clerk JWT token
-  // Decode JWT payload to get Clerk user ID (sub claim)
-  // NOTE: Production should verify JWT signature using Clerk's JWKS
+  // Strategy 2: Clerk JWT token (cryptographic signature verification)
   try {
-    const parts = token.split(".");
-    if (parts.length === 3) {
-      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-      const clerkUserId = payload.sub as string;
+    const authorizedParties = process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+      : ["http://localhost:3000"];
 
-      if (clerkUserId) {
-        let user = await prisma.user.findUnique({
-          where: { clerkId: clerkUserId },
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY!,
+      authorizedParties,
+    });
+
+    const clerkUserId = payload.sub;
+
+    if (clerkUserId) {
+      let user = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+      });
+
+      if (!user) {
+        const username =
+          (payload as Record<string, unknown>).username as string | undefined ||
+          `user-${clerkUserId.slice(0, 8)}`;
+        user = await prisma.user.create({
+          data: {
+            githubUsername: username,
+            clerkId: clerkUserId,
+            avatarUrl: ((payload as Record<string, unknown>).image_url as string | undefined) ?? null,
+            credits: SIGNUP_BONUS,
+          },
         });
-
-        if (!user) {
-          // Auto-create user from Clerk
-          const username = (payload.username as string) || `user-${clerkUserId.slice(0, 8)}`;
-          user = await prisma.user.create({
-            data: {
-              githubUsername: username,
-              clerkId: clerkUserId,
-              avatarUrl: (payload.image_url as string | undefined) ?? null,
-              credits: SIGNUP_BONUS,
-            },
-          });
-        }
-
-        c.set("user", {
-          id: user.id,
-          githubUsername: user.githubUsername,
-          clerkId: user.clerkId,
-          avatarUrl: user.avatarUrl,
-          credits: user.credits,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        });
-
-        return next();
       }
+
+      c.set("user", {
+        id: user.id,
+        githubUsername: user.githubUsername,
+        clerkId: user.clerkId,
+        avatarUrl: user.avatarUrl,
+        credits: user.credits,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+
+      return next();
     }
   } catch (e) {
-    console.error("[auth] Strategy 2 (Clerk JWT) failed:", e);
+    console.error("[auth] Clerk JWT verification failed:", e);
   }
 
   throw new HTTPException(401, { message: "Invalid or expired token" });

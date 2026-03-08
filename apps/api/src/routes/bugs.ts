@@ -18,8 +18,15 @@ bugs.get("/bugs", async (c) => {
   const ecosystem = c.req.query("ecosystem");
   const status = c.req.query("status");
   const severity = c.req.query("severity");
-  const page = parseInt(c.req.query("page") || "1");
-  const limit = parseInt(c.req.query("limit") || "20");
+  const rawPage = parseInt(c.req.query("page") || "1");
+  const rawLimit = parseInt(c.req.query("limit") || "20");
+
+  if (isNaN(rawPage) || isNaN(rawLimit)) {
+    return c.json({ error: "Invalid pagination parameters" }, 400);
+  }
+
+  const page = Math.max(1, rawPage);
+  const limit = Math.min(50, Math.max(1, rawLimit));
   const offset = (page - 1) * limit;
 
   if (query) {

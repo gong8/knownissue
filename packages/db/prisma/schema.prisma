@@ -50,7 +50,7 @@ model Bug {
   embedding   Unsupported("vector(1536)")?
 
   reporterId String
-  reporter   User   @relation(fields: [reporterId], references: [id])
+  reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   patches Patch[]
 
@@ -60,6 +60,7 @@ model Bug {
   @@index([library, version])
   @@index([ecosystem])
   @@index([status])
+  @@index([reporterId])
 }
 
 enum Vote {
@@ -74,15 +75,18 @@ model Patch {
   score       Int    @default(0)
 
   bugId String
-  bug   Bug    @relation(fields: [bugId], references: [id])
+  bug   Bug    @relation(fields: [bugId], references: [id], onDelete: Cascade)
 
   submitterId String
-  submitter   User   @relation(fields: [submitterId], references: [id])
+  submitter   User   @relation(fields: [submitterId], references: [id], onDelete: Cascade)
 
   reviews Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([bugId])
+  @@index([submitterId])
 }
 
 model Review {
@@ -91,10 +95,10 @@ model Review {
   comment String?
 
   patchId String
-  patch   Patch  @relation(fields: [patchId], references: [id])
+  patch   Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
 
   reviewerId String
-  reviewer   User   @relation(fields: [reviewerId], references: [id])
+  reviewer   User   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
