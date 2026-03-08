@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { rateLimiter } from "hono-rate-limiter";
 import { createMcpServer } from "./server";
@@ -17,8 +18,8 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id, MCP-Protocol-Version",
-    "Access-Control-Expose-Headers": "Mcp-Session-Id",
+    "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
+    "Access-Control-Expose-Headers": "Mcp-Session-Id, MCP-Protocol-Version",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -58,11 +59,29 @@ mcp.use("/mcp", async (c, next) => {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
   }
 
-  // Process downstream, then inject CORS headers on the response
-  await next();
+  // Inject CORS headers on ALL responses, including auth errors.
+  // Browser clients need CORS on 401 to read WWW-Authenticate and start OAuth.
+  // We catch HTTPExceptions from downstream (e.g. auth middleware) because
+  // Hono propagates them through await next() — code after next() never runs.
   const headers = corsHeaders(origin);
-  for (const [key, value] of Object.entries(headers)) {
-    c.res.headers.set(key, value);
+  try {
+    await next();
+    for (const [key, value] of Object.entries(headers)) {
+      c.res.headers.set(key, value);
+    }
+  } catch (err) {
+    if (err instanceof HTTPException) {
+      const errorResponse = err.getResponse();
+      const newHeaders = new Headers(errorResponse.headers);
+      for (const [key, value] of Object.entries(headers)) {
+        newHeaders.set(key, value);
+      }
+      return new Response(errorResponse.body, {
+        status: errorResponse.status,
+        headers: newHeaders,
+      });
+    }
+    throw err;
   }
 });
 
@@ -86,8 +105,11 @@ mcp.use("/mcp", async (c, next) => {
 // MCP endpoint - requires auth (returns OAuth-compliant 401)
 mcp.use("/mcp", mcpAuthMiddleware);
 
-// POST handler — SDK handles Accept/Content-Type validation (406/415)
-mcp.post("/mcp", async (c) => {
+// MCP handler — SDK handles Accept/Content-Type validation (406/415),
+// protocol version negotiation, and JSON-RPC message parsing.
+// Uses app.all() so the SDK can return proper 405 for methods that slip
+// past the stateless-mode middleware (e.g. future spec changes).
+mcp.all("/mcp", async (c) => {
   const user = c.get("user");
   const server = createMcpServer(user.id);
 
@@ -96,13 +118,12 @@ mcp.post("/mcp", async (c) => {
     enableJsonResponse: true,
   });
 
-  await server.connect(transport);
-
-  const response = await transport.handleRequest(c.req.raw);
-
-  await server.close();
-
-  return response;
+  try {
+    await server.connect(transport);
+    return await transport.handleRequest(c.req.raw);
+  } finally {
+    await server.close();
+  }
 });
 
 export { mcp };

@@ -22,12 +22,10 @@ async function toolHandler<T>(
   try {
     const result = await fn();
     const creditsRemaining = await getCredits(userId);
-    const payload = {
-      ...(typeof result === "object" && result !== null ? result : { result }),
-      _meta: { credits_remaining: creditsRemaining },
-    };
+    const payload = typeof result === "object" && result !== null ? result : { result };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+      _meta: { credits_remaining: creditsRemaining },
     };
   } catch (error) {
     return {
@@ -78,7 +76,7 @@ export function createMcpServer(userId: string) {
         "Results include patches with verification summaries and related bugs (same root cause, version regressions, etc.). " +
         "Costs 1 credit per search. Returns _meta.credits_remaining.",
       inputSchema: searchInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -101,7 +99,7 @@ export function createMcpServer(userId: string) {
         "Duplicate submissions penalize -5 credits. " +
         "Use relatedTo to link this bug to an existing one (e.g. same_root_cause, version_regression, cascading_dependency).",
       inputSchema: reportInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -122,7 +120,7 @@ export function createMcpServer(userId: string) {
         "The bug's status auto-updates based on verification results. " +
         "Use relatedTo to link to another bug if this fix also applies there (shared_fix) or conflicts (fix_conflict).",
       inputSchema: patchInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -147,7 +145,7 @@ export function createMcpServer(userId: string) {
         "and the bug it fixes. Free to call. Each unique user access increments the bug's " +
         "accessCount (idempotent — calling twice doesn't double-count).",
       inputSchema: getPatchInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -166,7 +164,7 @@ export function createMcpServer(userId: string) {
         "Awards +2 credits to verifier. If fixed: patch author earns +1. If not_fixed: author loses -1. " +
         "Cannot verify your own patches. One verification per user per patch.",
       inputSchema: verificationInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -196,7 +194,7 @@ export function createMcpServer(userId: string) {
         "Use 'type' to filter to bugs/patches/verifications. " +
         "Use 'outcome' to filter patches by verification outcome.",
       inputSchema: myActivityInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {

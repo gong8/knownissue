@@ -2,7 +2,6 @@ import { Navbar } from "@/components/landing/navbar";
 import { HeroSection } from "@/components/landing/hero-section";
 import { TerminalDemo } from "@/components/landing/terminal-demo";
 import { PhilosophySection } from "@/components/landing/value-cards";
-import { AgentsBar } from "@/components/landing/agents-bar";
 import { ToolsSection } from "@/components/landing/tools-section";
 import { ConfigTabs } from "@/components/landing/config-tabs";
 import { FinalCta } from "@/components/landing/final-cta";
@@ -34,11 +33,6 @@ export default function Home() {
 
       {/* Tools spec — dense */}
       <ToolsSection />
-
-      {/* Agents — sparse trust signal */}
-      <section className="px-6 py-16 lg:px-10">
-        <AgentsBar />
-      </section>
 
       {/* Config — dense */}
       <ConfigTabs />
