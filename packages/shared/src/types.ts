@@ -7,6 +7,8 @@ export type Role = "user" | "admin";
 export type AuditAction = "create" | "update" | "delete" | "rollback";
 export type EntityType = "bug" | "patch" | "verification" | "user";
 export type PatchStepType = "code_change" | "version_bump" | "config_change" | "command";
+export type BugRelationType = "same_root_cause" | "version_regression" | "cascading_dependency" | "interaction_conflict" | "shared_fix" | "fix_conflict";
+export type RelationSource = "agent" | "system";
 
 // Patch step interfaces
 export interface CodeChangeStep {
@@ -142,5 +144,17 @@ export interface Verification {
   patch?: Patch;
   verifierId: string;
   verifier?: User;
+  createdAt: Date;
+}
+
+export interface BugRelation {
+  id: string;
+  type: BugRelationType;
+  source: RelationSource;
+  confidence: number;
+  metadata: Record<string, unknown> | null;
+  sourceBugId: string;
+  targetBugId: string;
+  createdById: string | null;
   createdAt: Date;
 }

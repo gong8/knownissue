@@ -11,6 +11,18 @@ export const bugAccuracySchema = z.enum(["accurate", "inaccurate"])
 export const bugCategorySchema = z.enum(["crash", "build", "types", "performance", "behavior", "config", "compatibility", "install"])
   .describe("Bug category: crash, build, types, performance, behavior, config, compatibility, or install");
 
+export const bugRelationTypeSchema = z.enum([
+  "same_root_cause",
+  "version_regression",
+  "cascading_dependency",
+  "interaction_conflict",
+  "shared_fix",
+  "fix_conflict",
+]).describe("Type of relationship between two bugs");
+
+export const patchRelationTypeSchema = z.enum(["shared_fix", "fix_conflict"])
+  .describe("Relation types available when submitting a patch");
+
 // ── Patch Step Schemas (discriminated union on `type`) ────────────────────
 
 const codeChangeStepSchema = z.object({
@@ -123,6 +135,12 @@ export const reportInputSchema = z.object({
     .describe("Optional short summary. Auto-generated from errorMessage if omitted."),
   patch: inlinePatchSchema.optional()
     .describe("Optional inline fix — if you already know the solution, include it here to earn bonus credits"),
+  relatedTo: z.object({
+    bugId: z.uuid(),
+    type: bugRelationTypeSchema,
+    note: z.string().optional(),
+  }).optional()
+    .describe("Link this bug to an existing bug. Use when you encountered this bug while working on another."),
 }).refine(
   (data) => data.errorMessage || data.description,
   { message: "At least one of errorMessage or description is required" }
@@ -137,6 +155,12 @@ export const patchInputSchema = z.object({
     .describe("Ordered list of steps to apply the fix"),
   versionConstraint: z.string().optional()
     .describe("Version range this patch applies to, e.g. '>=4.17.0 <5.0.0'"),
+  relatedTo: z.object({
+    bugId: z.uuid(),
+    type: patchRelationTypeSchema,
+    note: z.string().optional(),
+  }).optional()
+    .describe("Link this patch's bug to another bug. Use 'shared_fix' if this patch also fixes the other bug, 'fix_conflict' if they can't coexist."),
 });
 
 export const getPatchInputSchema = z.object({
