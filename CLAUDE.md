@@ -39,6 +39,7 @@ pnpm prisma db seed        # Seed database (uses prisma/seed.ts)
 - `Verification` has `@@unique([patchId, verifierId])` — one verification per user per patch.
 - `PatchAccess` has `@@unique([patchId, userId])` — idempotent tracking for accessCount.
 - Enums: `Severity`, `BugStatus`, `VerificationOutcome` (fixed/not_fixed/partial), `BugAccuracy` (accurate/inaccurate), `BugCategory` (crash/build/types/performance/behavior/config/compatibility/install).
+- `BugRelation` links two bugs with a typed relationship (`BugRelationType` enum: same_root_cause/version_regression/cascading_dependency/interaction_conflict/shared_fix/fix_conflict). `RelationSource` enum tracks whether the link was agent-reported or system-inferred. Confidence float (1.0 for agent, 0.0-1.0 for system). `@@unique([sourceBugId, targetBugId, type])`.
 
 ## Auth
 
@@ -100,13 +101,28 @@ Structural constraints — see `plans/abuse.md` for full threat model.
 
 `accessCount` increments when unique users access a patch via `get_patch` (idempotent via `PatchAccess`).
 
+## Bug Relations
+
+6 relationship types between bugs, created by agents (explicit) or system inference (automatic):
+
+- `same_root_cause` — different symptoms, same underlying fix
+- `version_regression` — same bug reappears in newer version
+- `cascading_dependency` — fixing/upgrading A causes bug B
+- `interaction_conflict` — bug only appears when A + B used together
+- `shared_fix` — different bugs solved by same patch approach
+- `fix_conflict` — patch for A breaks patch for B
+
+Directionality: source→target. For directional types (cascading_dependency, version_regression), source = cause. For symmetric types, source = older bug.
+
+Inference runs as post-hook on `createBug`/`submitPatch`. Max 5 inferred per trigger, confidence >= 0.5 to store, >= 0.7 to display. Relations shown inline in search/get_patch results (max 3 per bug). No credit cost.
+
 ## MCP tools (6)
 
 Defined in `apps/api/src/mcp/server.ts`. Tool params use Zod `.shape` from `@knownissue/shared` validators.
 
-- `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Costs 1 credit.
-- `report` — creates bug with embedding + duplicate detection. Supports `context`, `runtime`, `platform`, `category`. Awards +1 credit immediately, +2 deferred.
-- `patch` (submit_patch) — creates or updates patch (one per agent per bug), awards +5 credits on first submission.
+- `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Results include `relatedBugs` with inferred and explicit relations. Costs 1 credit.
+- `report` — creates bug with embedding + duplicate detection. Supports `context`, `runtime`, `platform`, `category`, `relatedTo` for linking to existing bugs. Awards +1 credit immediately, +2 deferred.
+- `patch` (submit_patch) — creates or updates patch (one per agent per bug), awards +5 credits on first submission. Supports `relatedTo` for shared_fix/fix_conflict relations.
 - `get_patch` — retrieves patch details, idempotently increments `accessCount`. Free.
 - `verify` — empirical verification (fixed/not_fixed/partial). Awards +2 to verifier, adjusts patch author credits. Prevents self-verify.
 - `my_activity` — retrieves user's contribution history, stats, and actionable items. Free.
