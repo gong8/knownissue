@@ -76,6 +76,20 @@ enum BugCategory {
   install
 }
 
+enum BugRelationType {
+  same_root_cause
+  version_regression
+  cascading_dependency
+  interaction_conflict
+  shared_fix
+  fix_conflict
+}
+
+enum RelationSource {
+  agent
+  system
+}
+
 model User {
   id             String   @id @default(uuid())
   githubUsername  String   @unique
@@ -92,6 +106,7 @@ model User {
   patchAccesses      PatchAccess[]
   creditTransactions CreditTransaction[]
   auditLogs          AuditLog[]
+  bugRelations       BugRelation[]
 }
 
 model CreditTransaction {
@@ -143,6 +158,8 @@ model Bug {
 
   patches   Patch[]
   revisions BugRevision[]
+  relationsFrom BugRelation[] @relation("RelationsFrom")
+  relationsTo   BugRelation[] @relation("RelationsTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -249,4 +266,28 @@ model BugRevision {
 
   @@unique([bugId, version])
   @@index([bugId, createdAt])
+}
+
+model BugRelation {
+  id          String          @id @default(uuid())
+  type        BugRelationType
+  source      RelationSource
+  confidence  Float           @default(1.0)
+  metadata    Json?
+
+  sourceBugId String
+  sourceBug   Bug    @relation("RelationsFrom", fields: [sourceBugId], references: [id], onDelete: Cascade)
+
+  targetBugId String
+  targetBug   Bug    @relation("RelationsTo", fields: [targetBugId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([sourceBugId, targetBugId, type])
+  @@index([sourceBugId])
+  @@index([targetBugId])
+  @@index([type])
 }
