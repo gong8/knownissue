@@ -26,30 +26,49 @@ export async function searchBugs(params: {
   if (embedding) {
     const vectorStr = `[${embedding.join(",")}]`;
 
-    // Build filter conditions for raw SQL
+    // Build filter conditions with parameterized placeholders
     const conditions: string[] = [];
-    if (library) conditions.push(`"library" = '${library}'`);
-    if (version) conditions.push(`"version" = '${version}'`);
-    if (ecosystem) conditions.push(`"ecosystem" = '${ecosystem}'`);
+    const params: unknown[] = [vectorStr, limit, offset];
+    let paramIndex = 4;
+
+    if (library) {
+      conditions.push(`"library" = $${paramIndex++}`);
+      params.push(library);
+    }
+    if (version) {
+      conditions.push(`"version" = $${paramIndex++}`);
+      params.push(version);
+    }
+    if (ecosystem) {
+      conditions.push(`"ecosystem" = $${paramIndex++}`);
+      params.push(ecosystem);
+    }
 
     const whereClause = conditions.length > 0
       ? `WHERE ${conditions.join(" AND ")}`
       : "";
 
-    const bugs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
-              "reporterId", "createdAt", "updatedAt",
-              1 - (embedding <=> $1::vector) as similarity
-       FROM "Bug"
-       ${whereClause}
-       ORDER BY embedding <=> $1::vector
-       LIMIT $2 OFFSET $3`,
-      vectorStr,
-      limit,
-      offset
-    );
+    const countQuery = `SELECT COUNT(*)::int as count FROM "Bug" ${whereClause}`;
+    const countParams = params.slice(3); // only the filter params
 
-    return { bugs, total: bugs.length };
+    const [bugs, countResult] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
+                "reporterId", "createdAt", "updatedAt",
+                1 - (embedding <=> $1::vector) as similarity
+         FROM "Bug"
+         ${whereClause}
+         ORDER BY embedding <=> $1::vector
+         LIMIT $2 OFFSET $3`,
+        ...params
+      ),
+      prisma.$queryRawUnsafe<[{ count: number }]>(
+        countQuery,
+        ...countParams
+      ),
+    ]);
+
+    return { bugs, total: countResult[0].count };
   }
 
   // Fallback: text search

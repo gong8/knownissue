@@ -25,50 +25,12 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { getMockBugById } from "@/lib/mock-data";
-import type { Severity, BugStatus, Patch } from "@knownissue/shared";
-
-// ── Severity & Status colors ────────────────────────────────────────────────
-
-const severityColor: Record<Severity, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/20",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
-  low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-};
-
-const statusColor: Record<BugStatus, string> = {
-  open: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  confirmed: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  patched: "bg-green-500/15 text-green-400 border-green-500/20",
-  closed: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-};
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function relativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return formatDate(date);
-}
-
-function initials(username: string): string {
-  return username.slice(0, 2).toUpperCase();
-}
+import { severityColor, statusColor, relativeTime, formatDate, initials } from "@/lib/helpers";
+import type { Patch } from "@knownissue/shared";
 
 // ── Patch Card Component ────────────────────────────────────────────────────
 
@@ -81,6 +43,7 @@ function PatchCard({
 }) {
   const [score, setScore] = useState(patch.score);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   async function handleVote(direction: "up" | "down") {
     if (userVote === direction) {
@@ -98,7 +61,7 @@ function PatchCard({
     // Try to submit review to API
     try {
       const { reviewPatch } = await import("@/app/actions/reviews");
-      await reviewPatch(patch.id, direction, null);
+      await reviewPatch(patch.id, direction, commentText || null);
     } catch {
       // API may not be running — keep optimistic state, show toast
       toast.error("Could not save vote", {
@@ -166,6 +129,12 @@ function PatchCard({
             </Button>
           </div>
         </div>
+        <Input
+          placeholder="Add a comment (optional)"
+          className="mt-2 text-sm"
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+        />
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -227,6 +196,32 @@ export default function BugDetailPage() {
   const params = useParams();
   const bugId = params.id as string;
   const bug = getMockBugById(bugId);
+  const [patchDialogOpen, setPatchDialogOpen] = useState(false);
+  const [patchDescription, setPatchDescription] = useState("");
+  const [patchCode, setPatchCode] = useState("");
+  const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
+
+  async function handleSubmitPatch() {
+    if (!patchDescription.trim() || !patchCode.trim()) {
+      toast.error("Please fill in both description and code");
+      return;
+    }
+    setIsSubmittingPatch(true);
+    try {
+      const { submitPatch } = await import("@/app/actions/patches");
+      await submitPatch(bugId, patchDescription, patchCode);
+      toast.success("Patch submitted successfully!");
+      setPatchDialogOpen(false);
+      setPatchDescription("");
+      setPatchCode("");
+    } catch {
+      toast.error("Failed to submit patch", {
+        description: "The API server may be unavailable.",
+      });
+    } finally {
+      setIsSubmittingPatch(false);
+    }
+  }
 
   if (!bug) {
     return (
@@ -326,11 +321,48 @@ export default function BugDetailPage() {
             ({sortedPatches.length})
           </span>
         </h2>
-        <Button>
+        <Button onClick={() => setPatchDialogOpen(true)}>
           <FileCode className="mr-2 h-4 w-4" />
           Submit Patch
         </Button>
       </div>
+
+      <Dialog open={patchDialogOpen} onOpenChange={setPatchDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Submit a Patch</DialogTitle>
+            <DialogDescription>
+              Provide a fix for this bug. You&apos;ll earn 5 karma points.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                placeholder="Explain your fix..."
+                rows={3}
+                value={patchDescription}
+                onChange={(e) => setPatchDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Code</label>
+              <Textarea
+                placeholder="Paste your fix code..."
+                rows={8}
+                className="font-mono text-sm"
+                value={patchCode}
+                onChange={(e) => setPatchCode(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSubmitPatch} disabled={isSubmittingPatch}>
+                {isSubmittingPatch ? "Submitting..." : "Submit Patch"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Patches list */}
       {sortedPatches.length === 0 ? (

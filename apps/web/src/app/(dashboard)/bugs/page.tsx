@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Search, FileCode } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -18,25 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { mockBugs } from "@/lib/mock-data";
+import { severityColor, statusColor, relativeTime } from "@/lib/helpers";
 import type { Severity, BugStatus } from "@knownissue/shared";
 
-// ── Severity badge colors ───────────────────────────────────────────────────
-
-const severityColor: Record<Severity, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/20",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
-  low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-};
-
-const statusColor: Record<BugStatus, string> = {
-  open: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  confirmed: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  patched: "bg-green-500/15 text-green-400 border-green-500/20",
-  closed: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-};
-
 const ecosystems = ["all", "node", "python", "go", "rust", "other"] as const;
+const libraries = ["all", ...new Set(mockBugs.map((b) => b.library))];
 const statuses: ("all" | BugStatus)[] = [
   "all",
   "open",
@@ -46,29 +32,18 @@ const statuses: ("all" | BugStatus)[] = [
 ];
 const severities: Severity[] = ["critical", "high", "medium", "low"];
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function relativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
 // ── Page Component ──────────────────────────────────────────────────────────
 
 export default function BugsPage() {
   const [search, setSearch] = useState("");
   const [ecosystem, setEcosystem] = useState<string>("all");
+  const [library, setLibrary] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [activeSeverities, setActiveSeverities] = useState<Set<Severity>>(
     new Set()
   );
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   function toggleSeverity(s: Severity) {
     setActiveSeverities((prev) => {
@@ -85,6 +60,7 @@ export default function BugsPage() {
         return false;
       }
       if (ecosystem !== "all" && bug.ecosystem !== ecosystem) return false;
+      if (library !== "all" && bug.library !== library) return false;
       if (status !== "all" && bug.status !== status) return false;
       if (
         activeSeverities.size > 0 &&
@@ -94,7 +70,15 @@ export default function BugsPage() {
       }
       return true;
     });
-  }, [search, ecosystem, status, activeSeverities]);
+  }, [search, ecosystem, library, status, activeSeverities]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBugs.length / pageSize));
+  const paginatedBugs = filteredBugs.slice((page - 1) * pageSize, page * pageSize);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, ecosystem, library, status, activeSeverities]);
 
   return (
     <div className="space-y-6">
@@ -133,6 +117,20 @@ export default function BugsPage() {
             {ecosystems.map((eco) => (
               <SelectItem key={eco} value={eco}>
                 {eco === "all" ? "All ecosystems" : eco}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Library filter */}
+        <Select value={library} onValueChange={setLibrary}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Library" />
+          </SelectTrigger>
+          <SelectContent>
+            {libraries.map((lib) => (
+              <SelectItem key={lib} value={lib}>
+                {lib === "all" ? "All libraries" : lib}
               </SelectItem>
             ))}
           </SelectContent>
@@ -177,7 +175,7 @@ export default function BugsPage() {
 
       {/* Bug list */}
       <div className="space-y-3">
-        {filteredBugs.length === 0 && (
+        {paginatedBugs.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Search className="mb-3 h-8 w-8" />
@@ -186,7 +184,7 @@ export default function BugsPage() {
           </Card>
         )}
 
-        {filteredBugs.map((bug) => (
+        {paginatedBugs.map((bug) => (
           <Link key={bug.id} href={`/bugs/${bug.id}`}>
             <Card className="transition-colors hover:border-primary/30 hover:bg-card/80">
               <CardContent className="flex items-start justify-between gap-4 p-5">
@@ -227,13 +225,13 @@ export default function BugsPage() {
         ))}
       </div>
 
-      {/* Pagination placeholder */}
+      {/* Pagination */}
       <div className="flex items-center justify-center gap-2 pt-2">
-        <Button variant="outline" size="sm" disabled>
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
           Previous
         </Button>
-        <span className="text-sm text-muted-foreground">Page 1 of 1</span>
-        <Button variant="outline" size="sm" disabled>
+        <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
           Next
         </Button>
       </div>

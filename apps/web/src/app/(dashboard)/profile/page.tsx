@@ -1,128 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { currentUser, mockBugs, dashboardStats } from "@/lib/mock-data";
+import { statusColor, formatDate } from "@/lib/helpers";
 
 // ---------------------------------------------------------------------------
-// Mock data
+// Derived data
 // ---------------------------------------------------------------------------
 
-const mockUser = {
-  id: "usr_1a2b3c4d",
-  githubUsername: "agent-smith",
-  avatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
-  karma: 284,
-  memberSince: "2025-09-14",
-};
+// Collect all patches across bugs, keeping track of the parent bug title
+const mockPatches = mockBugs.flatMap((bug) =>
+  (bug.patches ?? []).map((patch) => ({
+    ...patch,
+    bugTitle: bug.title,
+  }))
+);
 
-const karmaBreakdown = {
-  bugsReported: 12,
-  patchesSubmitted: 23,
-  totalPatchScore: 147,
-};
-
-const mockBugs = [
-  {
-    id: "bug_001",
-    title: "LangChain ChatOpenAI ignores temperature=0 on retry",
-    library: "langchain",
-    status: "confirmed" as const,
-    createdAt: "2026-02-28",
-  },
-  {
-    id: "bug_002",
-    title: "CrewAI agent loop when tool returns empty string",
-    library: "crewai",
-    status: "open" as const,
-    createdAt: "2026-02-15",
-  },
-  {
-    id: "bug_003",
-    title: "AutoGen GroupChat raises on single-agent list",
-    library: "autogen",
-    status: "patched" as const,
-    createdAt: "2026-01-30",
-  },
-  {
-    id: "bug_004",
-    title: "LlamaIndex VectorStoreIndex silently drops metadata filters",
-    library: "llamaindex",
-    status: "open" as const,
-    createdAt: "2026-01-12",
-  },
-  {
-    id: "bug_005",
-    title: "Haystack Pipeline.run ignores max_loops_allowed param",
-    library: "haystack",
-    status: "closed" as const,
-    createdAt: "2025-12-20",
-  },
-];
-
-const mockPatches = [
-  {
-    id: "patch_001",
-    bugTitle: "LangChain ChatOpenAI ignores temperature=0 on retry",
-    score: 18,
-    createdAt: "2026-03-01",
-  },
-  {
-    id: "patch_002",
-    bugTitle: "AutoGen GroupChat raises on single-agent list",
-    score: 42,
-    createdAt: "2026-02-10",
-  },
-  {
-    id: "patch_003",
-    bugTitle: "CrewAI agent loop when tool returns empty string",
-    score: 31,
-    createdAt: "2026-02-01",
-  },
-  {
-    id: "patch_004",
-    bugTitle: "Semantic Kernel planner hallucinates non-existent plugin",
-    score: 56,
-    createdAt: "2026-01-18",
-  },
-];
-
-const MCP_ENDPOINT = "https://mcp.knownissue.dev/v1";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function statusColor(status: string) {
-  switch (status) {
-    case "open":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/25";
-    case "confirmed":
-      return "bg-amber-500/15 text-amber-400 border-amber-500/25";
-    case "patched":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
-    case "closed":
-      return "bg-muted-foreground/15 text-muted-foreground border-muted-foreground/25";
-    default:
-      return "";
-  }
-}
-
-function libraryColor(_lib: string) {
-  return "bg-primary/15 text-primary border-primary/25";
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// MCP endpoint — uses NEXT_PUBLIC_API_URL at build time (client component)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const MCP_ENDPOINT = `${API_URL}/mcp`;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -146,20 +49,20 @@ export default function ProfilePage() {
       <div className="flex items-center gap-6">
         <Avatar className="h-20 w-20 border-2 border-primary/40">
           <AvatarImage
-            src={mockUser.avatarUrl}
-            alt={mockUser.githubUsername}
+            src={currentUser.avatarUrl ?? undefined}
+            alt={currentUser.githubUsername}
           />
           <AvatarFallback className="text-2xl">
-            {mockUser.githubUsername.slice(0, 2).toUpperCase()}
+            {currentUser.githubUsername.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
 
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {mockUser.githubUsername}
+            {currentUser.githubUsername}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Member since {formatDate(mockUser.memberSince)}
+            Member since {formatDate(currentUser.createdAt)}
           </p>
         </div>
       </div>
@@ -172,7 +75,7 @@ export default function ProfilePage() {
       <Card className="border-primary/20 bg-primary/[0.04]">
         <CardContent className="flex flex-col items-center py-8">
           <span className="text-5xl font-bold tracking-tight text-primary">
-            {mockUser.karma}
+            {currentUser.karma}
           </span>
           <span className="mt-1 text-sm font-medium text-muted-foreground">
             Karma Points
@@ -187,7 +90,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="flex flex-col items-center py-6">
             <span className="text-2xl font-bold">
-              {karmaBreakdown.bugsReported}
+              {dashboardStats.bugsReported}
             </span>
             <span className="mt-0.5 text-xs text-muted-foreground">
               Bugs Reported
@@ -198,7 +101,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="flex flex-col items-center py-6">
             <span className="text-2xl font-bold">
-              {karmaBreakdown.patchesSubmitted}
+              {dashboardStats.patchesSubmitted}
             </span>
             <span className="mt-0.5 text-xs text-muted-foreground">
               Patches Submitted
@@ -209,17 +112,17 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="flex flex-col items-center py-6">
             <span className="text-2xl font-bold">
-              {karmaBreakdown.totalPatchScore}
+              {dashboardStats.reviewsGiven}
             </span>
             <span className="mt-0.5 text-xs text-muted-foreground">
-              Total Patch Score
+              Reviews Given
             </span>
           </CardContent>
         </Card>
       </div>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Tabs – My Bugs / My Patches                                        */}
+      {/* Tabs - My Bugs / My Patches                                        */}
       {/* ----------------------------------------------------------------- */}
       <Tabs defaultValue="bugs" className="w-full">
         <TabsList>
@@ -237,18 +140,21 @@ export default function ProfilePage() {
               {mockBugs.map((bug, idx) => (
                 <div key={bug.id}>
                   {idx > 0 && <Separator className="my-3" />}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Link
+                    href={`/bugs/${bug.id}`}
+                    className="flex flex-col gap-2 rounded-md p-2 transition-colors hover:bg-secondary/50 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{bug.title}</span>
                       <Badge
                         variant="outline"
-                        className={libraryColor(bug.library)}
+                        className="bg-primary/15 text-primary border-primary/25"
                       >
                         {bug.library}
                       </Badge>
                       <Badge
                         variant="outline"
-                        className={statusColor(bug.status)}
+                        className={statusColor[bug.status]}
                       >
                         {bug.status}
                       </Badge>
@@ -256,7 +162,7 @@ export default function ProfilePage() {
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDate(bug.createdAt)}
                     </span>
-                  </div>
+                  </Link>
                 </div>
               ))}
             </CardContent>
@@ -273,7 +179,10 @@ export default function ProfilePage() {
               {mockPatches.map((patch, idx) => (
                 <div key={patch.id}>
                   {idx > 0 && <Separator className="my-3" />}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Link
+                    href={`/bugs/${patch.bugId}`}
+                    className="flex flex-col gap-2 rounded-md p-2 transition-colors hover:bg-secondary/50 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <span className="text-sm font-medium">
                       {patch.bugTitle}
                     </span>
@@ -288,7 +197,7 @@ export default function ProfilePage() {
                         {formatDate(patch.createdAt)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               ))}
             </CardContent>

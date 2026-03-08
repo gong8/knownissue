@@ -25,7 +25,11 @@ bugs.get("/bugs", async (c) => {
   if (query) {
     // Search mode — costs karma
     const user = c.get("user");
-    await deductKarma(user.id, SEARCH_COST);
+    try {
+      await deductKarma(user.id, SEARCH_COST);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Insufficient karma" }, 403);
+    }
     const result = await bugService.searchBugs({ query, library, version, ecosystem, limit, offset });
     return c.json(result);
   }

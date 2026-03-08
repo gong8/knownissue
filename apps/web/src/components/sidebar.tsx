@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserButton } from "@clerk/nextjs";
+import { currentUser } from "@/lib/mock-data";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -69,7 +70,10 @@ export function Sidebar() {
         <div className="flex items-center gap-3">
           <UserButton afterSignOutUrl="/" />
           {!collapsed && (
-            <span className="text-sm text-muted-foreground">Account</span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{currentUser.karma}</span>
+              <span className="text-xs text-muted-foreground">karma</span>
+            </div>
           )}
         </div>
       </div>

@@ -60,26 +60,48 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     // Not a valid GitHub token, try next strategy
   }
 
-  // Strategy 2: Clerk session token
-  // For now, we'll look up the user by the Clerk user ID passed in a custom header
-  const clerkUserId = c.req.header("X-Clerk-User-Id");
-  if (clerkUserId) {
-    let user = await prisma.user.findUnique({
-      where: { clerkId: clerkUserId },
-    });
+  // Strategy 2: Clerk JWT token
+  // Decode JWT payload to get Clerk user ID (sub claim)
+  // NOTE: Production should verify JWT signature using Clerk's JWKS
+  try {
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+      const clerkUserId = payload.sub as string;
 
-    if (user) {
-      c.set("user", {
-        id: user.id,
-        githubUsername: user.githubUsername,
-        clerkId: user.clerkId,
-        avatarUrl: user.avatarUrl,
-        karma: user.karma,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      });
-      return next();
+      if (clerkUserId) {
+        let user = await prisma.user.findUnique({
+          where: { clerkId: clerkUserId },
+        });
+
+        if (!user) {
+          // Auto-create user from Clerk
+          const username = (payload.username as string) || `user-${clerkUserId.slice(0, 8)}`;
+          user = await prisma.user.create({
+            data: {
+              githubUsername: username,
+              clerkId: clerkUserId,
+              avatarUrl: (payload.image_url as string | undefined) ?? null,
+              karma: SIGNUP_BONUS,
+            },
+          });
+        }
+
+        c.set("user", {
+          id: user.id,
+          githubUsername: user.githubUsername,
+          clerkId: user.clerkId,
+          avatarUrl: user.avatarUrl,
+          karma: user.karma,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        });
+
+        return next();
+      }
     }
+  } catch {
+    // Not a valid JWT
   }
 
   throw new HTTPException(401, { message: "Invalid or expired token" });

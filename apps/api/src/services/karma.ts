@@ -18,21 +18,20 @@ export async function awardKarma(userId: string, amount: number): Promise<number
 }
 
 export async function deductKarma(userId: string, amount: number): Promise<number> {
-  // Atomic decrement with floor check
+  // Atomic: only decrements if karma >= amount
+  const result = await prisma.$executeRawUnsafe(
+    `UPDATE "User" SET karma = karma - $1, "updatedAt" = NOW() WHERE id = $2 AND karma >= $1`,
+    amount,
+    userId
+  );
+
+  if (result === 0) {
+    throw new Error(`Insufficient karma. Required: ${amount}`);
+  }
+
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: { karma: true },
   });
-
-  if (user.karma < amount) {
-    throw new Error(`Insufficient karma. Required: ${amount}, Current: ${user.karma}`);
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: { karma: { decrement: amount } },
-    select: { karma: true },
-  });
-
-  return updated.karma;
+  return user.karma;
 }

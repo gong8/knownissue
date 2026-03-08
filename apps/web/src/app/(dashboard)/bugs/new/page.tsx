@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { bugInputSchema } from "@knownissue/shared";
@@ -30,6 +31,7 @@ const ecosystems = ["node", "python", "go", "rust", "other"] as const;
 const severities: Severity[] = ["low", "medium", "high", "critical"];
 
 export default function NewBugPage() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [library, setLibrary] = useState("");
@@ -78,13 +80,7 @@ export default function NewBugPage() {
       toast.success("Bug reported successfully!", {
         description: "Your bug report has been submitted for review.",
       });
-      setTitle("");
-      setDescription("");
-      setLibrary("");
-      setVersion("");
-      setEcosystem("");
-      setSeverity("");
-      setTagsInput("");
+      router.push("/bugs");
     } catch {
       toast.error("Failed to submit bug report", {
         description: "The API server may be unavailable. Please try again later.",

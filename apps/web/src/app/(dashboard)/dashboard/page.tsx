@@ -8,25 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { dashboardStats, mockBugs } from "@/lib/mock-data";
-
-function relativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-const severityColor: Record<string, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/20",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
-  low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-};
+import { relativeTime, severityColor } from "@/lib/helpers";
 
 export default function DashboardPage() {
   const recentBugs = mockBugs.slice(0, 5);

@@ -28,27 +28,3 @@ export async function apiFetch(
     headers,
   });
 }
-
-/**
- * Client-side fetch helper (for use in client components / server actions).
- * Accepts a pre-fetched token.
- */
-export function apiClientFetch(
-  path: string,
-  token: string | null,
-  options: RequestInit = {}
-): Promise<Response> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  return fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
-}

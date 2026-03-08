@@ -1,6 +1,5 @@
 import { prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
-import { awardKarma } from "./karma";
 
 export async function submitPatch(
   bugId: string,
@@ -14,9 +13,8 @@ export async function submitPatch(
     throw new Error("Bug not found");
   }
 
-  // Create patch and award karma in a transaction
-  const [patch] = await prisma.$transaction([
-    prisma.patch.create({
+  return prisma.$transaction(async (tx) => {
+    const patch = await tx.patch.create({
       data: {
         description,
         code,
@@ -27,13 +25,15 @@ export async function submitPatch(
         submitter: true,
         bug: { select: { title: true } },
       },
-    }),
-  ]);
+    });
 
-  // Award karma outside transaction (non-critical)
-  await awardKarma(userId, PATCH_REWARD);
+    await tx.user.update({
+      where: { id: userId },
+      data: { karma: { increment: PATCH_REWARD } },
+    });
 
-  return patch;
+    return patch;
+  });
 }
 
 export async function getPatchById(id: string) {

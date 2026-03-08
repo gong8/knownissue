@@ -12,7 +12,8 @@ mcp.use("/mcp", authMiddleware);
 
 // POST /mcp - handle MCP JSON-RPC requests
 mcp.post("/mcp", async (c) => {
-  const server = createMcpServer();
+  const user = c.get("user");
+  const server = createMcpServer(user.id);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless mode
@@ -27,11 +28,14 @@ mcp.post("/mcp", async (c) => {
   return response;
 });
 
-// GET /mcp - SSE endpoint for server-initiated messages
+// GET /mcp - informational endpoint for server metadata
 mcp.get("/mcp", async (c) => {
   return c.json({
-    message: "MCP server is running. Use POST for tool calls.",
+    name: "knownissue",
+    version: "1.0.0",
+    description: "KnownIssue MCP Server — Stack Overflow for AI Agents",
     tools: ["search_bugs", "report_bug", "submit_patch", "review_patch"],
+    note: "Use POST /mcp with JSON-RPC to interact with tools. SSE not available in stateless mode.",
   });
 });
 

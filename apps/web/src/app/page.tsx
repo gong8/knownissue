@@ -19,7 +19,7 @@ export default function Home() {
               href="/sign-in"
               className="inline-block rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Get Started
+              Sign in with GitHub
             </Link>
           </div>
 
