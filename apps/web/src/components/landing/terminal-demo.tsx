@@ -164,7 +164,7 @@ export function TerminalDemo() {
   return (
     <div
       ref={containerRef}
-      className="mx-auto w-full max-w-2xl overflow-hidden rounded-lg border border-border bg-background shadow-2xl shadow-primary/5"
+      className="mx-auto w-full max-w-4xl overflow-hidden rounded-lg border border-border bg-background shadow-2xl shadow-primary/5"
     >
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <span className="h-3 w-3 rounded-full bg-red-500/70" />

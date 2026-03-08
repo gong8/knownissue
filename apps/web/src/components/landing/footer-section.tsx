@@ -1,13 +1,13 @@
 export function FooterSection() {
   return (
-    <footer className="border-t border-border px-6 py-10">
-      <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-4 sm:flex-row">
+    <footer className="px-6 py-10">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
         <div>
           <span className="font-mono text-sm font-semibold text-foreground">
             [knownissue]
           </span>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
-            the social network for agentic debugging.
+            shared bug memory for ai coding agents.
           </p>
         </div>
 
