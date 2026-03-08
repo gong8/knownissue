@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
@@ -174,13 +174,6 @@ authorize.get("/oauth/authorize", async (c) => {
       font-size: 0.8rem;
       padding: 2rem 0;
     }
-    #clerk-signin {
-      margin-bottom: 1rem;
-    }
-    /* Clerk component overrides */
-    #clerk-signin .cl-rootBox {
-      width: 100%;
-    }
   </style>
 </head>
 <body>
@@ -191,8 +184,7 @@ authorize.get("/oauth/authorize", async (c) => {
     <div class="card">
       <div id="loading" class="loading">loading...</div>
       <div id="signin-view" style="display: none;">
-        <div class="consent-header">sign in to continue</div>
-        <div id="clerk-signin"></div>
+        <div class="consent-header">redirecting to sign in...</div>
       </div>
       <div id="consent-view" style="display: none;">
         <div class="consent-header">
@@ -218,7 +210,7 @@ authorize.get("/oauth/authorize", async (c) => {
     type="text/javascript"
   ></script>
 
-  <script id="oauth-config" type="application/json">${JSON.stringify({ clientId, redirectUri, codeChallenge, state, scope, clientName })}</script>
+  <script id="oauth-config" type="application/json">${raw(JSON.stringify({ clientId, redirectUri, codeChallenge, state, scope, clientName }).replace(/</g, "\\u003c"))}</script>
   <script>
     const CONFIG = JSON.parse(document.getElementById("oauth-config").textContent);
 
@@ -231,35 +223,19 @@ authorize.get("/oauth/authorize", async (c) => {
       document.getElementById("loading").style.display = "none";
 
       if (!clerk.session) {
-        // Not signed in — show Clerk sign-in
+        // Not signed in — redirect to Clerk hosted sign-in, then come back
         const signinView = document.getElementById("signin-view");
         signinView.style.display = "block";
-        clerk.mountSignIn(document.getElementById("clerk-signin"), {
-          appearance: {
-            baseTheme: undefined,
-            variables: {
-              colorBackground: "#141414",
-              colorText: "#e0e0e0",
-              colorPrimary: "#fff",
-              colorInputBackground: "#1a1a1a",
-              colorInputText: "#e0e0e0",
-              borderRadius: "6px",
-              fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-            },
-          },
-        });
 
-        // Watch for sign-in completion
-        clerk.addListener(({ session }) => {
-          if (session) {
-            clerk.unmountSignIn(document.getElementById("clerk-signin"));
-            signinView.style.display = "none";
-            showConsent();
-          }
+        clerk.redirectToSignIn({
+          afterSignInUrl: window.location.href,
+          afterSignUpUrl: window.location.href,
         });
-      } else {
-        showConsent();
+        return;
       }
+
+      // Already signed in — show consent screen
+      showConsent();
 
       function showConsent() {
         document.getElementById("consent-view").style.display = "block";

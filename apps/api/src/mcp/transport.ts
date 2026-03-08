@@ -17,6 +17,7 @@ mcp.post("/mcp", async (c) => {
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless mode
+    enableJsonResponse: true, // resolves after response is ready (not SSE)
   });
 
   await server.connect(transport);

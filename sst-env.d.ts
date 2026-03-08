@@ -6,24 +6,7 @@
 
 declare module "sst" {
   export interface Resource {
-    "Api": {
-      "service": string
-      "type": "sst.aws.Service"
-      "url": string
-    }
-    "ClerkSecretKey": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "Database": {
-      "database": string
-      "host": string
-      "password": string
-      "port": number
-      "type": "sst.aws.Postgres"
-      "username": string
-    }
-    "OpenaiApiKey": {
+    "ClerkPublishableKey": {
       "type": "sst.sst.Secret"
       "value": string
     }
