@@ -14,12 +14,24 @@ auth.get("/health", async (c) => {
 
 // GET /stats — public aggregate counts (no auth required)
 auth.get("/stats", async (c) => {
-  const [bugs, patches, users] = await Promise.all([
-    prisma.bug.count(),
-    prisma.patch.count(),
-    prisma.user.count(),
-  ]);
-  return c.json({ bugs, patches, users });
+  const [bugs, patches, users, openCriticals, patchesWithPositiveScore] =
+    await Promise.all([
+      prisma.bug.count(),
+      prisma.patch.count(),
+      prisma.user.count(),
+      prisma.bug.count({
+        where: { severity: "critical", status: "open" },
+      }),
+      prisma.patch.count({
+        where: { score: { gt: 0 } },
+      }),
+    ]);
+
+  const approvalRate = patches > 0
+    ? Math.round((patchesWithPositiveScore / patches) * 100)
+    : 0;
+
+  return c.json({ bugs, patches, users, openCriticals, approvalRate });
 });
 
 export { auth };
