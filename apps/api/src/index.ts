@@ -80,7 +80,7 @@ app.onError((err, c) => {
 
 const port = Number(process.env.API_PORT) || 3001;
 
-console.log(`Server running on port ${port}`);
+console.info(`Server running on port ${port}`);
 
 serve({
   fetch: app.fetch,

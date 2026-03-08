@@ -5,6 +5,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "quality": "bash scripts/quality.sh",
     "db:generate": "turbo db:generate"
   },
   "devDependencies": {

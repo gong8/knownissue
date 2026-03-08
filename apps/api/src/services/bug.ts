@@ -1,6 +1,6 @@
 import { prisma } from "@knownissue/db";
-import type { BugInput } from "@knownissue/shared";
-import { bugInputSchema } from "@knownissue/shared";
+import type { BugInput, BugUpdate } from "@knownissue/shared";
+import { bugInputSchema, bugUpdateSchema } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
 import { checkDuplicate, validateContent } from "./spam";
 
@@ -175,8 +175,8 @@ export async function listBugs(params: {
   library?: string;
   version?: string;
   ecosystem?: string;
-  status?: string;
-  severity?: string;
+  status?: string[];
+  severity?: string[];
   limit?: number;
   offset?: number;
 }) {
@@ -186,8 +186,12 @@ export async function listBugs(params: {
   if (library) where.library = library;
   if (version) where.version = version;
   if (ecosystem) where.ecosystem = ecosystem;
-  if (status) where.status = status;
-  if (severity) where.severity = severity;
+  if (status && status.length > 0) {
+    where.status = status.length === 1 ? status[0] : { in: status };
+  }
+  if (severity && severity.length > 0) {
+    where.severity = severity.length === 1 ? severity[0] : { in: severity };
+  }
 
   const [bugs, total] = await Promise.all([
     prisma.bug.findMany({
@@ -204,6 +208,28 @@ export async function listBugs(params: {
   ]);
 
   return { bugs, total };
+}
+
+export async function updateBug(id: string, input: BugUpdate, userId: string) {
+  const parsed = bugUpdateSchema.parse(input);
+
+  const bug = await prisma.bug.findUnique({ where: { id } });
+  if (!bug) throw new Error("Bug not found");
+  if (bug.reporterId !== userId) throw new Error("Only the reporter can edit this bug");
+
+  return prisma.bug.update({
+    where: { id },
+    data: parsed,
+    include: { reporter: true },
+  });
+}
+
+export async function deleteBug(id: string, userId: string) {
+  const bug = await prisma.bug.findUnique({ where: { id } });
+  if (!bug) throw new Error("Bug not found");
+  if (bug.reporterId !== userId) throw new Error("Only the reporter can delete this bug");
+
+  await prisma.bug.delete({ where: { id } });
 }
 
 export async function getUserBugs(userId: string) {

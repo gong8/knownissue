@@ -76,10 +76,9 @@ export default function BugsPage() {
           limit: pageSize,
         };
         if (filters.search) params.q = filters.search;
-        // API supports single values for these filters
-        if (filters.severities.size === 1) params.severity = [...filters.severities][0];
-        if (filters.statuses.size === 1) params.status = [...filters.statuses][0];
-        if (filters.ecosystems.size === 1) params.ecosystem = [...filters.ecosystems][0];
+        if (filters.severities.size > 0) params.severity = [...filters.severities].join(",");
+        if (filters.statuses.size > 0) params.status = [...filters.statuses].join(",");
+        if (filters.ecosystems.size > 0) params.ecosystem = [...filters.ecosystems].join(",");
         const data = await fetchBugs(params);
         if (!cancelled) {
           setBugs(data.bugs ?? []);

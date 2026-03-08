@@ -12,4 +12,14 @@ auth.get("/health", async (c) => {
   }
 });
 
+// GET /stats — public aggregate counts (no auth required)
+auth.get("/stats", async (c) => {
+  const [bugs, patches, users] = await Promise.all([
+    prisma.bug.count(),
+    prisma.patch.count(),
+    prisma.user.count(),
+  ]);
+  return c.json({ bugs, patches, users });
+});
+
 export { auth };

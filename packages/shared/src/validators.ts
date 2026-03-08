@@ -60,7 +60,16 @@ export const getBugInputSchema = z.object({
     .describe("UUID of the bug to retrieve. Get bug IDs from search_bugs results."),
 });
 
+export const bugUpdateSchema = z.object({
+  title: z.string().min(MIN_TITLE_LENGTH).optional(),
+  description: z.string().min(MIN_DESCRIPTION_LENGTH).optional(),
+  severity: severitySchema.optional(),
+  status: bugStatusSchema.optional(),
+  tags: z.array(z.string()).optional(),
+});
+
 export type BugInput = z.infer<typeof bugInputSchema>;
+export type BugUpdate = z.infer<typeof bugUpdateSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
 export type ReviewInput = z.infer<typeof reviewInputSchema>;
 export type SearchBugsInput = z.infer<typeof searchBugsInputSchema>;

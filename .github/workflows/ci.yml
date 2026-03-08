@@ -33,6 +33,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Quality check
+        run: pnpm quality
+
       - name: Lint
         run: pnpm lint
 
