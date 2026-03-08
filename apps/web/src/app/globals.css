@@ -85,56 +85,6 @@ body {
 .delay-700 { animation-delay: 700ms; }
 .delay-1000 { animation-delay: 1000ms; }
 
-/* ===== Clerk dark theme overrides ===== */
-/* Uses only stable .cl-* class selectors (no descendant/structural selectors) */
-/* @clerk/ui is passed to ClerkProvider to lock DOM structure */
-
-/* Backgrounds */
-.cl-rootBox { background-color: hsl(0, 0%, 7%) !important; }
-.cl-modalContent { background-color: hsl(0, 0%, 7%) !important; }
-.cl-card { background-color: hsl(0, 0%, 7%) !important; }
-.cl-pageScrollBox { background-color: hsl(0, 0%, 7%) !important; }
-.cl-page { background-color: hsl(0, 0%, 7%) !important; }
-.cl-profilePage { background-color: hsl(0, 0%, 7%) !important; }
-.cl-navbar { background-color: hsl(0, 0%, 7%) !important; border-color: hsl(0, 0%, 15%) !important; }
-
-/* Primary text */
-.cl-rootBox { color: hsl(0, 0%, 93%) !important; }
-.cl-headerTitle { color: hsl(0, 0%, 95%) !important; }
-.cl-userPreviewMainIdentifier { color: hsl(0, 0%, 93%) !important; }
-.cl-profileSectionContent { color: hsl(0, 0%, 93%) !important; }
-.cl-accordionTriggerButton { color: hsl(0, 0%, 93%) !important; }
-.cl-formFieldInput { color: hsl(0, 0%, 93%) !important; }
-
-/* Secondary / muted text */
-.cl-headerSubtitle { color: hsl(0, 0%, 70%) !important; }
-.cl-profileSectionTitleText { color: hsl(0, 0%, 70%) !important; }
-.cl-userPreviewSecondaryIdentifier { color: hsl(0, 0%, 65%) !important; }
-.cl-formFieldHintText { color: hsl(0, 0%, 60%) !important; }
-
-/* Navbar */
-.cl-navbarButton { color: hsl(0, 0%, 70%) !important; }
-.cl-navbarButton:hover { color: hsl(0, 0%, 93%) !important; background-color: hsl(0, 0%, 12%) !important; }
-
-/* Badges */
-.cl-badge { color: hsl(0, 0%, 85%) !important; background-color: hsl(0, 0%, 16%) !important; }
-
-/* Menus */
-.cl-menuList { background-color: hsl(0, 0%, 10%) !important; border-color: hsl(0, 0%, 18%) !important; }
-.cl-menuItem { color: hsl(0, 0%, 93%) !important; }
-.cl-menuItem:hover { background-color: hsl(0, 0%, 14%) !important; }
-.cl-menuButton { color: hsl(0, 0%, 60%) !important; }
-.cl-menuButton:hover { color: hsl(0, 0%, 93%) !important; }
-
-/* Borders */
-.cl-profileSection { border-color: hsl(0, 0%, 15%) !important; }
-.cl-profileSectionTitle { border-color: hsl(0, 0%, 15%) !important; }
-
-/* User button popover */
-.cl-userButtonPopoverActionButton { color: hsl(0, 0%, 93%) !important; }
-.cl-userButtonPopoverActionButton:hover { background-color: hsl(0, 0%, 14%) !important; }
-.cl-userButtonPopoverActionButtonIcon { color: hsl(0, 0%, 60%) !important; }
-
 /* Hide Clerk branding footer */
 .cl-footer { display: none !important; }
 .cl-userButtonPopoverFooter { display: none !important; }

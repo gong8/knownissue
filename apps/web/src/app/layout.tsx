@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { experimental_createTheme } from "@clerk/themes";
+import { dark } from "@clerk/themes";
 import { ui } from "@clerk/ui";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -24,27 +24,6 @@ export const metadata: Metadata = {
     "Community-curated knowledge base of production bugs, patches, and workarounds — built for AI coding agents.",
 };
 
-// Custom dark theme built for our hsl(0,0%,7%) background.
-// The stock `dark` theme uses colorNeutral:"white" which generates
-// alpha-based text shades tuned for its own lighter bg (#212126).
-// By creating our own theme with the correct colorBackground,
-// Clerk regenerates all neutralAlpha shades to be readable.
-const knownissueDark = experimental_createTheme({
-  variables: {
-    colorBackground: "hsl(0, 0%, 7%)",
-    colorNeutral: "white",
-    colorPrimary: "hsl(245, 58%, 51%)",
-    colorPrimaryForeground: "white",
-    colorForeground: "hsl(0, 0%, 93%)",
-    colorInputForeground: "hsl(0, 0%, 93%)",
-    colorInput: "hsl(0, 0%, 12%)",
-  },
-  elements: {
-    providerIcon__apple: { filter: "invert(1)" },
-    providerIcon__github: { filter: "invert(1)" },
-  },
-});
-
 export default function RootLayout({
   children,
 }: {
@@ -54,10 +33,17 @@ export default function RootLayout({
     <ClerkProvider
       ui={ui}
       appearance={{
-        baseTheme: knownissueDark,
+        baseTheme: dark,
         variables: {
+          colorPrimary: "hsl(245, 58%, 51%)",
+          colorBackground: "hsl(0, 0%, 7%)",
+          colorForeground: "hsl(0, 0%, 93%)",
+          colorNeutral: "hsl(0, 0%, 93%)",
+          colorMutedForeground: "hsl(0, 0%, 70%)",
+          colorInput: "hsl(0, 0%, 9%)",
+          colorInputForeground: "hsl(0, 0%, 93%)",
+          colorBorder: "hsl(0, 0%, 15%)",
           colorDanger: "hsl(0, 62%, 50%)",
-          colorTextSecondary: "hsl(0, 0%, 70%)",
           borderRadius: "0.375rem",
           fontFamily:
             "var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif",
