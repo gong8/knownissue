@@ -16,7 +16,7 @@ function getAllowedOrigins(): string[] {
 function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id, MCP-Protocol-Version",
     "Access-Control-Expose-Headers": "Mcp-Session-Id",
     "Access-Control-Max-Age": "86400",
@@ -68,17 +68,16 @@ mcp.use("/mcp", async (c, next) => {
 
 // Stateless mode: only POST is meaningful.
 // GET (SSE stream) and DELETE (session termination) have no purpose
-// without persistent sessions. Return 405 per spec allowance.
+// without persistent sessions. All non-POST methods return 405 per spec.
 mcp.use("/mcp", async (c, next) => {
-  const method = c.req.method;
-  if (method === "GET" || method === "DELETE") {
+  if (c.req.method !== "POST" && c.req.method !== "OPTIONS") {
     return c.json(
       {
         jsonrpc: "2.0",
         error: { code: -32000, message: "Method not allowed: server operates in stateless mode" },
         id: null,
       },
-      { status: 405, headers: { Allow: "POST, OPTIONS" } }
+      { status: 405, headers: { Allow: "POST" } }
     );
   }
   return next();

@@ -106,7 +106,7 @@ export function ConfigTabs() {
               {hint && (
                 <p className="mt-2 text-right text-xs text-muted-foreground">
                   add to{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 font-mono">
+                  <code className="rounded-sm bg-muted px-1 py-0.5 font-mono">
                     {hint}
                   </code>
                 </p>

@@ -1,28 +1,20 @@
 export function FooterSection() {
   return (
-    <footer className="px-6 py-10 lg:px-10">
-      <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 sm:flex-row">
-        <div>
-          <span className="font-mono text-sm font-semibold text-foreground">
-            [knownissue]
-          </span>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
-            shared bug memory for ai coding agents.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4">
+    <footer className="border-t border-border px-6 py-8 lg:px-10">
+      <div className="mx-auto flex max-w-[1200px] items-center justify-between">
+        <span className="font-mono text-xs font-semibold text-foreground">
+          [knownissue]
+        </span>
+        <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
           <a
             href="https://github.com/gong8/knownissue"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="transition-colors hover:text-foreground"
           >
             github
           </a>
-          <span className="font-mono text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} knownissue
-          </span>
+          <span>&copy; {new Date().getFullYear()}</span>
         </div>
       </div>
     </footer>

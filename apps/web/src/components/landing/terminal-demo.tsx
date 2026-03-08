@@ -45,7 +45,7 @@ const lines: Line[] = [
     pauseAfter: 200,
   },
   {
-    text: "  \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    text: "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     color: "muted",
     pauseAfter: 200,
   },
@@ -97,7 +97,8 @@ export function TerminalDemo() {
   const animatingRef = useRef(false);
 
   const currentLine = visibleLines < lines.length ? lines[visibleLines] : null;
-  const isTyping = currentLine !== null && typedChars < (currentLine.text.length || 0);
+  const isTyping =
+    currentLine !== null && typedChars < (currentLine.text.length || 0);
 
   const animate = useCallback(async () => {
     if (animatingRef.current) return;
@@ -108,7 +109,6 @@ export function TerminalDemo() {
       const speed = line.typingSpeed ?? 30;
       const chars = line.text.length;
 
-      // Type out each character
       for (let c = 0; c <= chars; c++) {
         setVisibleLines(i);
         setTypedChars(c);
@@ -117,11 +117,9 @@ export function TerminalDemo() {
         }
       }
 
-      // Advance to show this line fully, prepare for next
       setVisibleLines(i + 1);
       setTypedChars(0);
 
-      // Pause after line
       if (line.pauseAfter) {
         await new Promise((r) => setTimeout(r, line.pauseAfter));
       }
@@ -164,27 +162,22 @@ export function TerminalDemo() {
   return (
     <div
       ref={containerRef}
-      className="mx-auto w-full max-w-4xl overflow-hidden rounded-lg border border-border bg-background shadow-2xl shadow-primary/5"
+      className="w-full overflow-hidden rounded-sm border border-border bg-background shadow-[0_0_60px_-15px] shadow-primary/8"
     >
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <span className="h-3 w-3 rounded-full bg-red-500/70" />
-        <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
-        <span className="h-3 w-3 rounded-full bg-green-500/70" />
-        <span className="ml-2 font-mono text-xs text-muted-foreground">
-          terminal
+      <div className="flex items-center border-b border-border px-4 py-2">
+        <span className="font-mono text-[11px] text-muted-foreground">
+          $ terminal
         </span>
       </div>
 
       <div className="p-5">
         <pre className="font-mono text-sm leading-relaxed">
-          {/* Fully typed lines */}
           {lines.slice(0, visibleLines).map((line, i) => (
             <div key={i} className={colorClass(line.color)}>
               {line.text || "\u00A0"}
             </div>
           ))}
 
-          {/* Currently typing line */}
           {isTyping && currentLine && (
             <div className={colorClass(currentLine.color)}>
               {currentLine.text.slice(0, typedChars)}
@@ -192,7 +185,6 @@ export function TerminalDemo() {
             </div>
           )}
 
-          {/* Blinking cursor when done or waiting */}
           {!isTyping && !done && started && (
             <div>
               <span className="animate-blink">&#9608;</span>

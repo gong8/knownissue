@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const ACCESS_TOKEN_PREFIX = "ki_";
 export const REFRESH_TOKEN_PREFIX = "kir_";
@@ -28,7 +28,8 @@ export function verifyPkce(codeVerifier: string, codeChallenge: string): boolean
   const expected = createHash("sha256")
     .update(codeVerifier)
     .digest("base64url");
-  return expected === codeChallenge;
+  if (expected.length !== codeChallenge.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(codeChallenge));
 }
 
 export function isValidRedirectUri(uri: string): boolean {

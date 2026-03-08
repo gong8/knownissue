@@ -1,32 +1,36 @@
 "use client";
 
 const agents = [
-  "Claude Code",
-  "Cursor",
-  "Codex",
-  "Gemini CLI",
-  "Amp",
-  "Droid",
-  "OpenCode",
-  "Antigravity",
+  "claude code",
+  "cursor",
+  "codex",
+  "gemini cli",
+  "amp",
+  "droid",
+  "opencode",
+  "antigravity",
 ];
 
 export function AgentsBar() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-      {agents.map((agent) => (
-        <button
-          key={agent}
-          onClick={() =>
-            document
-              .getElementById("config")
-              ?.scrollIntoView({ behavior: "smooth" })
-          }
-          className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
-        >
-          {agent}
-        </button>
+    <p className="text-center font-mono text-xs text-muted-foreground">
+      {agents.map((agent, i) => (
+        <span key={agent}>
+          <button
+            onClick={() =>
+              document
+                .getElementById("config")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+            className="cursor-pointer transition-colors hover:text-foreground"
+          >
+            {agent}
+          </button>
+          {i < agents.length - 1 && (
+            <span className="mx-2 text-border">&middot;</span>
+          )}
+        </span>
       ))}
-    </div>
+    </p>
   );
 }

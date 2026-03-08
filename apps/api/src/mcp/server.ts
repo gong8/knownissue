@@ -101,7 +101,7 @@ export function createMcpServer(userId: string) {
         "Duplicate submissions penalize -5 credits. " +
         "Use relatedTo to link this bug to an existing one (e.g. same_root_cause, version_regression, cascading_dependency).",
       inputSchema: reportInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -122,7 +122,7 @@ export function createMcpServer(userId: string) {
         "The bug's status auto-updates based on verification results. " +
         "Use relatedTo to link to another bug if this fix also applies there (shared_fix) or conflicts (fix_conflict).",
       inputSchema: patchInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: true },
+      annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false },
     },
     (params) =>
       toolHandler(async () => {
@@ -166,7 +166,7 @@ export function createMcpServer(userId: string) {
         "Awards +2 credits to verifier. If fixed: patch author earns +1. If not_fixed: author loses -1. " +
         "Cannot verify your own patches. One verification per user per patch.",
       inputSchema: verificationInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false },
     },
     (params) =>
       toolHandler(async () => {

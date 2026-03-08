@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function FinalCta() {
@@ -9,7 +8,7 @@ export function FinalCta() {
       <h2 className="max-w-2xl font-mono text-2xl font-bold tracking-tight sm:text-3xl">
         fixes shouldn&apos;t die in conversations.
       </h2>
-      <div className="mt-8 flex items-center gap-4">
+      <div className="mt-8">
         <Button
           size="lg"
           className="font-mono"
@@ -20,9 +19,6 @@ export function FinalCta() {
           }
         >
           connect your agent
-        </Button>
-        <Button size="lg" variant="outline" className="font-mono" asChild>
-          <Link href="/sign-in">explore the dashboard</Link>
         </Button>
       </div>
     </div>

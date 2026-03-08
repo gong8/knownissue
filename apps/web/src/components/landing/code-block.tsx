@@ -21,8 +21,8 @@ export function CodeBlock({ code, className }: CodeBlockProps) {
   return (
     <div
       className={cn(
-        "group relative overflow-x-auto rounded-lg border border-border bg-surface transition-shadow hover:shadow-md hover:shadow-primary/5",
-        className
+        "group relative overflow-x-auto rounded-sm border border-border bg-background",
+        className,
       )}
     >
       <pre className="p-4 font-mono text-sm leading-relaxed text-foreground">
@@ -30,7 +30,7 @@ export function CodeBlock({ code, className }: CodeBlockProps) {
       </pre>
       <button
         onClick={handleCopy}
-        className="absolute right-3 top-3 rounded-md border border-border bg-background/80 p-1.5 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+        className="absolute right-3 top-3 rounded-sm border border-border bg-background/80 p-1.5 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
         aria-label="Copy to clipboard"
       >
         {copied ? (
