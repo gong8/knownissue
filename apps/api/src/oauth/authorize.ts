@@ -218,15 +218,9 @@ authorize.get("/oauth/authorize", async (c) => {
     type="text/javascript"
   ></script>
 
+  <script id="oauth-config" type="application/json">${JSON.stringify({ clientId, redirectUri, codeChallenge, state, scope, clientName })}</script>
   <script>
-    const CONFIG = {
-      clientId: "${clientId}",
-      redirectUri: "${redirectUri}",
-      codeChallenge: "${codeChallenge}",
-      state: "${state}",
-      scope: "${scope}",
-      clientName: "${clientName}",
-    };
+    const CONFIG = JSON.parse(document.getElementById("oauth-config").textContent);
 
     window.addEventListener("load", async () => {
       const clerk = window.Clerk;
@@ -394,7 +388,6 @@ authorize.post("/oauth/approve", async (c) => {
     user = await prisma.user.create({
       data: {
         clerkId,
-        githubUsername: `user-${clerkId.slice(0, 8)}`,
         credits: SIGNUP_BONUS,
       },
     });

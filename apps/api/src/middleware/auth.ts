@@ -209,6 +209,19 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
   return next();
 });
 
+function mcpUnauthorized(message: string): HTTPException {
+  const baseUrl = getApiBaseUrl();
+  return new HTTPException(401, {
+    res: new Response(JSON.stringify({ error: message }), {
+      status: 401,
+      headers: {
+        "Content-Type": "application/json",
+        "WWW-Authenticate": `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+      },
+    }),
+  });
+}
+
 /**
  * MCP-specific auth middleware: returns OAuth-compliant 401 with WWW-Authenticate.
  */
@@ -216,23 +229,13 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   const token = extractToken(c);
 
   if (!token) {
-    const baseUrl = getApiBaseUrl();
-    c.header(
-      "WWW-Authenticate",
-      `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`
-    );
-    throw new HTTPException(401, { message: "Authorization required" });
+    throw mcpUnauthorized("Authorization required");
   }
 
   const user = await resolveUser(token);
 
   if (!user) {
-    const baseUrl = getApiBaseUrl();
-    c.header(
-      "WWW-Authenticate",
-      `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`
-    );
-    throw new HTTPException(401, { message: "Invalid or expired token" });
+    throw mcpUnauthorized("Invalid or expired token");
   }
 
   c.set("user", user);

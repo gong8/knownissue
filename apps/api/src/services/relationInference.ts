@@ -309,16 +309,22 @@ export async function inferRelationsForPatch(
   patchId: string,
   bugId: string
 ): Promise<void> {
-  const patch = await prisma.patch.findUnique({
-    where: { id: patchId },
-    select: {
-      id: true,
-      steps: true,
-      bugId: true,
-      submitterId: true,
-    },
-  });
-  if (!patch) return;
+  const [patch, currentBug] = await Promise.all([
+    prisma.patch.findUnique({
+      where: { id: patchId },
+      select: {
+        id: true,
+        steps: true,
+        bugId: true,
+        submitterId: true,
+      },
+    }),
+    prisma.bug.findUnique({
+      where: { id: bugId },
+      select: { createdAt: true },
+    }),
+  ]);
+  if (!patch || !currentBug) return;
 
   const steps = (patch.steps ?? []) as Array<Record<string, unknown>>;
 
@@ -382,6 +388,7 @@ export async function inferRelationsForPatch(
           id: true,
           bugId: true,
           steps: true,
+          bug: { select: { createdAt: true } },
         },
         take: 50, // limit scan scope
       })
@@ -434,9 +441,10 @@ export async function inferRelationsForPatch(
     }
 
     if (matched) {
+      const otherIsOlder = otherPatch.bug.createdAt <= currentBug.createdAt;
       await tryInfer(
-        otherPatch.bugId,
-        bugId,
+        otherIsOlder ? otherPatch.bugId : bugId,
+        otherIsOlder ? bugId : otherPatch.bugId,
         "shared_fix",
         matchConfidence,
         {

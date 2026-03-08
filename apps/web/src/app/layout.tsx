@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { ui } from "@clerk/ui";
 import { dark } from "@clerk/ui/themes";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
@@ -47,7 +46,6 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
-      ui={ui}
       appearance={{
         theme: dark,
         variables: {

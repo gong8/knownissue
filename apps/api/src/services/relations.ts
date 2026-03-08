@@ -88,6 +88,7 @@ export async function loadRelatedBugs(
   confidence: number;
   source: "agent" | "system";
   metadata: Record<string, unknown> | null;
+  sharedPatchId?: string;
 }>>> {
   const { minConfidence = 0.7, maxPerBug = 3 } = options;
 
@@ -121,6 +122,7 @@ export async function loadRelatedBugs(
     confidence: number;
     source: "agent" | "system";
     metadata: Record<string, unknown> | null;
+    sharedPatchId?: string;
   }>>();
 
   for (const rel of relations) {
@@ -133,6 +135,12 @@ export async function loadRelatedBugs(
       sides.push({ ours: rel.targetBugId, related: rel.sourceBug });
     }
 
+    const meta = rel.metadata as Record<string, unknown> | null;
+    const sharedPatchId =
+      rel.type === "shared_fix" && meta && typeof meta.patchId === "string"
+        ? meta.patchId
+        : undefined;
+
     for (const { ours, related } of sides) {
       const list = result.get(ours) ?? [];
       if (list.length >= maxPerBug) continue;
@@ -144,7 +152,8 @@ export async function loadRelatedBugs(
         relationType: rel.type as BugRelationType,
         confidence: rel.confidence,
         source: rel.source as "agent" | "system",
-        metadata: rel.metadata as Record<string, unknown> | null,
+        metadata: meta,
+        ...(sharedPatchId !== undefined && { sharedPatchId }),
       });
       result.set(ours, list);
     }

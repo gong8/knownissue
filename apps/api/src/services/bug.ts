@@ -239,7 +239,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
 }
 
 export async function getBugById(id: string) {
-  return prisma.bug.findUnique({
+  const bug = await prisma.bug.findUnique({
     where: { id },
     include: {
       reporter: true,
@@ -255,6 +255,14 @@ export async function getBugById(id: string) {
       },
     },
   });
+  if (!bug) return null;
+
+  const relatedMap = await loadRelatedBugs([id], {
+    minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+  });
+
+  return { ...bug, relatedBugs: relatedMap.get(id) ?? [] };
 }
 
 export async function createBug(input: ReportInput, userId: string) {

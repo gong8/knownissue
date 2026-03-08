@@ -16,6 +16,7 @@ import { metadata } from "./oauth/metadata";
 import { register } from "./oauth/register";
 import { authorize } from "./oauth/authorize";
 import { token } from "./oauth/token";
+import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "./lib/types";
 
 // Validate required environment variables
@@ -85,8 +86,11 @@ app.route("/", register);
 app.route("/", authorize);
 app.route("/oauth/token", token);
 
-// Error handler — hide internals in production
+// Error handler — preserve HTTPException status codes, hide internals in production
 app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return err.getResponse();
+  }
   console.error(err);
   if (process.env.NODE_ENV === "production") {
     return c.json({ error: "Internal server error" }, 500);
