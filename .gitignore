@@ -11,10 +11,12 @@ node_modules/
 
 # Build outputs
 dist/
+*.tsbuildinfo
 
 # Next.js
 .next/
 out/
+next-env.d.ts
 
 # Prisma
 packages/db/src/generated/
