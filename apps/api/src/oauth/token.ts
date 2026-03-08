@@ -164,6 +164,9 @@ async function handleAuthorizationCode(c: any, body: any) {
     },
   });
 
+  // OAuth 2.1 §4.2.2: MUST include Cache-Control: no-store on token responses
+  c.header("Cache-Control", "no-store");
+  c.header("Pragma", "no-cache");
   return c.json({
     access_token: accessToken,
     token_type: "Bearer",
@@ -269,6 +272,9 @@ async function handleRefreshToken(c: any, body: any) {
     },
   });
 
+  // OAuth 2.1 §4.2.2: MUST include Cache-Control: no-store on token responses
+  c.header("Cache-Control", "no-store");
+  c.header("Pragma", "no-cache");
   return c.json({
     access_token: newAccessToken,
     token_type: "Bearer",

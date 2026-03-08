@@ -65,6 +65,9 @@ register.post("/oauth/register", async (c) => {
     },
   });
 
+  // OAuth 2.1 §4.2.2: MUST include Cache-Control: no-store on responses with credentials
+  c.header("Cache-Control", "no-store");
+  c.header("Pragma", "no-cache");
   return c.json({
     client_id: clientId,
     client_id_issued_at: Math.floor(Date.now() / 1000),
