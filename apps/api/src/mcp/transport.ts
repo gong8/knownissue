@@ -7,6 +7,12 @@ import type { AppEnv } from "../lib/types";
 
 const mcp = new Hono<AppEnv>();
 
+function getAllowedOrigins(): string[] {
+  return process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+    : ["http://localhost:3000"];
+}
+
 // MCP rate limit (higher than REST — abuse gated by credits)
 mcp.use(
   "/mcp",
@@ -18,17 +24,37 @@ mcp.use(
   })
 );
 
-// Origin validation per MCP spec: allow missing (non-browser), block unexpected
+// CORS + Origin validation per MCP spec:
+// - Non-browser clients (no Origin header) are allowed through
+// - Browser clients must have an allowed Origin
+// - OPTIONS preflight is handled here before auth middleware
 mcp.use("/mcp", async (c, next) => {
   const origin = c.req.header("Origin");
-  if (origin) {
-    const allowed = process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
-      : ["http://localhost:3000"];
-    if (!allowed.includes(origin)) {
-      return c.json({ error: "Forbidden: invalid origin" }, 403);
-    }
+
+  if (!origin) return next();
+
+  const allowed = getAllowedOrigins();
+  if (!allowed.includes(origin)) {
+    return c.json(
+      { jsonrpc: "2.0", error: { code: -32000, message: "Forbidden: invalid origin" }, id: null },
+      403
+    );
   }
+
+  // OPTIONS preflight — return CORS headers immediately (before auth)
+  if (c.req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id",
+        "Access-Control-Expose-Headers": "Mcp-Session-Id",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
   return next();
 });
 
@@ -47,7 +73,12 @@ mcp.use("/mcp", async (c, next) => {
         if (!hasJson || !hasSSE) {
           return c.json(
             {
-              error: "Not Acceptable: Accept header must include both application/json and text/event-stream",
+              jsonrpc: "2.0",
+              error: {
+                code: -32600,
+                message: "Not Acceptable: Accept header must include both application/json and text/event-stream",
+              },
+              id: null,
             },
             406
           );
@@ -76,6 +107,16 @@ mcp.all("/mcp", async (c) => {
   const response = await transport.handleRequest(c.req.raw);
 
   await server.close();
+
+  // Add CORS headers for browser clients with valid Origin
+  const origin = c.req.header("Origin");
+  if (origin) {
+    const allowed = getAllowedOrigins();
+    if (allowed.includes(origin)) {
+      response.headers.set("Access-Control-Allow-Origin", origin);
+      response.headers.set("Access-Control-Expose-Headers", "Mcp-Session-Id");
+    }
+  }
 
   return response;
 });

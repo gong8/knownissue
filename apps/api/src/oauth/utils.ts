@@ -34,10 +34,21 @@ export function verifyPkce(codeVerifier: string, codeChallenge: string): boolean
 export function isValidRedirectUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);
-    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+    // Localhost on any protocol — standard for MCP clients (RFC 8252 §8.3)
+    if (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]" ||
+      parsed.hostname === "::1"
+    ) {
       return true;
     }
-    return parsed.protocol === "https:";
+    // HTTPS for remote redirects
+    if (parsed.protocol === "https:") return true;
+    // Private-use URI schemes for native apps (RFC 8252 §7.1)
+    // e.g. vscode://, com.example.app:// — secure when combined with PKCE
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
+    return false;
   } catch {
     return false;
   }

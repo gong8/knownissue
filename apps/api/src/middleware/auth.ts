@@ -226,8 +226,8 @@ function mcpUnauthorized(
   const baseUrl = getApiBaseUrl();
   const resourceMetadata = `resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`;
   const wwwAuthenticate = error
-    ? `Bearer error="${error.code}", error_description="${error.description}", ${resourceMetadata}`
-    : `Bearer ${resourceMetadata}`;
+    ? `Bearer error="${error.code}", error_description="${error.description}", ${resourceMetadata}, scope="mcp:tools"`
+    : `Bearer ${resourceMetadata}, scope="mcp:tools"`;
   return new HTTPException(401, {
     res: new Response(JSON.stringify({ error: message }), {
       status: 401,
@@ -264,12 +264,16 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   // Enforce scope for OAuth tokens (scopes defined = OAuth token)
   // Clerk/GitHub auth has no scopes — implicit full access
   if (result.scopes && !result.scopes.includes("mcp:tools")) {
+    const baseUrl = getApiBaseUrl();
     throw new HTTPException(403, {
       res: new Response(
         JSON.stringify({ error: "Forbidden: insufficient scope" }),
         {
           status: 403,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "WWW-Authenticate": `Bearer error="insufficient_scope", scope="mcp:tools", resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+          },
         }
       ),
     });

@@ -3,7 +3,7 @@ import { getApiBaseUrl } from "./utils.js";
 
 const metadata = new Hono();
 
-metadata.get("/.well-known/oauth-protected-resource", (c) => {
+const protectedResourceHandler = (c: any) => {
   const baseUrl = getApiBaseUrl();
   return c.json({
     resource: baseUrl,
@@ -11,9 +11,9 @@ metadata.get("/.well-known/oauth-protected-resource", (c) => {
     scopes_supported: ["mcp:tools"],
     bearer_methods_supported: ["header"],
   });
-});
+};
 
-metadata.get("/.well-known/oauth-authorization-server", (c) => {
+const authServerHandler = (c: any) => {
   const baseUrl = getApiBaseUrl();
   return c.json({
     issuer: baseUrl,
@@ -27,6 +27,14 @@ metadata.get("/.well-known/oauth-authorization-server", (c) => {
     scopes_supported: ["mcp:tools"],
     token_endpoint_auth_methods_supported: ["none"],
   });
-});
+};
+
+// Root well-known endpoints
+metadata.get("/.well-known/oauth-protected-resource", protectedResourceHandler);
+metadata.get("/.well-known/oauth-authorization-server", authServerHandler);
+
+// RFC 8414 path-suffixed endpoints (clients append MCP endpoint path)
+metadata.get("/.well-known/oauth-protected-resource/mcp", protectedResourceHandler);
+metadata.get("/.well-known/oauth-authorization-server/mcp", authServerHandler);
 
 export { metadata };
