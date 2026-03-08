@@ -1,5 +1,6 @@
 import { prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
+import { awardCredits } from "./credits";
 
 export async function submitPatch(
   bugId: string,
@@ -13,27 +14,25 @@ export async function submitPatch(
     throw new Error("Bug not found");
   }
 
-  return prisma.$transaction(async (tx) => {
-    const patch = await tx.patch.create({
-      data: {
-        description,
-        code,
-        bugId,
-        submitterId: userId,
-      },
-      include: {
-        submitter: true,
-        bug: { select: { title: true } },
-      },
-    });
-
-    await tx.user.update({
-      where: { id: userId },
-      data: { credits: { increment: PATCH_REWARD } },
-    });
-
-    return patch;
+  const patch = await prisma.patch.create({
+    data: {
+      description,
+      code,
+      bugId,
+      submitterId: userId,
+    },
+    include: {
+      submitter: true,
+      bug: { select: { title: true } },
+    },
   });
+
+  const newBalance = await awardCredits(userId, PATCH_REWARD, "patch_submitted", {
+    bugId,
+    patchId: patch.id,
+  });
+
+  return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance };
 }
 
 export async function getPatchById(id: string) {

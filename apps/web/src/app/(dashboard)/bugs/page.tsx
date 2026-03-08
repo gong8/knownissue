@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { ListItem } from "@/components/list-item";
 import { FilterBar, type FilterState } from "@/components/filter-bar";
@@ -155,8 +156,16 @@ export default function BugsPage() {
       {/* Bug list */}
       <div className="rounded-lg border border-border">
         {loading && (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <p className="text-sm font-mono">loading...</p>
+          <div>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
+                <Skeleton className="h-2 w-2 rounded-full" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="hidden sm:block h-3 w-28" />
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+            ))}
           </div>
         )}
         {!loading && sortedBugs.length === 0 && (

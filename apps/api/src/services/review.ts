@@ -1,6 +1,7 @@
 import { prisma } from "@knownissue/db";
 import type { Vote } from "@knownissue/shared";
 import { UPVOTE_REWARD, DOWNVOTE_PENALTY } from "@knownissue/shared";
+import { awardCredits, penalizeCredits } from "./credits";
 
 export async function reviewPatch(
   patchId: string,
@@ -39,7 +40,7 @@ export async function reviewPatch(
 
   const scoreChange = vote === "up" ? 1 : -1;
 
-  return prisma.$transaction(async (tx) => {
+  const review = await prisma.$transaction(async (tx) => {
     const review = await tx.review.create({
       data: {
         vote,
@@ -55,21 +56,23 @@ export async function reviewPatch(
       data: { score: { increment: scoreChange } },
     });
 
-    // Adjust patch author's credits
-    if (vote === "up") {
-      await tx.user.update({
-        where: { id: patch.submitterId },
-        data: { credits: { increment: UPVOTE_REWARD } },
-      });
-    } else {
-      // For downvotes, don't let credits go below 0
-      await tx.$executeRawUnsafe(
-        `UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
-        DOWNVOTE_PENALTY,
-        patch.submitterId
-      );
-    }
-
     return review;
   });
+
+  // Adjust patch author's credits (outside transaction so logging works)
+  if (vote === "up") {
+    await awardCredits(patch.submitterId, UPVOTE_REWARD, "patch_upvoted", {
+      patchId,
+    });
+  } else {
+    await penalizeCredits(patch.submitterId, DOWNVOTE_PENALTY, "patch_downvoted", {
+      patchId,
+    });
+  }
+
+  const creditEffect = vote === "up"
+    ? { authorCreditDelta: UPVOTE_REWARD }
+    : { authorCreditDelta: -DOWNVOTE_PENALTY };
+
+  return { ...review, ...creditEffect };
 }

@@ -33,7 +33,7 @@ bugs.get("/bugs", optionalAuthMiddleware, async (c) => {
       return c.json({ error: "Authentication required for search" }, 401);
     }
     try {
-      await deductCredits(user.id, SEARCH_COST);
+      await deductCredits(user.id, SEARCH_COST, "search");
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "Insufficient credits" }, 403);
     }

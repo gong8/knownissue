@@ -42,8 +42,8 @@ export function createMcpServer(userId: string) {
     },
     (params) =>
       toolHandler(async () => {
+        await deductCredits(userId, SEARCH_COST, "search");
         const result = await bugService.searchBugs(params);
-        await deductCredits(userId, SEARCH_COST);
         return result;
       })
   );

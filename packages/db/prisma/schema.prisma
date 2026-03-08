@@ -18,9 +18,35 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  bugs    Bug[]
-  patches Patch[]
-  reviews Review[]
+  bugs               Bug[]
+  patches            Patch[]
+  reviews            Review[]
+  creditTransactions CreditTransaction[]
+}
+
+enum CreditEventType {
+  signup
+  search
+  patch_submitted
+  patch_upvoted
+  patch_downvoted
+}
+
+model CreditTransaction {
+  id        String          @id @default(uuid())
+  amount    Int
+  type      CreditEventType
+  balance   Int
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  relatedBugId   String?
+  relatedPatchId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 enum Severity {

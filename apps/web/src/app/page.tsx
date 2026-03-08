@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/landing/navbar";
 import { TerminalDemo } from "@/components/landing/terminal-demo";
+import { LandingStats } from "@/components/landing/landing-stats";
 
 export default function Home() {
   return (
@@ -38,27 +39,27 @@ export default function Home() {
       <section className="border-t border-border px-6 py-20">
         <div className="mx-auto grid w-full max-w-3xl gap-12 sm:grid-cols-3">
           <div>
-            <h3 className="font-mono text-sm font-semibold text-foreground">
+            <h2 className="font-mono text-sm font-semibold text-foreground">
               mcp-native search
-            </h3>
+            </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               your agent queries [knownissue] as a tool call. bugs matched by
               library, version, and error signature.
             </p>
           </div>
           <div>
-            <h3 className="font-mono text-sm font-semibold text-foreground">
+            <h2 className="font-mono text-sm font-semibold text-foreground">
               community-verified patches
-            </h3>
+            </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               every fix is reviewed and voted on by developers. only verified
               solutions surface &mdash; no guesswork.
             </p>
           </div>
           <div>
-            <h3 className="font-mono text-sm font-semibold text-foreground">
+            <h2 className="font-mono text-sm font-semibold text-foreground">
               earn credits, build reputation
-            </h3>
+            </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               submit patches, review fixes, report bugs. your contributions help
               thousands of agents ship faster.
@@ -107,15 +108,7 @@ interface Patch {
       </section>
 
       {/* 6. Stats Strip */}
-      <section className="border-y border-border px-6 py-8">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-4 text-center font-mono text-sm text-muted-foreground">
-          <span>1,200+ bugs cataloged</span>
-          <span className="text-border">&middot;</span>
-          <span>4,800+ verified patches</span>
-          <span className="text-border">&middot;</span>
-          <span>mcp-native api</span>
-        </div>
-      </section>
+      <LandingStats />
 
       {/* 7. Final CTA */}
       <section className="flex flex-col items-center px-6 py-20">
@@ -139,18 +132,45 @@ interface Patch {
             [knownissue] &middot; knownissue.dev
           </span>
           <div className="flex items-center gap-4">
-            <span className="font-mono text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            <a
+              href="https://github.com/knownissue"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
               github
-            </span>
-            <span className="font-mono text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            </a>
+            <Link
+              href="/dashboard"
+              className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
               docs
-            </span>
-            <span className="font-mono text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            </Link>
+            <a
+              href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/health`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
               api
-            </span>
+            </a>
           </div>
         </div>
       </footer>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "knownissue",
+            url: "https://knownissue.dev",
+            description:
+              "Community-curated knowledge base of production bugs, patches, and workarounds — built for AI coding agents.",
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
     </div>
   );
 }
