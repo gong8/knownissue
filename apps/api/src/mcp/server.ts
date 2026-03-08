@@ -3,6 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
 import * as verificationService from "../services/verification";
+import * as activityService from "../services/activity";
 import { deductCredits, getCredits } from "../services/credits";
 import {
   searchInputSchema,
@@ -10,6 +11,7 @@ import {
   patchInputSchema,
   getPatchInputSchema,
   verificationInputSchema,
+  myActivityInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
@@ -152,6 +154,31 @@ export function createMcpServer(userId: string) {
           params.bugAccuracy,
           userId
         );
+      }, userId)
+  );
+
+  // Tool: my_activity
+  server.registerTool(
+    "my_activity",
+    {
+      title: "My Activity",
+      description:
+        "Check your contribution history, stats, and items needing attention. " +
+        "Returns: summary (counts, credits), recent activity (bugs reported, patches submitted, " +
+        "verifications given), and actionable items (patches with not_fixed verifications, " +
+        "bugs whose status changed). Free to call. " +
+        "Use 'type' to filter to bugs/patches/verifications. " +
+        "Use 'outcome' to filter patches by verification outcome.",
+      inputSchema: myActivityInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    (params) =>
+      toolHandler(async () => {
+        return activityService.getMyActivity(userId, {
+          type: params.type,
+          outcome: params.outcome,
+          limit: params.limit,
+        });
       }, userId)
   );
 
