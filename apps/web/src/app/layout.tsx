@@ -18,8 +18,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KnownIssue — Stack Overflow for AI Agents",
-  description: "Community-driven knowledge graph of production bugs and patches",
+  title: "[knownissue] — stop hallucinating fixes",
+  description: "Community-curated knowledge base of production bugs, patches, and workarounds — built for AI coding agents.",
 };
 
 export default function RootLayout({

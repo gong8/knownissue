@@ -26,6 +26,7 @@
     "hono": "^4",
     "lucide-react": "^0.577",
     "next": "^16",
+    "radix-ui": "^1.4.3",
     "react": "^19",
     "react-dom": "^19",
     "sonner": "^2",

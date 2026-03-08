@@ -1,21 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { bugInputSchema } from "@knownissue/shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 import {
   Select,
   SelectContent,
@@ -42,8 +35,8 @@ export default function NewBugPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     setErrors({});
 
     const tags = tagsInput
@@ -90,175 +83,166 @@ export default function NewBugPage() {
     }
   }
 
+  // Cmd+Enter to submit
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      {/* Back link */}
-      <Link
-        href="/bugs"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to bugs
-      </Link>
+    <div className="mx-auto max-w-2xl space-y-4">
+      {/* Breadcrumb header */}
+      <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
+        <Link href="/bugs" className="hover:text-foreground transition-colors">
+          bugs
+        </Link>
+        <span>/</span>
+        <span className="text-foreground">new</span>
+      </nav>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Report a Bug</CardTitle>
-          <CardDescription>
-            Document a bug you encountered in an open-source library so others
-            (and their agents) can find solutions faster.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Title */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="title"
-                className="text-sm font-medium"
-              >
-                Title
-              </label>
-              <Input
-                id="title"
-                placeholder="e.g. Memory leak in useEffect cleanup with React 19"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              {errors.title && (
-                <p className="text-xs text-destructive">{errors.title}</p>
-              )}
-            </div>
+      <PageHeader title="report a bug" />
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="description"
-                className="text-sm font-medium"
-              >
-                Description
-              </label>
-              <Textarea
-                id="description"
-                placeholder="Describe the bug in detail: what happens, reproduction steps, expected vs. actual behavior..."
-                rows={6}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              {errors.description && (
-                <p className="text-xs text-destructive">{errors.description}</p>
-              )}
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Title */}
+        <div className="space-y-1">
+          <label htmlFor="title" className="text-xs font-mono text-muted-foreground">
+            title
+          </label>
+          <Input
+            id="title"
+            placeholder="e.g. Memory leak in useEffect cleanup with React 19"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          {errors.title && (
+            <p className="text-xs text-destructive">{errors.title}</p>
+          )}
+        </div>
 
-            {/* Library + Version (side by side) */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="library"
-                  className="text-sm font-medium"
-                >
-                  Library
-                </label>
-                <Input
-                  id="library"
-                  placeholder="e.g. react"
-                  value={library}
-                  onChange={(e) => setLibrary(e.target.value)}
-                />
-                {errors.library && (
-                  <p className="text-xs text-destructive">{errors.library}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="version"
-                  className="text-sm font-medium"
-                >
-                  Version
-                </label>
-                <Input
-                  id="version"
-                  placeholder="e.g. 19.0.0"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                />
-                {errors.version && (
-                  <p className="text-xs text-destructive">{errors.version}</p>
-                )}
-              </div>
-            </div>
+        {/* Description */}
+        <div className="space-y-1">
+          <label htmlFor="description" className="text-xs font-mono text-muted-foreground">
+            description
+          </label>
+          <Textarea
+            id="description"
+            placeholder="Describe the bug in detail..."
+            rows={6}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          {errors.description && (
+            <p className="text-xs text-destructive">{errors.description}</p>
+          )}
+        </div>
 
-            {/* Ecosystem + Severity (side by side) */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Ecosystem</label>
-                <Select value={ecosystem} onValueChange={setEcosystem}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ecosystem" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ecosystems.map((eco) => (
-                      <SelectItem key={eco} value={eco}>
-                        {eco}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.ecosystem && (
-                  <p className="text-xs text-destructive">{errors.ecosystem}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Severity</label>
-                <Select value={severity} onValueChange={setSeverity}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select severity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {severities.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.severity && (
-                  <p className="text-xs text-destructive">{errors.severity}</p>
-                )}
-              </div>
-            </div>
+        {/* Library + Version */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="library" className="text-xs font-mono text-muted-foreground">
+              library
+            </label>
+            <Input
+              id="library"
+              placeholder="e.g. react"
+              value={library}
+              onChange={(e) => setLibrary(e.target.value)}
+            />
+            {errors.library && (
+              <p className="text-xs text-destructive">{errors.library}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="version" className="text-xs font-mono text-muted-foreground">
+              version
+            </label>
+            <Input
+              id="version"
+              placeholder="e.g. 19.0.0"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+            />
+            {errors.version && (
+              <p className="text-xs text-destructive">{errors.version}</p>
+            )}
+          </div>
+        </div>
 
-            {/* Tags */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="tags"
-                className="text-sm font-medium"
-              >
-                Tags
-              </label>
-              <Input
-                id="tags"
-                placeholder="comma-separated, e.g. memory-leak, hooks, useEffect"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Separate tags with commas
-              </p>
-              {errors.tags && (
-                <p className="text-xs text-destructive">{errors.tags}</p>
-              )}
-            </div>
+        {/* Ecosystem + Severity */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-mono text-muted-foreground">ecosystem</label>
+            <Select value={ecosystem} onValueChange={setEcosystem}>
+              <SelectTrigger>
+                <SelectValue placeholder="select ecosystem" />
+              </SelectTrigger>
+              <SelectContent>
+                {ecosystems.map((eco) => (
+                  <SelectItem key={eco} value={eco}>
+                    {eco}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.ecosystem && (
+              <p className="text-xs text-destructive">{errors.ecosystem}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-mono text-muted-foreground">severity</label>
+            <Select value={severity} onValueChange={setSeverity}>
+              <SelectTrigger>
+                <SelectValue placeholder="select severity" />
+              </SelectTrigger>
+              <SelectContent>
+                {severities.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.severity && (
+              <p className="text-xs text-destructive">{errors.severity}</p>
+            )}
+          </div>
+        </div>
 
-            {/* Submit */}
-            <div className="flex justify-end pt-2">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Report Bug"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        {/* Tags */}
+        <div className="space-y-1">
+          <label htmlFor="tags" className="text-xs font-mono text-muted-foreground">
+            tags
+          </label>
+          <Input
+            id="tags"
+            placeholder="comma-separated, e.g. memory-leak, hooks, useEffect"
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground font-mono">
+            separate tags with commas
+          </p>
+          {errors.tags && (
+            <p className="text-xs text-destructive">{errors.tags}</p>
+          )}
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-[11px] text-muted-foreground font-mono">
+            {"\u2318"}+enter to submit
+          </span>
+          <Button type="submit" size="sm" disabled={isSubmitting} className="font-mono">
+            {isSubmitting ? "submitting..." : "report bug"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
