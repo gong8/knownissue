@@ -87,17 +87,13 @@ export default function ActivityPage() {
     loadFeed();
   }, [loadFeed]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [typeFilter, severityFilter, ecosystemFilter, rangeFilter]);
-
   function toggleFilter(
     current: string,
     value: string,
     setter: (v: string) => void,
   ) {
     setter(current === value ? "" : value);
+    setPage(1);
   }
 
   if (loading) {

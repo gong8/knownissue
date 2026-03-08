@@ -20,7 +20,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<{
-    credits: number;
     bugsReported: number;
     patchesSubmitted: number;
     verificationsGiven: number;
