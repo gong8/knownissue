@@ -16,13 +16,13 @@ export const bugInputSchema = z.object({
 });
 
 export const patchInputSchema = z.object({
-  bugId: z.string().uuid("Invalid bug ID"),
+  bugId: z.uuid({ message: "Invalid bug ID" }),
   description: z.string().min(1, "Description is required"),
   code: z.string().min(1, "Code is required"),
 });
 
 export const reviewInputSchema = z.object({
-  patchId: z.string().uuid("Invalid patch ID"),
+  patchId: z.uuid({ message: "Invalid patch ID" }),
   vote: voteSchema,
   comment: z.string().nullable().default(null),
 });

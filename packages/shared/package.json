@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.23"
+    "zod": "^4"
   },
   "devDependencies": {
     "@knownissue/tsconfig": "workspace:*",

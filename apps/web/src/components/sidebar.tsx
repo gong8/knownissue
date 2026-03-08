@@ -68,7 +68,7 @@ export function Sidebar() {
 
       <div className="border-t border-border p-4">
         <div className="flex items-center gap-3">
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-medium">{currentUser.karma}</span>

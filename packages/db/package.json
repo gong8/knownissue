@@ -15,11 +15,12 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6"
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7"
   },
   "devDependencies": {
     "@knownissue/tsconfig": "workspace:*",
-    "prisma": "^6",
+    "prisma": "^7",
     "tsx": "^4",
     "typescript": "^5"
   }

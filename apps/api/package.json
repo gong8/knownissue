@@ -14,11 +14,11 @@
     "@knownissue/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "hono": "^4",
-    "zod": "^3.23"
+    "zod": "^4"
   },
   "devDependencies": {
     "@knownissue/tsconfig": "workspace:*",
-    "@types/node": "^22",
+    "@types/node": "^25",
     "tsx": "^4",
     "typescript": "^5"
   }
