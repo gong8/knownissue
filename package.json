@@ -1,0 +1,14 @@
+{
+  "name": "knownissue",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:generate": "turbo db:generate"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  },
+  "packageManager": "pnpm@9.15.4"
+}
