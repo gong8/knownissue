@@ -55,16 +55,16 @@ export async function reviewPatch(
       data: { score: { increment: scoreChange } },
     });
 
-    // Adjust patch author's karma
+    // Adjust patch author's credits
     if (vote === "up") {
       await tx.user.update({
         where: { id: patch.submitterId },
-        data: { karma: { increment: UPVOTE_REWARD } },
+        data: { credits: { increment: UPVOTE_REWARD } },
       });
     } else {
-      // For downvotes, don't let karma go below 0
+      // For downvotes, don't let credits go below 0
       await tx.$executeRawUnsafe(
-        `UPDATE "User" SET karma = GREATEST(karma - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
+        `UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
         DOWNVOTE_PENALTY,
         patch.submitterId
       );

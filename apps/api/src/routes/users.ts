@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth";
 import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
-import { getKarma } from "../services/karma";
+import { getCredits } from "../services/credits";
 import type { AppEnv } from "../lib/types";
 
 const users = new Hono<AppEnv>();
@@ -12,8 +12,8 @@ users.use("/*", authMiddleware);
 // GET /users/me — current user profile
 users.get("/users/me", async (c) => {
   const user = c.get("user");
-  const karma = await getKarma(user.id);
-  return c.json({ ...user, karma });
+  const credits = await getCredits(user.id);
+  return c.json({ ...user, credits });
 });
 
 // GET /users/me/bugs — user's bugs

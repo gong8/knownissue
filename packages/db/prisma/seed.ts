@@ -13,7 +13,7 @@ async function main() {
     data: {
       githubUsername: "alice-dev",
       avatarUrl: "https://github.com/alice-dev.png",
-      karma: 50,
+      credits: 50,
     },
   });
 
@@ -21,7 +21,7 @@ async function main() {
     data: {
       githubUsername: "bob-codes",
       avatarUrl: "https://github.com/bob-codes.png",
-      karma: 35,
+      credits: 35,
     },
   });
 
@@ -29,7 +29,7 @@ async function main() {
     data: {
       githubUsername: "carol-eng",
       avatarUrl: "https://github.com/carol-eng.png",
-      karma: 20,
+      credits: 20,
     },
   });
 

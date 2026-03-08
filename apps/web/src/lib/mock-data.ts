@@ -7,7 +7,7 @@ export const currentUser: User = {
   githubUsername: "janedoe",
   clerkId: "clerk_001",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=jane",
-  karma: 142,
+  credits: 142,
   createdAt: new Date("2025-09-15"),
   updatedAt: new Date("2026-03-01"),
 };
@@ -17,7 +17,7 @@ const userAlice: User = {
   githubUsername: "alice-ml",
   clerkId: "clerk_002",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=alice",
-  karma: 87,
+  credits: 87,
   createdAt: new Date("2025-10-02"),
   updatedAt: new Date("2026-02-20"),
 };
@@ -27,7 +27,7 @@ const userBob: User = {
   githubUsername: "bobbuilds",
   clerkId: "clerk_003",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=bob",
-  karma: 214,
+  credits: 214,
   createdAt: new Date("2025-08-10"),
   updatedAt: new Date("2026-03-05"),
 };
@@ -37,7 +37,7 @@ const userCarla: User = {
   githubUsername: "carla-rust",
   clerkId: "clerk_004",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=carla",
-  karma: 63,
+  credits: 63,
   createdAt: new Date("2025-11-18"),
   updatedAt: new Date("2026-02-28"),
 };
@@ -47,7 +47,7 @@ const userDan: User = {
   githubUsername: "dan-ops",
   clerkId: "clerk_005",
   avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=dan",
-  karma: 31,
+  credits: 31,
   createdAt: new Date("2026-01-05"),
   updatedAt: new Date("2026-03-06"),
 };
@@ -270,7 +270,7 @@ export const mockBugs: Bug[] = [
 // ── Dashboard Stats ─────────────────────────────────────────────────────────
 
 export const dashboardStats = {
-  karma: currentUser.karma,
+  credits: currentUser.credits,
   bugsReported: 8,
   patchesSubmitted: 14,
   reviewsGiven: 23,

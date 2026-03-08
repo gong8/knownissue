@@ -61,8 +61,8 @@ export default function ProfilePage() {
       {/* Inline stats row */}
       <div className="flex items-baseline gap-8">
         <div>
-          <span className="text-2xl font-bold font-mono">{currentUser.karma}</span>
-          <span className="ml-1.5 text-xs text-muted-foreground">karma</span>
+          <span className="text-2xl font-bold font-mono">{currentUser.credits}</span>
+          <span className="ml-1.5 text-xs text-muted-foreground">credits</span>
         </div>
         <div>
           <span className="text-2xl font-bold font-mono">{dashboardStats.bugsReported}</span>

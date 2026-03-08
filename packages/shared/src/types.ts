@@ -7,7 +7,7 @@ export interface User {
   githubUsername: string;
   clerkId: string | null;
   avatarUrl: string | null;
-  karma: number;
+  credits: number;
   createdAt: Date;
   updatedAt: Date;
 }

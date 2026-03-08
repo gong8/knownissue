@@ -1,37 +1,37 @@
 import { prisma } from "@knownissue/db";
 
-export async function getKarma(userId: string): Promise<number> {
+export async function getCredits(userId: string): Promise<number> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { karma: true },
+    select: { credits: true },
   });
-  return user.karma;
+  return user.credits;
 }
 
-export async function awardKarma(userId: string, amount: number): Promise<number> {
+export async function awardCredits(userId: string, amount: number): Promise<number> {
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { karma: { increment: amount } },
-    select: { karma: true },
+    data: { credits: { increment: amount } },
+    select: { credits: true },
   });
-  return user.karma;
+  return user.credits;
 }
 
-export async function deductKarma(userId: string, amount: number): Promise<number> {
-  // Atomic: only decrements if karma >= amount
+export async function deductCredits(userId: string, amount: number): Promise<number> {
+  // Atomic: only decrements if credits >= amount
   const result = await prisma.$executeRawUnsafe(
-    `UPDATE "User" SET karma = karma - $1, "updatedAt" = NOW() WHERE id = $2 AND karma >= $1`,
+    `UPDATE "User" SET credits = credits - $1, "updatedAt" = NOW() WHERE id = $2 AND credits >= $1`,
     amount,
     userId
   );
 
   if (result === 0) {
-    throw new Error(`Insufficient karma. Required: ${amount}`);
+    throw new Error(`Insufficient credits. Required: ${amount}`);
   }
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { karma: true },
+    select: { credits: true },
   });
-  return user.karma;
+  return user.credits;
 }

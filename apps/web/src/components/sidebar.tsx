@@ -170,8 +170,8 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
           <UserButton />
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="font-mono text-sm font-medium">{currentUser.karma}</span>
-              <span className="text-xs text-muted-foreground">karma</span>
+              <span className="font-mono text-sm font-medium">{currentUser.credits}</span>
+              <span className="text-xs text-muted-foreground">credits</span>
             </div>
           )}
         </div>

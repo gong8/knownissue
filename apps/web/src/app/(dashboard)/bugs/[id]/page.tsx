@@ -394,7 +394,7 @@ export default function BugDetailPage() {
           <DialogHeader>
             <DialogTitle className="font-mono text-sm">submit a patch</DialogTitle>
             <DialogDescription>
-              Provide a fix for this bug. You&apos;ll earn 5 karma points.
+              Provide a fix for this bug. You&apos;ll earn 5 credits.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">

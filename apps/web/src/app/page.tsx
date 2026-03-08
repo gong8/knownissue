@@ -57,7 +57,7 @@ export default function Home() {
           </div>
           <div>
             <h3 className="font-mono text-sm font-semibold text-foreground">
-              earn karma, build reputation
+              earn credits, build reputation
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               submit patches, review fixes, report bugs. your contributions help

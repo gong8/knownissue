@@ -39,7 +39,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
           data: {
             githubUsername: ghUser.login,
             avatarUrl: ghUser.avatar_url,
-            karma: SIGNUP_BONUS,
+            credits: SIGNUP_BONUS,
           },
         });
       }
@@ -49,7 +49,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
         githubUsername: user.githubUsername,
         clerkId: user.clerkId,
         avatarUrl: user.avatarUrl,
-        karma: user.karma,
+        credits: user.credits,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -82,7 +82,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
               githubUsername: username,
               clerkId: clerkUserId,
               avatarUrl: (payload.image_url as string | undefined) ?? null,
-              karma: SIGNUP_BONUS,
+              credits: SIGNUP_BONUS,
             },
           });
         }
@@ -92,7 +92,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
           githubUsername: user.githubUsername,
           clerkId: user.clerkId,
           avatarUrl: user.avatarUrl,
-          karma: user.karma,
+          credits: user.credits,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         });

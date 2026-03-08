@@ -29,7 +29,7 @@ export async function submitPatch(
 
     await tx.user.update({
       where: { id: userId },
-      data: { karma: { increment: PATCH_REWARD } },
+      data: { credits: { increment: PATCH_REWARD } },
     });
 
     return patch;

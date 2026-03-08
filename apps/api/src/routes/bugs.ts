@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { bugInputSchema, SEARCH_COST } from "@knownissue/shared";
 import { authMiddleware } from "../middleware/auth";
 import * as bugService from "../services/bug";
-import { deductKarma } from "../services/karma";
+import { deductCredits } from "../services/credits";
 import type { AppEnv } from "../lib/types";
 
 const bugs = new Hono<AppEnv>();
@@ -23,18 +23,18 @@ bugs.get("/bugs", async (c) => {
   const offset = (page - 1) * limit;
 
   if (query) {
-    // Search mode — costs karma
+    // Search mode — costs credits
     const user = c.get("user");
     try {
-      await deductKarma(user.id, SEARCH_COST);
+      await deductCredits(user.id, SEARCH_COST);
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "Insufficient karma" }, 403);
+      return c.json({ error: error instanceof Error ? error.message : "Insufficient credits" }, 403);
     }
     const result = await bugService.searchBugs({ query, library, version, ecosystem, limit, offset });
     return c.json(result);
   }
 
-  // List mode — no karma cost
+  // List mode — no credit cost
   const result = await bugService.listBugs({ library, version, ecosystem, status, severity, limit, offset });
   return c.json(result);
 });

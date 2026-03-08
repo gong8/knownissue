@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
 import * as reviewService from "../services/review";
-import { deductKarma } from "../services/karma";
+import { deductCredits } from "../services/credits";
 import {
   searchBugsInputSchema,
   bugInputSchema,
@@ -20,11 +20,11 @@ export function createMcpServer(userId: string) {
   // Tool: search_bugs
   server.tool(
     "search_bugs",
-    "Search the KnownIssue database for known bugs. Costs 1 karma per search.",
+    "Search the KnownIssue database for known bugs. Costs 1 credit per search.",
     searchBugsInputSchema.shape,
     async (params, extra) => {
       try {
-        await deductKarma(userId, SEARCH_COST);
+        await deductCredits(userId, SEARCH_COST);
         const result = await bugService.searchBugs(params);
         return {
           content: [
@@ -81,7 +81,7 @@ export function createMcpServer(userId: string) {
   // Tool: submit_patch
   server.tool(
     "submit_patch",
-    "Submit a patch (fix) for an existing bug. Awards 5 karma to submitter.",
+    "Submit a patch (fix) for an existing bug. Awards 5 credits to submitter.",
     patchInputSchema.shape,
     async (params, extra) => {
       try {
