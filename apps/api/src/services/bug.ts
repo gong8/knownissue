@@ -4,7 +4,7 @@ import type { Role } from "@knownissue/shared";
 import {
   reportInputSchema,
   bugUpdateSchema,
-  REPORT_REWARD,
+  REPORT_IMMEDIATE_REWARD,
   DUPLICATE_PENALTY,
   ACCESS_COUNT_THRESHOLD,
   PATCHED_FIXED_COUNT,
@@ -304,9 +304,9 @@ export async function createBug(input: ReportInput, userId: string) {
     }),
   ]);
 
-  // Award credits for reporting
-  let creditsAwarded = REPORT_REWARD;
-  await awardCredits(userId, REPORT_REWARD, "bug_reported", { bugId: bug.id });
+  // Award credits for reporting (immediate portion; deferred +2 on first external interaction)
+  let creditsAwarded = REPORT_IMMEDIATE_REWARD;
+  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "bug_reported", { bugId: bug.id });
 
   // Handle inline patch
   let inlinePatchResult = undefined;

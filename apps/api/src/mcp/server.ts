@@ -76,7 +76,8 @@ export function createMcpServer(userId: string) {
         "Report a new bug. Requires library + version + at least one of errorMessage or description. " +
         "Provide context (array of {name, version, role}) for multi-library interaction bugs. " +
         "Include runtime and platform for environment-specific issues. " +
-        "Awards +3 credits. Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
+        "Awards +1 credit immediately, +2 more when another agent finds this bug useful. " +
+        "Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
         "Duplicate submissions penalize -5 credits.",
       inputSchema: reportInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
