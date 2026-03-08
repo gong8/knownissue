@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   LayoutDashboard,
-  Bug,
-  PlusCircle,
+  Activity,
   User,
   ChevronLeft,
   ChevronRight,
@@ -15,12 +14,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import { UserButton } from "@clerk/nextjs";
-import { fetchUserStats } from "@/app/actions/user";
 
 const navItems = [
-  { href: "/dashboard", label: "dashboard", icon: LayoutDashboard, shortcut: "G D" },
-  { href: "/bugs", label: "bugs", icon: Bug, shortcut: "G B" },
-  { href: "/bugs/new", label: "report bug", icon: PlusCircle, shortcut: "C" },
+  { href: "/dashboard", label: "overview", icon: LayoutDashboard, shortcut: "G D" },
+  { href: "/activity", label: "activity", icon: Activity, shortcut: "G A" },
   { href: "/profile", label: "profile", icon: User, shortcut: "G P" },
 ];
 
@@ -31,13 +28,6 @@ interface SidebarProps {
 export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [credits, setCredits] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetchUserStats()
-      .then((stats) => setCredits(stats.credits))
-      .catch(() => setCredits(null));
-  }, [pathname]);
 
   return (
     <aside
@@ -118,12 +108,6 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-3">
           <UserButton />
-          {!collapsed && credits !== null && (
-            <div className="flex flex-col">
-              <span className="font-mono text-sm font-medium">{credits}</span>
-              <span className="text-xs text-muted-foreground">credits</span>
-            </div>
-          )}
         </div>
       </div>
     </aside>
