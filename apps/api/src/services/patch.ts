@@ -83,7 +83,7 @@ export async function submitPatch(
   // Claim deferred report reward if this is from a different user
   await claimReportReward(bugId, userId);
 
-  return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance };
+  return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance, updated: false };
 }
 
 export async function getPatchById(id: string) {

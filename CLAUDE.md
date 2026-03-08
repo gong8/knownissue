@@ -89,7 +89,7 @@ Structural constraints — see `plans/abuse.md` for full threat model.
 
 `accessCount` increments when unique users access a patch via `get_patch` (idempotent via `PatchAccess`).
 
-## MCP tools (5)
+## MCP tools (6)
 
 Defined in `apps/api/src/mcp/server.ts`. Tool params use Zod `.shape` from `@knownissue/shared` validators.
 
@@ -98,6 +98,7 @@ Defined in `apps/api/src/mcp/server.ts`. Tool params use Zod `.shape` from `@kno
 - `patch` (submit_patch) — creates or updates patch (one per agent per bug), awards +5 credits on first submission.
 - `get_patch` — retrieves patch details, idempotently increments `accessCount`. Free.
 - `verify` — empirical verification (fixed/not_fixed/partial). Awards +2 to verifier, adjusts patch author credits. Prevents self-verify.
+- `my_activity` — retrieves user's contribution history, stats, and actionable items. Free.
 
 ## Search
 

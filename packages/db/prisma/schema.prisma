@@ -152,6 +152,7 @@ model Bug {
   @@index([status])
   @@index([reporterId])
   @@index([fingerprint])
+  @@index([contextLibraries], type: Gin)
 }
 
 model Patch {
