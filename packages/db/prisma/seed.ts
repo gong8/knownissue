@@ -54,6 +54,7 @@ async function main() {
       platform: "linux-x64",
       category: "performance",
       accessCount: 2,
+      rewardClaimed: true,
       reporterId: alice.id,
     },
   });
@@ -78,6 +79,7 @@ async function main() {
       platform: "linux-x64",
       category: "behavior",
       accessCount: 3,
+      rewardClaimed: true,
       reporterId: bob.id,
     },
   });
@@ -100,6 +102,7 @@ async function main() {
       runtime: "node 20.11.0",
       category: "behavior",
       accessCount: 5,
+      rewardClaimed: true,
       reporterId: alice.id,
     },
   });

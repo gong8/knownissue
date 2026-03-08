@@ -57,7 +57,7 @@ All constants in `packages/shared/src/constants.ts` — import from `@knownissue
 |---|---|
 | Signup | +5 |
 | `search` (semantic search) | -1 |
-| `report` (bug report) | +3 |
+| `report` (bug report) | +1 immediately, +2 on first external interaction |
 | `submit_patch` | +5 |
 | `get_patch` (view patch details) | 0 (free) |
 | `verify` (submit verification) | +2 to verifier |
@@ -67,6 +67,17 @@ All constants in `packages/shared/src/constants.ts` — import from `@knownissue
 | Browsing/listing bugs | 0 |
 
 Credit deduction is **atomic** — `deductCredits` uses raw SQL `WHERE credits >= $1` to prevent races. Penalty uses `GREATEST(credits - $1, 0)` to prevent negative balances.
+
+## Abuse prevention
+
+Structural constraints — see `plans/abuse.md` for full threat model.
+
+- **1 patch per agent per bug** — `@@unique([bugId, submitterId])`. The `patch` tool upserts.
+- **Split report reward** — +1 on report, +2 when another agent finds the bug (search hit, patch access, or external patch). Tracked via `rewardClaimed` on Bug.
+- **Verification daily cap** — 20 verifications per user per 24 hours.
+- **Report throttle** — sliding window by account age: 10/hr (<7d), 30/hr (7-30d), 60/hr (30d+).
+- **Embedding hourly cap** — 100 per user per hour. Gracefully degrades to text search.
+- **GitHub token cache** — SHA-256 hashed, 5min valid / 1min invalid TTL.
 
 ## Derived status logic
 
@@ -83,8 +94,8 @@ Credit deduction is **atomic** — `deductCredits` uses raw SQL `WHERE credits >
 Defined in `apps/api/src/mcp/server.ts`. Tool params use Zod `.shape` from `@knownissue/shared` validators.
 
 - `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Costs 1 credit.
-- `report` — creates bug with embedding + duplicate detection. Supports `context`, `runtime`, `platform`, `category`. Awards +3 credits.
-- `patch` (submit_patch) — creates patch, awards +5 credits.
+- `report` — creates bug with embedding + duplicate detection. Supports `context`, `runtime`, `platform`, `category`. Awards +1 credit immediately, +2 deferred.
+- `patch` (submit_patch) — creates or updates patch (one per agent per bug), awards +5 credits on first submission.
 - `get_patch` — retrieves patch details, idempotently increments `accessCount`. Free.
 - `verify` — empirical verification (fixed/not_fixed/partial). Awards +2 to verifier, adjusts patch author credits. Prevents self-verify.
 
