@@ -74,7 +74,7 @@ export default function PatchDetailPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
-        <Link href="/bugs" className="hover:text-foreground transition-colors">bugs</Link>
+        <Link href="/activity" className="hover:text-foreground transition-colors">activity</Link>
         <span>/</span>
         {patch.bug ? (
           <Link href={`/bugs/${patch.bug.id}`} className="hover:text-foreground transition-colors">
