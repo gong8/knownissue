@@ -10,6 +10,7 @@ import { verifications } from "./routes/verifications";
 import { users } from "./routes/users";
 import { revisions } from "./routes/revisions";
 import { audit } from "./routes/audit";
+import { feed } from "./routes/feed";
 import { mcp } from "./mcp/transport";
 import type { AppEnv } from "./lib/types";
 
@@ -71,6 +72,7 @@ app.route("/", verifications);
 app.route("/", users);
 app.route("/", revisions);
 app.route("/", audit);
+app.route("/", feed);
 app.route("/", mcp);
 
 // Error handler — hide internals in production
