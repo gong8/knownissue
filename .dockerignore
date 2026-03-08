@@ -1,0 +1,12 @@
+node_modules
+.git
+.next
+dist
+*.md
+.env*
+.turbo
+.sst
+.DS_Store
+.vscode
+.idea
+.worktrees

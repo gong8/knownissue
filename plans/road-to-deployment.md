@@ -233,61 +233,72 @@ MCP endpoint: `https://mcp.knownissue.dev/mcp` — clean separation between the 
 
 ---
 
-### 4.2 Add Deployment Config
+### 4.2 Infrastructure-as-Code: SST v3
 
-**Vercel (web):**
-- Should work zero-config with Next.js auto-detection
-- Set env vars in Vercel dashboard
+**IaC:** SST v3 (TypeScript, Pulumi engine under the hood)
 
-**ECS Fargate (API):**
-- Add `Dockerfile` for the API (multi-stage build from monorepo)
-- Create ECS task definition, service, and ALB
-- Set up ECR for container images
-- Configure security groups and VPC
+**File:** `sst.config.ts` — manages VPC, RDS, ECS Cluster, Service, ALB, SSL, secrets
 
-**RDS Postgres:**
-- Provision RDS instance with pgvector extension
-- Place in same VPC as ECS tasks
-- Enable automated backups and encryption at rest
+**What SST provisions:**
+- VPC with fck-nat (~$3/mo vs $30+ managed NAT)
+- RDS Postgres 16.4 (`t4g.micro`, 20GB, auto-generated credentials)
+- ECS Cluster + Fargate Service (0.5 vCPU, 1GB, 2-10 tasks, auto-scaling)
+- ALB with HTTPS on `mcp.knownissue.dev`, health checks every 15s
+- SSL certificate via ACM (auto-provisioned)
+
+**Dockerfile:** Multi-stage build at repo root using `turbo prune --docker`
 
 ---
 
-### 4.3 Set Up Production Environment Variables
+### 4.3 Set Up Secrets and Environment
 
-**Vercel:**
+**SST secrets** (set once before first deploy):
+```bash
+npx sst secret set ClerkSecretKey "sk_live_..."
+npx sst secret set OpenaiApiKey "sk-..."
+```
+
+**Injected automatically by SST config:**
+- `DATABASE_URL` — constructed from RDS resource properties
+- `CLERK_SECRET_KEY` — from SST secret
+- `OPENAI_API_KEY` — from SST secret
+- `CORS_ORIGIN` — `https://knownissue.dev`
+- `NODE_ENV=production`, `API_PORT=3001`
+
+**Vercel env vars** (set in Vercel dashboard):
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — production Clerk publishable key
 - `NEXT_PUBLIC_API_URL` — `https://mcp.knownissue.dev`
 - `CLERK_SECRET_KEY` — production Clerk secret key
 
-**ECS Task Definition:**
-- `DATABASE_URL` — RDS connection string (via Secrets Manager or SSM Parameter Store)
-- `CLERK_SECRET_KEY` — production Clerk key (via Secrets Manager)
-- `CORS_ORIGIN` — `https://knownissue.dev`
-- `OPENAI_API_KEY` — if using vector search (via Secrets Manager)
-- `NODE_ENV=production`
-- `API_PORT=3001`
+---
+
+### 4.4 Deploy Sequence (First Time)
+
+1. Connect repo to Vercel (auto-deploys Next.js on push to main)
+2. Set up AWS OIDC identity provider for GitHub Actions
+3. Create IAM role for GitHub Actions with ECS/ECR/SST permissions
+4. Add `AWS_ROLE_ARN` as a GitHub Actions environment secret
+5. Set SST secrets: `npx sst secret set ClerkSecretKey "..."` etc.
+6. Run `npx sst deploy --stage production` (first deploy, ~5-10 min)
+7. After RDS is up, run `prisma migrate deploy` via `sst tunnel` or ECS exec
+8. Enable pgvector: `CREATE EXTENSION vector;` (handled by Prisma migration)
+9. Point `mcp.knownissue.dev` DNS to the ALB (SST outputs the domain)
 
 ---
 
-### 4.4 Set Up Production Database
+### 4.5 CI/CD Pipeline
 
-- Provision RDS Postgres 16+ with pgvector extension enabled
-- Place in private subnet (accessible only from ECS, not public internet)
-- Run `prisma migrate deploy` from ECS task or CI/CD
-- Enable automated backups (7-day retention minimum)
-- Enable encryption at rest (AWS KMS)
-- Optional: set up read replica for analytics
+**`.github/workflows/ci.yml`** — runs on every push/PR:
+- Install pnpm, Node 22, generate Prisma client
+- Lint + Build (full monorepo)
 
----
+**`.github/workflows/deploy.yml`** — runs on push to main:
+- CI gate (lint + build must pass)
+- AWS OIDC authentication (no long-lived credentials)
+- `npx sst deploy --stage production`
+- SST handles: Docker build, ECR push, ECS service update, health check wait
 
-### 4.5 Set Up CI/CD
-
-**File:** `.github/workflows/deploy.yml` (new)
-
-- Run `pnpm lint` and `pnpm build` on PRs
-- On merge to main: build Docker image, push to ECR, update ECS service
-- Run `prisma migrate deploy` as part of deploy
-- Vercel auto-deploys from main branch (connect repo in dashboard)
+**Concurrency:** Parallel deployments are prevented. Running deploys are never cancelled.
 
 ---
 
@@ -335,12 +346,12 @@ Add `openGraph` and `twitter` metadata for link previews.
   - [x] 3.1 Prisma migrate — initial migration `20260308045821_init` created and applied
   - [x] 3.2 DB constraints — `onDelete: Cascade` on all relations
   - [x] 3.3 Missing indexes — added `@@index` on reporterId, bugId, submitterId
-- [ ] **Phase 4: Deployment**
-  - [x] 4.1 Choose hosting stack — Vercel + ECS Fargate + RDS Postgres
-  - [ ] 4.2 Deployment config
-  - [ ] 4.3 Production env vars
-  - [ ] 4.4 Production database
-  - [ ] 4.5 CI/CD
+- [x] **Phase 4: Deployment**
+  - [x] 4.1 Hosting stack — Vercel + ECS Fargate + RDS Postgres
+  - [x] 4.2 IaC — `sst.config.ts` (SST v3), `Dockerfile`, `.dockerignore`
+  - [x] 4.3 Secrets — SST secrets config, Vercel env vars documented
+  - [ ] 4.4 First deploy — run `npx sst deploy --stage production` + DNS setup
+  - [x] 4.5 CI/CD — `.github/workflows/ci.yml` + `deploy.yml` (OIDC, concurrency controls)
 - [ ] **Phase 5: SEO & Polish**
   - [ ] 5.1 robots.txt + sitemap
   - [ ] 5.2 OG meta tags
