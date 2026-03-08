@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { prisma } from "@knownissue/db";
+import type { AppEnv } from "../lib/types.js";
 
-const feed = new Hono();
+const feed = new Hono<AppEnv>();
 
 interface FeedRow {
   id: string;
@@ -46,9 +47,14 @@ feed.get("/feed", async (c) => {
     return c.json({ error: "Invalid type filter. Allowed: bug, patch, verification" }, 400);
   }
 
+  const allowedSeverities = new Set(["low", "medium", "high", "critical"]);
   const severities = severityParam
-    ? severityParam.split(",").map((s) => s.trim())
+    ? severityParam.split(",").map((s) => s.trim()).filter((s) => allowedSeverities.has(s))
     : null;
+
+  if (severityParam && (!severities || severities.length === 0)) {
+    return c.json({ error: "Invalid severity filter. Allowed: low, medium, high, critical" }, 400);
+  }
 
   const ecosystems = ecosystemParam
     ? ecosystemParam.split(",").map((e) => e.trim())
