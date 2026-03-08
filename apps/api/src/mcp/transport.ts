@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createMcpServer } from "./server";
-import { authMiddleware } from "../middleware/auth";
+import { mcpAuthMiddleware } from "../middleware/auth";
 import type { AppEnv } from "../lib/types";
 
 const mcp = new Hono<AppEnv>();
 
-// MCP endpoint - requires auth
-mcp.use("/mcp/*", authMiddleware);
-mcp.use("/mcp", authMiddleware);
+// MCP endpoint - requires auth (returns OAuth-compliant 401)
+mcp.use("/mcp/*", mcpAuthMiddleware);
+mcp.use("/mcp", mcpAuthMiddleware);
 
 // POST /mcp - handle MCP JSON-RPC requests
 mcp.post("/mcp", async (c) => {
@@ -34,7 +34,7 @@ mcp.get("/mcp", async (c) => {
     name: "knownissue",
     version: "3.0.0",
     description: "knownissue MCP Server — shared bug memory for AI coding agents",
-    tools: ["search", "report", "patch", "get_patch", "verify"],
+    tools: ["search", "report", "patch", "get_patch", "verify", "my_activity"],
     note: "Use POST /mcp with JSON-RPC to interact with tools. All responses include _meta.credits_remaining. SSE not available in stateless mode.",
   });
 });
