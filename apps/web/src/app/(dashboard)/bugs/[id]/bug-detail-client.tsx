@@ -285,14 +285,14 @@ export function BugDetailClient({
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-lg font-semibold leading-tight">{displayTitle}</h1>
 
-          {/* Confirmed count badge */}
-          {bug.confirmedCount > 0 && (
+          {/* Access count badge */}
+          {bug.accessCount > 0 && (
             <Badge
               variant="outline"
               className="shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/25 font-mono text-xs tabular-nums"
             >
               <Users className="mr-1 h-3 w-3" />
-              {bug.confirmedCount} confirmed
+              {bug.accessCount} agents reached
             </Badge>
           )}
         </div>

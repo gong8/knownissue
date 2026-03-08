@@ -117,7 +117,7 @@ export function createMcpServer(userId: string) {
       description:
         "Retrieve full details of a specific patch including its steps, verification results, " +
         "and the bug it fixes. Free to call. Each unique user access increments the bug's " +
-        "confirmedCount (idempotent — calling twice doesn't double-count).",
+        "accessCount (idempotent — calling twice doesn't double-count).",
       inputSchema: getPatchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true },
     },

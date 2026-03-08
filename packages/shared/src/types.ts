@@ -78,7 +78,7 @@ export interface Bug {
   runtime?: string | null;
   platform?: string | null;
   category?: BugCategory | null;
-  confirmedCount: number;
+  accessCount: number;
   searchHitCount: number;
   reporterId: string;
   reporter?: User;
@@ -122,7 +122,7 @@ export interface Patch {
   score: number;
   versionConstraint?: string | null;
   bugId: string;
-  bug?: Bug;
+  bug?: { id: string; title: string };
   submitterId: string;
   submitter?: User;
   verifications?: Verification[];
@@ -137,7 +137,7 @@ export interface Verification {
   errorBefore?: string | null;
   errorAfter?: string | null;
   testedVersion?: string | null;
-  bugAccuracy: BugAccuracy;
+  bugAccuracy?: BugAccuracy;
   patchId: string;
   patch?: Patch;
   verifierId: string;

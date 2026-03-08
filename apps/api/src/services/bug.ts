@@ -6,7 +6,7 @@ import {
   bugUpdateSchema,
   REPORT_REWARD,
   DUPLICATE_PENALTY,
-  CONFIRMED_COUNT_THRESHOLD,
+  ACCESS_COUNT_THRESHOLD,
   PATCHED_FIXED_COUNT,
   CLOSED_FIXED_COUNT,
 } from "@knownissue/shared";
@@ -86,7 +86,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
         `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
                 "errorMessage", "errorCode", "fingerprint",
                 "contextLibraries", "runtime", "platform", "category",
-                "confirmedCount", "searchHitCount",
+                "accessCount", "searchHitCount",
                 "reporterId", "createdAt", "updatedAt",
                 1 - (embedding <=> $1::vector) as similarity
          FROM "Bug"
@@ -455,7 +455,7 @@ export async function computeDerivedStatus(bugId: string) {
     derivedStatus = "closed";
   } else if (fixedCount >= PATCHED_FIXED_COUNT) {
     derivedStatus = "patched";
-  } else if (bug.confirmedCount >= CONFIRMED_COUNT_THRESHOLD) {
+  } else if (bug.accessCount >= ACCESS_COUNT_THRESHOLD) {
     derivedStatus = "confirmed";
   }
 

@@ -88,14 +88,14 @@ export async function getPatchForAgent(patchId: string, userId: string) {
         data: { patchId, userId },
       });
 
-      // Increment confirmedCount on the bug
+      // Increment accessCount on the bug
       await tx.bug.update({
         where: { id: patch.bugId },
-        data: { confirmedCount: { increment: 1 } },
+        data: { accessCount: { increment: 1 } },
       });
     });
 
-    // Recompute derived status after confirmedCount change
+    // Recompute derived status after accessCount change
     await computeDerivedStatus(patch.bugId);
   } catch {
     // Unique constraint violation — access already recorded, do nothing

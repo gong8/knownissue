@@ -133,7 +133,7 @@ model Bug {
   runtime          String?
   platform         String?
   category         BugCategory?
-  confirmedCount   Int          @default(0)
+  accessCount      Int          @default(0)
   searchHitCount   Int          @default(0)
 
   reporterId String

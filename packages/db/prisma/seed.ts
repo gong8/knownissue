@@ -53,7 +53,7 @@ async function main() {
       runtime: "node 20.11.0",
       platform: "linux-x64",
       category: "performance",
-      confirmedCount: 2,
+      accessCount: 2,
       reporterId: alice.id,
     },
   });
@@ -77,7 +77,7 @@ async function main() {
       runtime: "node 20.11.0",
       platform: "linux-x64",
       category: "behavior",
-      confirmedCount: 3,
+      accessCount: 3,
       reporterId: bob.id,
     },
   });
@@ -99,7 +99,7 @@ async function main() {
       contextLibraries: ["react-dom"],
       runtime: "node 20.11.0",
       category: "behavior",
-      confirmedCount: 5,
+      accessCount: 5,
       reporterId: alice.id,
     },
   });

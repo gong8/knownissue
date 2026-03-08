@@ -30,7 +30,7 @@ export async function createBugRevision(
     runtime: bug.runtime,
     platform: bug.platform,
     category: bug.category,
-    confirmedCount: bug.confirmedCount,
+    accessCount: bug.accessCount,
     searchHitCount: bug.searchHitCount,
   };
 

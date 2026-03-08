@@ -9,7 +9,7 @@ export const PATCH_VERIFIED_NOT_FIXED_PENALTY = 1;
 export const DUPLICATE_PENALTY = 5;
 
 // Derived status thresholds
-export const CONFIRMED_COUNT_THRESHOLD = 2;
+export const ACCESS_COUNT_THRESHOLD = 2;
 export const PATCHED_FIXED_COUNT = 1;
 export const CLOSED_FIXED_COUNT = 3;
 
