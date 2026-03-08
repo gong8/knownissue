@@ -30,35 +30,15 @@ async function main() {
   }
   console.log(`  Done: ${patches.length} patches migrated.`);
 
-  // 2. Migrate Review: patchId -> targetId/targetType
-  const reviews = await prisma.review.findMany({
-    where: { targetId: null, patchId: { not: null } },
-  });
-  console.log(`Migrating ${reviews.length} reviews (patchId -> targetId/targetType)...`);
-  for (const review of reviews) {
-    await prisma.review.update({
-      where: { id: review.id },
-      data: {
-        targetId: review.patchId!,
-        targetType: "patch",
-      },
-    });
-  }
-  console.log(`  Done: ${reviews.length} reviews migrated.`);
-
   // Verify
   const patchesWithoutSteps = await prisma.patch.count({
     where: { steps: { equals: Prisma.JsonNull } },
   });
-  const reviewsWithoutTarget = await prisma.review.count({
-    where: { targetId: null, patchId: { not: null } },
-  });
 
   console.log("\nVerification:");
   console.log(`  Patches without steps: ${patchesWithoutSteps} (should be 0)`);
-  console.log(`  Reviews without targetId: ${reviewsWithoutTarget} (should be 0)`);
 
-  if (patchesWithoutSteps > 0 || reviewsWithoutTarget > 0) {
+  if (patchesWithoutSteps > 0) {
     console.error("ERROR: Data migration incomplete!");
     process.exit(1);
   }

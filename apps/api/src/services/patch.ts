@@ -56,12 +56,52 @@ export async function getPatchById(id: string) {
     include: {
       submitter: true,
       bug: { select: { id: true, title: true } },
-      reviews: {
-        include: { reviewer: true },
+      verifications: {
+        include: { verifier: true },
         orderBy: { createdAt: "desc" },
       },
     },
   });
+}
+
+export async function getPatchForAgent(patchId: string, userId: string) {
+  const patch = await prisma.patch.findUnique({
+    where: { id: patchId },
+    include: {
+      submitter: true,
+      bug: { select: { id: true, title: true, library: true, version: true } },
+      verifications: {
+        include: { verifier: true },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!patch) {
+    throw new Error("Patch not found");
+  }
+
+  // Idempotent: try to create PatchAccess, ignore if already exists
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.patchAccess.create({
+        data: { patchId, userId },
+      });
+
+      // Increment confirmedCount on the bug
+      await tx.bug.update({
+        where: { id: patch.bugId },
+        data: { confirmedCount: { increment: 1 } },
+      });
+    });
+
+    // Recompute derived status after confirmedCount change
+    await computeDerivedStatus(patch.bugId);
+  } catch {
+    // Unique constraint violation — access already recorded, do nothing
+  }
+
+  return patch;
 }
 
 export async function getUserPatches(userId: string) {
@@ -69,7 +109,7 @@ export async function getUserPatches(userId: string) {
     where: { submitterId: userId },
     include: {
       bug: { select: { id: true, title: true } },
-      _count: { select: { reviews: true } },
+      _count: { select: { verifications: true } },
     },
     orderBy: { createdAt: "desc" },
   });

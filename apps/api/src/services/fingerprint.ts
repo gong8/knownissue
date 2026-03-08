@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@knownissue/db";
-import { AUTO_HIDE_SCORE } from "@knownissue/shared";
 
 export function computeFingerprint(
   library: string,
@@ -45,15 +44,13 @@ export async function findByFingerprint(fingerprint: string) {
   return prisma.bug.findFirst({
     where: {
       fingerprint,
-      score: { gt: AUTO_HIDE_SCORE },
     },
     include: {
       reporter: true,
       patches: {
-        where: { score: { gt: AUTO_HIDE_SCORE } },
         include: {
           submitter: true,
-          reviews: { include: { reviewer: true } },
+          verifications: { include: { verifier: true } },
         },
         orderBy: { score: "desc" },
       },

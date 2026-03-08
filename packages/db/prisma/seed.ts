@@ -45,6 +45,15 @@ async function main() {
       severity: "high",
       status: "open",
       tags: ["performance", "query", "postgresql"],
+      context: [
+        { name: "postgresql", version: "15.0", role: "database" },
+        { name: "@prisma/client", version: "5.22.0", role: "orm" },
+      ],
+      contextLibraries: ["postgresql", "@prisma/client"],
+      runtime: "node 20.11.0",
+      platform: "linux-x64",
+      category: "performance",
+      confirmedCount: 2,
       reporterId: alice.id,
     },
   });
@@ -60,6 +69,15 @@ async function main() {
       severity: "critical",
       status: "confirmed",
       tags: ["deployment", "routing", "vercel", "isr"],
+      context: [
+        { name: "react", version: "19.0.0", role: "framework" },
+        { name: "vercel", version: "latest", role: "platform" },
+      ],
+      contextLibraries: ["react", "vercel"],
+      runtime: "node 20.11.0",
+      platform: "linux-x64",
+      category: "behavior",
+      confirmedCount: 3,
       reporterId: bob.id,
     },
   });
@@ -75,6 +93,13 @@ async function main() {
       severity: "medium",
       status: "patched",
       tags: ["hooks", "strict-mode", "websocket"],
+      context: [
+        { name: "react-dom", version: "18.3.1", role: "renderer" },
+      ],
+      contextLibraries: ["react-dom"],
+      runtime: "node 20.11.0",
+      category: "behavior",
+      confirmedCount: 5,
       reporterId: alice.id,
     },
   });
@@ -90,6 +115,7 @@ async function main() {
       severity: "low",
       status: "open",
       tags: ["css", "parser", "custom-properties"],
+      category: "build",
       reporterId: carol.id,
     },
   });
@@ -105,6 +131,7 @@ async function main() {
       severity: "medium",
       status: "open",
       tags: ["type-narrowing", "control-flow", "switch"],
+      category: "types",
       reporterId: bob.id,
     },
   });
@@ -178,25 +205,59 @@ export async function generateStaticParams() {
     },
   });
 
-  // Create reviews
-  await prisma.review.create({
+  // Create verifications
+  await prisma.verification.create({
     data: {
-      vote: "up",
-      comment:
+      outcome: "fixed",
+      note:
         "This fixed our production timeout issues. The relationLoadStrategy option is underrated.",
+      testedVersion: "5.22.0",
       patchId: patch1.id,
-      reviewerId: alice.id,
+      verifierId: alice.id,
     },
   });
 
-  await prisma.review.create({
+  await prisma.verification.create({
     data: {
-      vote: "up",
-      comment:
-        "Clean solution using AbortController. Works correctly with strict mode double-mount.",
-      patchId: patch2.id,
-      reviewerId: bob.id,
+      outcome: "fixed",
+      note: "Confirmed — query time dropped from 12s to 200ms with relationLoadStrategy: 'join'.",
+      testedVersion: "5.22.0",
+      patchId: patch1.id,
+      verifierId: carol.id,
     },
+  });
+
+  await prisma.verification.create({
+    data: {
+      outcome: "fixed",
+      note:
+        "Clean solution using AbortController. Works correctly with strict mode double-mount.",
+      testedVersion: "18.3.1",
+      patchId: patch2.id,
+      verifierId: bob.id,
+    },
+  });
+
+  await prisma.verification.create({
+    data: {
+      outcome: "partial",
+      note:
+        "Works for new paths but existing cached paths still serve stale content until revalidate period.",
+      testedVersion: "15.1.0",
+      patchId: patch3.id,
+      verifierId: carol.id,
+    },
+  });
+
+  // Create patch accesses
+  await prisma.patchAccess.create({
+    data: { patchId: patch1.id, userId: alice.id },
+  });
+  await prisma.patchAccess.create({
+    data: { patchId: patch1.id, userId: carol.id },
+  });
+  await prisma.patchAccess.create({
+    data: { patchId: patch2.id, userId: bob.id },
   });
 
   console.log("Seed data created successfully");

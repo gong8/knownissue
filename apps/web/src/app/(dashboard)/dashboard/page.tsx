@@ -26,7 +26,7 @@ export default function DashboardPage() {
     credits: number;
     bugsReported: number;
     patchesSubmitted: number;
-    reviewsGiven: number;
+    verificationsGiven: number;
   } | null>(null);
   const [recentBugs, setRecentBugs] = useState<Bug[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,8 +120,8 @@ export default function DashboardPage() {
             <span className="ml-1.5 text-xs text-muted-foreground">patches</span>
           </div>
           <div>
-            <span className="text-2xl font-bold font-mono">{stats.reviewsGiven}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">reviews</span>
+            <span className="text-2xl font-bold font-mono">{stats.verificationsGiven}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">verifications</span>
           </div>
         </div>
       )}

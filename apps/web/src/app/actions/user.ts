@@ -15,7 +15,7 @@ export async function fetchUserStats(): Promise<{
   credits: number;
   bugsReported: number;
   patchesSubmitted: number;
-  reviewsGiven: number;
+  verificationsGiven: number;
 }> {
   const res = await apiFetch("/users/me/stats");
   if (!res.ok) {

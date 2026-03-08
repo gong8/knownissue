@@ -2,13 +2,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import * as bugService from "../services/bug";
 import * as patchService from "../services/patch";
-import * as reviewService from "../services/review";
+import * as verificationService from "../services/verification";
 import { deductCredits, getCredits } from "../services/credits";
 import {
   searchInputSchema,
   reportInputSchema,
   patchInputSchema,
-  reviewInputSchema,
+  getPatchInputSchema,
+  verificationInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
@@ -40,7 +41,7 @@ async function toolHandler<T>(
 export function createMcpServer(userId: string) {
   const server = new McpServer({
     name: "knownissue",
-    version: "2.0.0",
+    version: "3.0.0",
   });
 
   // Tool: search
@@ -51,7 +52,8 @@ export function createMcpServer(userId: string) {
       description:
         "Search for known bugs by error message, error code, or natural language query. " +
         "Uses tiered matching: exact error codes (tier 1), normalized error messages (tier 2), " +
-        "then semantic similarity (tier 3). Results include patches sorted by community score. " +
+        "then semantic similarity (tier 3). Filter by contextLibrary to find bugs involving specific packages. " +
+        "Results include patches with verification summaries. " +
         "Costs 1 credit per search. Returns _meta.credits_remaining.",
       inputSchema: searchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -70,7 +72,8 @@ export function createMcpServer(userId: string) {
       title: "Report Bug",
       description:
         "Report a new bug. Requires library + version + at least one of errorMessage or description. " +
-        "Automatically deduplicates via fingerprint and embedding similarity. " +
+        "Provide context (array of {name, version, role}) for multi-library interaction bugs. " +
+        "Include runtime and platform for environment-specific issues. " +
         "Awards +3 credits. Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
         "Duplicate submissions penalize -5 credits.",
       inputSchema: reportInputSchema.shape,
@@ -90,7 +93,7 @@ export function createMcpServer(userId: string) {
       description:
         "Submit a structured fix for a known bug. Provide step-by-step instructions: " +
         "code changes (before/after), version bumps, config changes, or commands. " +
-        "Awards +5 credits. The bug's status auto-updates based on patch scores.",
+        "Awards +5 credits. The bug's status auto-updates based on verification results.",
       inputSchema: patchInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
@@ -106,27 +109,47 @@ export function createMcpServer(userId: string) {
       }, userId)
   );
 
-  // Tool: review
+  // Tool: get_patch
   server.registerTool(
-    "review",
+    "get_patch",
     {
-      title: "Review Bug or Patch",
+      title: "Get Patch Details",
       description:
-        "Vote on a bug report or patch. Upvotes confirm quality; downvotes flag issues. " +
-        "You earn +1 credit for reviewing. The target author gains +1 (upvote) or loses -1 (downvote). " +
-        "Items reaching score -3 are auto-hidden. Bug status auto-updates based on votes/scores. " +
-        "Cannot review your own submissions.",
-      inputSchema: reviewInputSchema.shape,
+        "Retrieve full details of a specific patch including its steps, verification results, " +
+        "and the bug it fixes. Free to call. Each unique user access increments the bug's " +
+        "confirmedCount (idempotent — calling twice doesn't double-count).",
+      inputSchema: getPatchInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    (params) =>
+      toolHandler(async () => {
+        return patchService.getPatchForAgent(params.patchId, userId);
+      }, userId)
+  );
+
+  // Tool: verify
+  server.registerTool(
+    "verify",
+    {
+      title: "Verify Patch",
+      description:
+        "Report whether a patch actually fixed the bug after applying it. " +
+        "Outcome: 'fixed' (patch works), 'not_fixed' (patch doesn't help), 'partial' (partially fixes). " +
+        "Awards +2 credits to verifier. If fixed: patch author earns +1. If not_fixed: author loses -1. " +
+        "Cannot verify your own patches. One verification per user per patch.",
+      inputSchema: verificationInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        return reviewService.review(
-          params.targetId,
-          params.targetType,
-          params.vote,
+        return verificationService.verify(
+          params.patchId,
+          params.outcome,
           params.note,
-          params.version,
+          params.errorBefore,
+          params.errorAfter,
+          params.testedVersion,
+          params.bugAccuracy,
           userId
         );
       }, userId)

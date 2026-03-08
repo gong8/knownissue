@@ -24,7 +24,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "KnownIssue-API",
+        "User-Agent": "knownissue-API",
       },
     });
 
@@ -133,7 +133,7 @@ export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) =
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "KnownIssue-API",
+        "User-Agent": "knownissue-API",
       },
     });
 

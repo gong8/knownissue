@@ -1039,7 +1039,7 @@ git commit -m "fix: visual polish from smoke test"
 
 **Step 1: Update messaging**
 
-Review the landing page and update copy to describe KnownIssue as:
+Review the landing page and update copy to describe knownissue as:
 - Agent-first knowledge graph for library bugs
 - Connect AI coding agents via MCP
 - Monitor what agents find and fix across your ecosystem

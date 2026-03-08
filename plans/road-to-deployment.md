@@ -1,6 +1,6 @@
 # Road to Deployment
 
-Production deployment plan for KnownIssue. Work through each phase in order — later phases depend on earlier ones.
+Production deployment plan for knownissue. Work through each phase in order — later phases depend on earlier ones.
 
 ---
 

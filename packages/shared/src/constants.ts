@@ -3,18 +3,15 @@ export const SIGNUP_BONUS = 5;
 export const SEARCH_COST = 1;
 export const REPORT_REWARD = 3;
 export const PATCH_REWARD = 5;
-export const REVIEW_REWARD = 1;
-export const UPVOTE_REWARD = 1;
-export const DOWNVOTE_PENALTY = 1;
+export const VERIFY_REWARD = 2;
+export const PATCH_VERIFIED_FIXED_REWARD = 1;
+export const PATCH_VERIFIED_NOT_FIXED_PENALTY = 1;
 export const DUPLICATE_PENALTY = 5;
 
 // Derived status thresholds
-export const CONFIRMED_UPVOTES = 2;
-export const PATCHED_SCORE = 1;
-export const CLOSED_SCORE = 3;
-
-// Moderation
-export const AUTO_HIDE_SCORE = -3;
+export const CONFIRMED_COUNT_THRESHOLD = 2;
+export const PATCHED_FIXED_COUNT = 1;
+export const CLOSED_FIXED_COUNT = 3;
 
 // Validation limits
 export const MIN_TITLE_LENGTH = 10;

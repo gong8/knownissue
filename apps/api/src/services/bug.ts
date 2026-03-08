@@ -4,12 +4,11 @@ import type { Role } from "@knownissue/shared";
 import {
   reportInputSchema,
   bugUpdateSchema,
-  AUTO_HIDE_SCORE,
   REPORT_REWARD,
   DUPLICATE_PENALTY,
-  CONFIRMED_UPVOTES,
-  PATCHED_SCORE,
-  CLOSED_SCORE,
+  CONFIRMED_COUNT_THRESHOLD,
+  PATCHED_FIXED_COUNT,
+  CLOSED_FIXED_COUNT,
 } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
 import { computeFingerprint, findByFingerprint } from "./fingerprint";
@@ -20,7 +19,7 @@ import { awardCredits, penalizeCredits } from "./credits";
 import * as patchService from "./patch";
 
 export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }) {
-  const { query, library, version, errorCode, limit = 10, offset = 0 } = params;
+  const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
 
   // Tier 1: fingerprint match via errorCode
   if (errorCode && library) {
@@ -58,7 +57,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
   if (embedding) {
     const vectorStr = `[${embedding.join(",")}]`;
 
-    const conditions: string[] = [`"score" > ${AUTO_HIDE_SCORE}`];
+    const conditions: string[] = [];
     const queryParams: unknown[] = [vectorStr, limit, offset];
     let paramIndex = 4;
 
@@ -69,6 +68,10 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     if (version) {
       conditions.push(`"version" = $${paramIndex++}`);
       queryParams.push(version);
+    }
+    if (contextLibrary) {
+      conditions.push(`$${paramIndex++} = ANY("contextLibraries")`);
+      queryParams.push(contextLibrary);
     }
 
     const whereClause = conditions.length > 0
@@ -81,7 +84,9 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     const [bugs, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
         `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
-                "errorMessage", "errorCode", "fingerprint", "score",
+                "errorMessage", "errorCode", "fingerprint",
+                "contextLibraries", "runtime", "platform", "category",
+                "confirmedCount", "searchHitCount",
                 "reporterId", "createdAt", "updatedAt",
                 1 - (embedding <=> $1::vector) as similarity
          FROM "Bug"
@@ -96,12 +101,23 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       ),
     ]);
 
-    // Load patches for each bug (exclude auto-hidden)
+    // Increment searchHitCount on returned bugs
     const bugIds = bugs.map((b) => b.id as string);
+    if (bugIds.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = ANY($1::text[])`,
+        bugIds
+      );
+    }
+
+    // Load patches for each bug
     const patchesByBug = bugIds.length > 0
       ? await prisma.patch.findMany({
-          where: { bugId: { in: bugIds }, score: { gt: AUTO_HIDE_SCORE } },
-          include: { submitter: true },
+          where: { bugId: { in: bugIds } },
+          include: {
+            submitter: true,
+            verifications: { include: { verifier: true } },
+          },
           orderBy: { score: "desc" },
         })
       : [];
@@ -119,9 +135,10 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
   }
 
   // Fallback: text search
-  const where: Record<string, unknown> = { score: { gt: AUTO_HIDE_SCORE } };
+  const where: Record<string, unknown> = {};
   if (library) where.library = library;
   if (version) where.version = version;
+  if (contextLibrary) where.contextLibraries = { has: contextLibrary };
 
   const [bugs, total] = await Promise.all([
     prisma.bug.findMany({
@@ -136,8 +153,10 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       include: {
         reporter: true,
         patches: {
-          where: { score: { gt: AUTO_HIDE_SCORE } },
-          include: { submitter: true },
+          include: {
+            submitter: true,
+            verifications: { include: { verifier: true } },
+          },
           orderBy: { score: "desc" },
         },
         _count: { select: { patches: true } },
@@ -158,6 +177,15 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     }),
   ]);
 
+  // Increment searchHitCount on returned bugs
+  const bugIds = bugs.map((b) => b.id);
+  if (bugIds.length > 0) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = ANY($1::text[])`,
+      bugIds
+    );
+  }
+
   return { bugs, total, _meta: { matchTier: 3 } };
 }
 
@@ -167,19 +195,14 @@ export async function getBugById(id: string) {
     include: {
       reporter: true,
       patches: {
-        where: { score: { gt: AUTO_HIDE_SCORE } },
         include: {
           submitter: true,
-          reviews: {
-            include: { reviewer: true },
+          verifications: {
+            include: { verifier: true },
             orderBy: { createdAt: "desc" },
           },
         },
         orderBy: { score: "desc" },
-      },
-      reviews: {
-        include: { reviewer: true },
-        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -230,6 +253,9 @@ export async function createBug(input: ReportInput, userId: string) {
   // Generate embedding
   const embedding = await generateEmbedding(embeddingText);
 
+  // Denormalize context libraries
+  const contextLibraries = parsed.context?.map((c) => c.name) ?? [];
+
   // Create bug
   const bug = await prisma.bug.create({
     data: {
@@ -247,8 +273,11 @@ export async function createBug(input: ReportInput, userId: string) {
       triggerCode: parsed.triggerCode ?? null,
       expectedBehavior: parsed.expectedBehavior ?? null,
       actualBehavior: parsed.actualBehavior ?? null,
-      relatedLibraries: parsed.relatedLibraries ?? undefined,
-      environment: parsed.environment ?? undefined,
+      context: parsed.context ?? undefined,
+      contextLibraries,
+      runtime: parsed.runtime ?? null,
+      platform: parsed.platform ?? null,
+      category: parsed.category ?? null,
       reporterId: userId,
     },
     include: { reporter: true },
@@ -405,26 +434,28 @@ export async function computeDerivedStatus(bugId: string) {
   const bug = await prisma.bug.findUnique({
     where: { id: bugId },
     include: {
-      reviews: { where: { targetType: "bug", vote: "up" } },
       patches: {
-        where: { score: { gt: AUTO_HIDE_SCORE } },
-        orderBy: { score: "desc" },
-        take: 1,
+        include: {
+          verifications: { where: { outcome: "fixed" } },
+        },
       },
     },
   });
   if (!bug) return;
 
-  const bugUpvotes = bug.reviews.length;
-  const bestPatchScore = bug.patches[0]?.score ?? 0;
+  // Count total "fixed" verifications across all patches
+  const fixedCount = bug.patches.reduce(
+    (sum, patch) => sum + patch.verifications.length,
+    0
+  );
 
   let derivedStatus = bug.status;
 
-  if (bestPatchScore >= CLOSED_SCORE) {
+  if (fixedCount >= CLOSED_FIXED_COUNT) {
     derivedStatus = "closed";
-  } else if (bestPatchScore >= PATCHED_SCORE) {
+  } else if (fixedCount >= PATCHED_FIXED_COUNT) {
     derivedStatus = "patched";
-  } else if (bugUpvotes >= CONFIRMED_UPVOTES) {
+  } else if (bug.confirmedCount >= CONFIRMED_COUNT_THRESHOLD) {
     derivedStatus = "confirmed";
   }
 

@@ -32,9 +32,9 @@ mcp.post("/mcp", async (c) => {
 mcp.get("/mcp", async (c) => {
   return c.json({
     name: "knownissue",
-    version: "1.0.0",
-    description: "KnownIssue MCP Server — Stack Overflow for AI Agents",
-    tools: ["search", "report", "patch", "review"],
+    version: "3.0.0",
+    description: "knownissue MCP Server — Stack Overflow for AI Agents",
+    tools: ["search", "report", "patch", "get_patch", "verify"],
     note: "Use POST /mcp with JSON-RPC to interact with tools. All responses include _meta.credits_remaining. SSE not available in stateless mode.",
   });
 });

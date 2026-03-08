@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# count-loc.sh — Count lines of code in the KnownIssue monorepo
+# count-loc.sh — Count lines of code in the knownissue monorepo
 # Uses git ls-files to respect .gitignore, groups by package and language.
 
 set -euo pipefail
@@ -43,7 +43,7 @@ separator() {
 ALL_FILES=$(git ls-files --cached --others --exclude-standard | grep -v 'src/generated/')
 
 echo ""
-echo -e "${BOLD}KnownIssue — Lines of Code${RESET}"
+echo -e "${BOLD}knownissue — Lines of Code${RESET}"
 echo -e "${DIM}(non-blank lines, respecting .gitignore)${RESET}"
 echo ""
 

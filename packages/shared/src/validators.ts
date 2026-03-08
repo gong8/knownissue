@@ -4,10 +4,12 @@ import { MIN_TITLE_LENGTH, MIN_DESCRIPTION_LENGTH, MIN_EXPLANATION_LENGTH } from
 export const severitySchema = z.enum(["low", "medium", "high", "critical"])
   .describe("Bug severity: low, medium, high, or critical");
 export const bugStatusSchema = z.enum(["open", "confirmed", "patched", "closed"]);
-export const voteSchema = z.enum(["up", "down"])
-  .describe("Vote direction: 'up' to endorse, 'down' to flag issues");
-export const reviewTargetTypeSchema = z.enum(["bug", "patch"])
-  .describe("What you're reviewing: a 'bug' report or a 'patch' fix");
+export const verificationOutcomeSchema = z.enum(["fixed", "not_fixed", "partial"])
+  .describe("Verification outcome: 'fixed' if the patch resolved the issue, 'not_fixed' if it didn't, 'partial' if partially resolved");
+export const bugAccuracySchema = z.enum(["accurate", "inaccurate"])
+  .describe("Whether the bug report itself is accurate");
+export const bugCategorySchema = z.enum(["crash", "build", "types", "performance", "behavior", "config", "compatibility", "install"])
+  .describe("Bug category: crash, build, types, performance, behavior, config, compatibility, or install");
 
 // ── Patch Step Schemas (discriminated union on `type`) ────────────────────
 
@@ -65,7 +67,7 @@ const inlinePatchSchema = z.object({
     .describe("Ordered list of steps to apply the fix"),
 });
 
-// ── 4 MCP Tool Schemas ────────────────────────────────────────────────────
+// ── 5 MCP Tool Schemas ────────────────────────────────────────────────────
 
 export const searchInputSchema = z.object({
   query: z.string().min(1, "Search query is required")
@@ -76,6 +78,8 @@ export const searchInputSchema = z.object({
     .describe("Filter to a specific version, e.g. '18.2.0'"),
   errorCode: z.string().optional()
     .describe("Exact error code to match, e.g. 'ERR_MODULE_NOT_FOUND', 'E0001'"),
+  contextLibrary: z.string().optional()
+    .describe("Filter by a library in the bug's context stack, e.g. 'webpack' to find bugs involving webpack"),
   maxTokens: z.number().int().min(100).max(10000).optional()
     .describe("Max response size in tokens (100-10000). Smaller = faster, larger = more detail."),
 });
@@ -101,17 +105,17 @@ export const reportInputSchema = z.object({
     .describe("What you expected to happen"),
   actualBehavior: z.string().optional()
     .describe("What actually happened"),
-  relatedLibraries: z.array(z.object({
+  context: z.array(z.object({
     name: z.string(),
     version: z.string(),
+    role: z.string().optional(),
   })).optional()
-    .describe("Other packages involved, e.g. [{ name: 'webpack', version: '5.0.0' }]"),
-  environment: z.object({
-    node: z.string().optional(),
-    os: z.string().optional(),
-    framework: z.string().optional(),
-  }).optional()
-    .describe("Runtime environment details"),
+    .describe("Other packages involved in the bug context, e.g. [{ name: 'webpack', version: '5.0.0', role: 'bundler' }]"),
+  runtime: z.string().optional()
+    .describe("Runtime environment, e.g. 'node 20.11.0', 'bun 1.0.0', 'python 3.12'"),
+  platform: z.string().optional()
+    .describe("Operating system/platform, e.g. 'macos-arm64', 'linux-x64', 'windows'"),
+  category: bugCategorySchema.optional(),
   tags: z.array(z.string()).default([])
     .describe("Optional labels for categorization, e.g. ['memory-leak', 'regression']"),
   severity: severitySchema.default("medium"),
@@ -135,15 +139,25 @@ export const patchInputSchema = z.object({
     .describe("Version range this patch applies to, e.g. '>=4.17.0 <5.0.0'"),
 });
 
-export const reviewInputSchema = z.object({
-  targetId: z.uuid({ message: "Invalid target ID" })
-    .describe("UUID of the bug or patch to review"),
-  targetType: reviewTargetTypeSchema,
-  vote: voteSchema,
-  version: z.string().optional()
-    .describe("Version you tested on, e.g. '4.17.21'. Helps others know which versions are verified."),
+export const getPatchInputSchema = z.object({
+  patchId: z.uuid({ message: "Invalid patch ID" })
+    .describe("UUID of the patch to retrieve. Use search to find bugs, then pick a patch ID from the results."),
+});
+
+export const verificationInputSchema = z.object({
+  patchId: z.uuid({ message: "Invalid patch ID" })
+    .describe("UUID of the patch being verified"),
+  outcome: verificationOutcomeSchema,
   note: z.string().nullable().default(null)
-    .describe("Optional review note explaining your vote"),
+    .describe("Optional note explaining the verification result"),
+  errorBefore: z.string().optional()
+    .describe("The error message before applying the patch"),
+  errorAfter: z.string().optional()
+    .describe("The error message after applying the patch (if still failing)"),
+  testedVersion: z.string().optional()
+    .describe("Version of the library you tested on, e.g. '4.17.21'"),
+  bugAccuracy: bugAccuracySchema.optional()
+    .describe("Whether the bug report itself was accurate"),
 });
 
 // ── REST API Schemas (kept for web dashboard compat) ──────────────────────
@@ -159,6 +173,9 @@ export const bugUpdateSchema = z.object({
   actualBehavior: z.string().optional(),
   severity: severitySchema.optional(),
   tags: z.array(z.string()).optional(),
+  category: bugCategorySchema.optional(),
+  runtime: z.string().optional(),
+  platform: z.string().optional(),
 });
 
 // ── Inferred Types ────────────────────────────────────────────────────────
@@ -166,6 +183,7 @@ export const bugUpdateSchema = z.object({
 export type SearchInput = z.infer<typeof searchInputSchema>;
 export type ReportInput = z.infer<typeof reportInputSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
-export type ReviewInput = z.infer<typeof reviewInputSchema>;
+export type GetPatchInput = z.infer<typeof getPatchInputSchema>;
+export type VerificationInput = z.infer<typeof verificationInputSchema>;
 export type BugUpdate = z.infer<typeof bugUpdateSchema>;
 export type PatchStepInput = z.infer<typeof patchStepSchema>;

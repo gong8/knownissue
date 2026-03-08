@@ -24,26 +24,55 @@ enum AuditAction {
 enum EntityType {
   bug
   patch
-  review
+  verification
   user
-}
-
-enum ReviewTargetType {
-  bug
-  patch
 }
 
 enum CreditEventType {
   signup
   search
   patch_submitted
-  patch_upvoted
-  patch_downvoted
   bug_reported
   duplicate_penalty
-  review_given
-  bug_upvoted
-  bug_downvoted
+  verification_given
+  patch_verified_fixed
+  patch_verified_not_fixed
+}
+
+enum Severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum BugStatus {
+  open
+  confirmed
+  patched
+  closed
+}
+
+enum VerificationOutcome {
+  fixed
+  not_fixed
+  partial
+}
+
+enum BugAccuracy {
+  accurate
+  inaccurate
+}
+
+enum BugCategory {
+  crash
+  build
+  types
+  performance
+  behavior
+  config
+  compatibility
+  install
 }
 
 model User {
@@ -58,7 +87,8 @@ model User {
 
   bugs               Bug[]
   patches            Patch[]
-  reviews            Review[]
+  verifications      Verification[]
+  patchAccesses      PatchAccess[]
   creditTransactions CreditTransaction[]
   auditLogs          AuditLog[]
 }
@@ -80,29 +110,15 @@ model CreditTransaction {
   @@index([userId, createdAt])
 }
 
-enum Severity {
-  low
-  medium
-  high
-  critical
-}
-
-enum BugStatus {
-  open
-  confirmed
-  patched
-  closed
-}
-
 model Bug {
-  id               String    @id @default(uuid())
+  id               String       @id @default(uuid())
   title            String?
   description      String?
   library          String
   version          String
   ecosystem        String
-  severity         Severity  @default(low)
-  status           BugStatus @default(open)
+  severity         Severity     @default(low)
+  status           BugStatus    @default(open)
   tags             String[]
   embedding        Unsupported("vector(1536)")?
   errorMessage     String?
@@ -112,16 +128,19 @@ model Bug {
   triggerCode      String?
   expectedBehavior String?
   actualBehavior   String?
-  relatedLibraries Json?
-  environment      Json?
-  score            Int       @default(0)
+  context          Json?
+  contextLibraries String[]
+  runtime          String?
+  platform         String?
+  category         BugCategory?
+  confirmedCount   Int          @default(0)
+  searchHitCount   Int          @default(0)
 
   reporterId String
   reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   patches   Patch[]
   revisions BugRevision[]
-  reviews   Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,11 +150,6 @@ model Bug {
   @@index([status])
   @@index([reporterId])
   @@index([fingerprint])
-}
-
-enum Vote {
-  up
-  down
 }
 
 model Patch {
@@ -152,7 +166,8 @@ model Patch {
   submitterId String
   submitter   User   @relation(fields: [submitterId], references: [id], onDelete: Cascade)
 
-  reviews Review[]
+  verifications Verification[]
+  patchAccesses PatchAccess[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -161,28 +176,40 @@ model Patch {
   @@index([submitterId])
 }
 
-model Review {
-  id         String            @id @default(uuid())
-  vote       Vote
-  note       String?           @map("comment")
-  targetId   String?
-  targetType ReviewTargetType?
-  version    String?
+model Verification {
+  id            String              @id @default(uuid())
+  outcome       VerificationOutcome
+  note          String?
+  errorBefore   String?
+  errorAfter    String?
+  testedVersion String?
+  bugAccuracy   BugAccuracy         @default(accurate)
 
-  patchId String?
-  patch   Patch?  @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  patchId    String
+  patch      Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
 
-  bugId String?
-  bug   Bug?   @relation(fields: [bugId], references: [id], onDelete: Cascade)
-
-  reviewerId String
-  reviewer   User   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  verifierId String
+  verifier   User   @relation(fields: [verifierId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  @@unique([patchId, reviewerId])
-  @@unique([targetId, targetType, reviewerId])
+  @@unique([patchId, verifierId])
+  @@index([patchId])
+  @@index([verifierId])
+}
+
+model PatchAccess {
+  id        String   @id @default(uuid())
+
+  patchId   String
+  patch     Patch    @relation(fields: [patchId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([patchId, userId])
 }
 
 model AuditLog {

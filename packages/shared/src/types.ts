@@ -1,10 +1,11 @@
 export type Severity = "low" | "medium" | "high" | "critical";
 export type BugStatus = "open" | "confirmed" | "patched" | "closed";
-export type Vote = "up" | "down";
+export type VerificationOutcome = "fixed" | "not_fixed" | "partial";
+export type BugAccuracy = "accurate" | "inaccurate";
+export type BugCategory = "crash" | "build" | "types" | "performance" | "behavior" | "config" | "compatibility" | "install";
 export type Role = "user" | "admin";
 export type AuditAction = "create" | "update" | "delete" | "rollback";
-export type EntityType = "bug" | "patch" | "review" | "user";
-export type ReviewTargetType = "bug" | "patch";
+export type EntityType = "bug" | "patch" | "verification" | "user";
 export type PatchStepType = "code_change" | "version_bump" | "config_change" | "command";
 
 // Patch step interfaces
@@ -37,15 +38,10 @@ export interface CommandStep {
 
 export type PatchStep = CodeChangeStep | VersionBumpStep | ConfigChangeStep | CommandStep;
 
-export interface RelatedLibrary {
+export interface ContextLibrary {
   name: string;
   version: string;
-}
-
-export interface Environment {
-  node?: string;
-  os?: string;
-  framework?: string;
+  role?: string;
 }
 
 export interface User {
@@ -77,13 +73,16 @@ export interface Bug {
   triggerCode?: string | null;
   expectedBehavior?: string | null;
   actualBehavior?: string | null;
-  relatedLibraries?: RelatedLibrary[] | null;
-  environment?: Environment | null;
-  score: number;
+  context?: ContextLibrary[] | null;
+  contextLibraries?: string[];
+  runtime?: string | null;
+  platform?: string | null;
+  category?: BugCategory | null;
+  confirmedCount: number;
+  searchHitCount: number;
   reporterId: string;
   reporter?: User;
   patches?: Patch[];
-  reviews?: Review[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,24 +125,22 @@ export interface Patch {
   bug?: Bug;
   submitterId: string;
   submitter?: User;
-  reviews?: Review[];
+  verifications?: Verification[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface Review {
+export interface Verification {
   id: string;
-  vote: Vote;
+  outcome: VerificationOutcome;
   note: string | null;
-  targetId: string;
-  targetType: ReviewTargetType;
-  version?: string | null;
-  patchId?: string | null;
+  errorBefore?: string | null;
+  errorAfter?: string | null;
+  testedVersion?: string | null;
+  bugAccuracy: BugAccuracy;
+  patchId: string;
   patch?: Patch;
-  bugId?: string | null;
-  bug?: Bug;
-  reviewerId: string;
-  reviewer?: User;
+  verifierId: string;
+  verifier?: User;
   createdAt: Date;
-  updatedAt: Date;
 }

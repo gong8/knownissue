@@ -25,9 +25,13 @@ export async function createBugRevision(
     triggerCode: bug.triggerCode,
     expectedBehavior: bug.expectedBehavior,
     actualBehavior: bug.actualBehavior,
-    relatedLibraries: bug.relatedLibraries,
-    environment: bug.environment,
-    score: bug.score,
+    context: bug.context as Prisma.InputJsonValue ?? null,
+    contextLibraries: bug.contextLibraries,
+    runtime: bug.runtime,
+    platform: bug.platform,
+    category: bug.category,
+    confirmedCount: bug.confirmedCount,
+    searchHitCount: bug.searchHitCount,
   };
 
   return prisma.bugRevision.create({
@@ -109,8 +113,11 @@ export async function rollbackBug(
       restoreData.triggerCode = snapshotData.triggerCode ?? null;
       restoreData.expectedBehavior = snapshotData.expectedBehavior ?? null;
       restoreData.actualBehavior = snapshotData.actualBehavior ?? null;
-      restoreData.relatedLibraries = snapshotData.relatedLibraries ?? undefined;
-      restoreData.environment = snapshotData.environment ?? undefined;
+      restoreData.context = snapshotData.context ?? undefined;
+      restoreData.contextLibraries = snapshotData.contextLibraries ?? [];
+      restoreData.runtime = snapshotData.runtime ?? null;
+      restoreData.platform = snapshotData.platform ?? null;
+      restoreData.category = snapshotData.category ?? null;
     }
 
     const restored = await tx.bug.update({

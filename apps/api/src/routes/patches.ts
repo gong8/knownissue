@@ -38,4 +38,20 @@ patches.get("/patches/:id", async (c) => {
   return c.json(patch);
 });
 
+// POST /patches/:id/access — record patch access (REST equivalent of get_patch MCP tool)
+patches.post("/patches/:id/access", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+
+  try {
+    const patch = await patchService.getPatchForAgent(id, user.id);
+    return c.json(patch);
+  } catch (error) {
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 400);
+    }
+    throw error;
+  }
+});
+
 export { patches };

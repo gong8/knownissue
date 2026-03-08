@@ -20,14 +20,14 @@ users.get("/users/me", async (c) => {
 // GET /users/me/stats — aggregated stats
 users.get("/users/me/stats", async (c) => {
   const user = c.get("user");
-  const [credits, bugsReported, patchesSubmitted, reviewsGiven] =
+  const [credits, bugsReported, patchesSubmitted, verificationsGiven] =
     await Promise.all([
       getCredits(user.id),
       prisma.bug.count({ where: { reporterId: user.id } }),
       prisma.patch.count({ where: { submitterId: user.id } }),
-      prisma.review.count({ where: { reviewerId: user.id } }),
+      prisma.verification.count({ where: { verifierId: user.id } }),
     ]);
-  return c.json({ credits, bugsReported, patchesSubmitted, reviewsGiven });
+  return c.json({ credits, bugsReported, patchesSubmitted, verificationsGiven });
 });
 
 // GET /users/me/transactions — credit history

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  ThumbsUp,
-  ThumbsDown,
   FileCode,
   Clock,
   ChevronDown,
   ChevronRight,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,15 +24,26 @@ import {
 } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
-import type { Bug, Patch, Severity, PatchStep } from "@knownissue/shared";
+import type { Bug, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
 
 const SEVERITY_DOT: Record<Severity, string> = {
   critical: "bg-red-400",
   high: "bg-orange-400",
   medium: "bg-yellow-400",
   low: "bg-zinc-400",
+};
+
+const OUTCOME_ICON = {
+  fixed: CheckCircle2,
+  not_fixed: XCircle,
+  partial: MinusCircle,
+};
+
+const OUTCOME_COLOR = {
+  fixed: "text-green-400",
+  not_fixed: "text-red-400",
+  partial: "text-yellow-400",
 };
 
 // ── Structured Step Renderer ──────────────────────────────────────────────
@@ -85,57 +98,40 @@ function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
   );
 }
 
+// ── Verification Summary ──────────────────────────────────────────────────
+
+function VerificationSummary({ verifications }: { verifications: Verification[] }) {
+  if (verifications.length === 0) return null;
+
+  const fixed = verifications.filter((v) => v.outcome === "fixed").length;
+  const total = verifications.length;
+
+  return (
+    <Badge
+      variant="outline"
+      className={`font-mono text-xs tabular-nums ${
+        fixed > total / 2
+          ? "bg-green-500/15 text-green-400 border-green-500/25"
+          : "bg-yellow-500/15 text-yellow-400 border-yellow-500/25"
+      }`}
+    >
+      fixed by {fixed}/{total}
+    </Badge>
+  );
+}
+
 // ── Patch Row Component ────────────────────────────────────────────────────
 
 function PatchRow({
   patch,
   rank,
   active,
-  isOwner,
 }: {
   patch: Patch;
   rank: number;
   active?: boolean;
-  isOwner?: boolean;
 }) {
-  const [score, setScore] = useState(patch.score);
-  const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
-  const [noteText, setNoteText] = useState("");
-
-  async function handleVote(direction: "up" | "down") {
-    if (userVote === direction) {
-      setScore(patch.score);
-      setUserVote(null);
-      return;
-    }
-
-    const delta = direction === "up" ? 1 : -1;
-    const undoPrev = userVote === "up" ? -1 : userVote === "down" ? 1 : 0;
-    setScore(patch.score + delta + undoPrev);
-    setUserVote(direction);
-
-    try {
-      const { reviewPatch } = await import("@/app/actions/reviews");
-      const result = await reviewPatch(patch.id, direction, noteText || null);
-      if (result?.authorCreditDelta) {
-        const delta = result.authorCreditDelta;
-        toast.success(
-          direction === "up"
-            ? `Upvoted — patch author earned +${delta} credit`
-            : `Downvoted — patch author lost ${Math.abs(delta)} credit`
-        );
-      }
-    } catch {
-      toast.error("Could not save vote", {
-        description: "The API server may be unavailable.",
-      });
-    }
-  }
-
-  const sortedReviews = [...(patch.reviews ?? [])].sort((a, b) =>
-    a.vote === "up" && b.vote !== "up" ? -1 : 1
-  );
-
+  const verifications = (patch.verifications ?? []) as Verification[];
   const steps = (patch.steps ?? []) as PatchStep[];
 
   return (
@@ -166,50 +162,9 @@ function PatchRow({
           </div>
         </div>
 
-        {/* Vote buttons */}
-        <div className="flex items-center gap-1">
-          {!isOwner && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 ${
-                userVote === "up"
-                  ? "text-green-400 bg-green-500/10"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => handleVote("up")}
-            >
-              <ThumbsUp className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <span className="min-w-[1.5rem] text-center font-mono text-sm font-semibold">
-            {score}
-          </span>
-          {!isOwner && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 ${
-                userVote === "down"
-                  ? "text-red-400 bg-red-500/10"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => handleVote("down")}
-            >
-              <ThumbsDown className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+        {/* Verification summary */}
+        <VerificationSummary verifications={verifications} />
       </div>
-
-      {!isOwner && (
-        <Input
-          placeholder="add a note (optional)"
-          className="mt-2 text-sm font-mono"
-          value={noteText}
-          onChange={(e) => setNoteText(e.target.value)}
-        />
-      )}
 
       <p className="mt-3 text-sm text-muted-foreground">{patch.explanation}</p>
 
@@ -231,46 +186,48 @@ function PatchRow({
         </div>
       )}
 
-      {/* Reviews */}
-      {sortedReviews.length > 0 && (
+      {/* Verifications */}
+      {verifications.length > 0 && (
         <div className="mt-3 space-y-1.5">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            reviews
+            verifications
           </p>
-          {sortedReviews.map((review) => (
-            <div
-              key={review.id}
-              className="flex items-start gap-2 rounded-md bg-secondary/50 px-3 py-2"
-            >
-              <div className="mt-0.5">
-                {review.vote === "up" ? (
-                  <ThumbsUp className="h-3 w-3 text-green-400" />
-                ) : (
-                  <ThumbsDown className="h-3 w-3 text-red-400" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-medium">
-                    {review.reviewer?.githubUsername}
-                  </span>
-                  {review.version && (
-                    <Badge variant="outline" className="text-[10px]">
-                      v{review.version}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {relativeTime(new Date(review.createdAt))}
-                  </span>
+          {verifications.map((v) => {
+            const Icon = OUTCOME_ICON[v.outcome];
+            return (
+              <div
+                key={v.id}
+                className="flex items-start gap-2 rounded-md bg-secondary/50 px-3 py-2"
+              >
+                <div className="mt-0.5">
+                  <Icon className={`h-3 w-3 ${OUTCOME_COLOR[v.outcome]}`} />
                 </div>
-                {review.note && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {review.note}
-                  </p>
-                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-medium">
+                      {v.verifier?.githubUsername}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {v.outcome.replace("_", " ")}
+                    </Badge>
+                    {v.testedVersion && (
+                      <Badge variant="outline" className="text-[10px]">
+                        v{v.testedVersion}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {relativeTime(new Date(v.createdAt))}
+                    </span>
+                  </div>
+                  {v.note && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {v.note}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -293,27 +250,7 @@ export function BugDetailClient({
   const [patchCode, setPatchCode] = useState("");
   const [isSubmittingPatch, setIsSubmittingPatch] = useState(false);
   const [focusedPatch, setFocusedPatch] = useState(-1);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [bugScore, setBugScore] = useState(bug.score ?? 0);
-  const [bugVote, setBugVote] = useState<"up" | "down" | null>(null);
   const [stackTraceOpen, setStackTraceOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadUser() {
-      try {
-        const { fetchCurrentUser } = await import("@/app/actions/user");
-        const user = await fetchCurrentUser();
-        if (!cancelled) {
-          setCurrentUserId(user?.id ?? null);
-        }
-      } catch {
-        // Silently ignore
-      }
-    }
-    loadUser();
-    return () => { cancelled = true; };
-  }, []);
 
   const sortedPatches = [...(bug.patches ?? [])].sort((a, b) => b.score - a.score);
   const displayTitle = bug.title ?? bug.errorMessage ?? "Untitled";
@@ -339,29 +276,6 @@ export function BugDetailClient({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, sortedPatches.length]);
-
-  async function handleBugVote(direction: "up" | "down") {
-    if (bugVote === direction) {
-      setBugScore(bug.score ?? 0);
-      setBugVote(null);
-      return;
-    }
-
-    const delta = direction === "up" ? 1 : -1;
-    const undoPrev = bugVote === "up" ? -1 : bugVote === "down" ? 1 : 0;
-    setBugScore((bug.score ?? 0) + delta + undoPrev);
-    setBugVote(direction);
-
-    try {
-      const { reviewTarget } = await import("@/app/actions/reviews");
-      await reviewTarget(bugId, "bug", direction, null);
-      toast.success(
-        direction === "up" ? "Bug report upvoted" : "Bug report downvoted"
-      );
-    } catch {
-      toast.error("Could not save vote");
-    }
-  }
 
   async function handleSubmitPatch() {
     if (!patchExplanation.trim() || !patchCode.trim()) {
@@ -399,8 +313,6 @@ export function BugDetailClient({
     }
   }
 
-  const isOwner = currentUserId === bug.reporterId;
-
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Breadcrumb */}
@@ -417,29 +329,15 @@ export function BugDetailClient({
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-lg font-semibold leading-tight">{displayTitle}</h1>
 
-          {/* Bug voting */}
-          {!isOwner && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${bugVote === "up" ? "text-green-400 bg-green-500/10" : "text-muted-foreground"}`}
-                onClick={() => handleBugVote("up")}
-              >
-                <ThumbsUp className="h-3.5 w-3.5" />
-              </Button>
-              <span className="min-w-[1.5rem] text-center font-mono text-sm font-semibold">
-                {bugScore}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${bugVote === "down" ? "text-red-400 bg-red-500/10" : "text-muted-foreground"}`}
-                onClick={() => handleBugVote("down")}
-              >
-                <ThumbsDown className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+          {/* Confirmed count badge */}
+          {bug.confirmedCount > 0 && (
+            <Badge
+              variant="outline"
+              className="shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/25 font-mono text-xs tabular-nums"
+            >
+              <Users className="mr-1 h-3 w-3" />
+              {bug.confirmedCount} confirmed
+            </Badge>
           )}
         </div>
 
@@ -460,6 +358,11 @@ export function BugDetailClient({
               {bug.errorCode}
             </Badge>
           )}
+          {bug.category && (
+            <Badge variant="outline" className="text-xs">
+              {bug.category}
+            </Badge>
+          )}
           {bug.tags.map((tag) => (
             <Badge
               key={tag}
@@ -470,6 +373,26 @@ export function BugDetailClient({
             </Badge>
           ))}
         </div>
+
+        {/* Context libraries */}
+        {bug.contextLibraries && bug.contextLibraries.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-mono text-muted-foreground">context:</span>
+            {bug.contextLibraries.map((lib) => (
+              <Badge key={lib} variant="secondary" className="font-mono text-[10px]">
+                {lib}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Runtime/Platform */}
+        {(bug.runtime || bug.platform) && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {bug.runtime && <span className="font-mono">{bug.runtime}</span>}
+            {bug.platform && <span className="font-mono">{bug.platform}</span>}
+          </div>
+        )}
 
         {/* Reporter info */}
         <div className="flex items-center gap-2">
@@ -640,7 +563,6 @@ export function BugDetailClient({
               patch={patch}
               rank={i + 1}
               active={focusedPatch === i}
-              isOwner={currentUserId === patch.submitterId}
             />
           ))}
         </div>

@@ -29,7 +29,7 @@ export default function ProfilePage() {
     credits: number;
     bugsReported: number;
     patchesSubmitted: number;
-    reviewsGiven: number;
+    verificationsGiven: number;
   } | null>(null);
   const [bugs, setBugs] = useState<Bug[]>([]);
   const [patches, setPatches] = useState<(Patch & { bug?: { id: string; title: string } })[]>([]);
@@ -144,8 +144,8 @@ export default function ProfilePage() {
             <span className="ml-1.5 text-xs text-muted-foreground">patches</span>
           </div>
           <div>
-            <span className="text-2xl font-bold font-mono">{stats.reviewsGiven}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">reviews</span>
+            <span className="text-2xl font-bold font-mono">{stats.verificationsGiven}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">verifications</span>
           </div>
         </div>
       )}

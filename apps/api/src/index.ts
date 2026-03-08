@@ -6,7 +6,7 @@ import { rateLimiter } from "hono-rate-limiter";
 import { auth } from "./routes/auth";
 import { bugs } from "./routes/bugs";
 import { patches } from "./routes/patches";
-import { reviews } from "./routes/reviews";
+import { verifications } from "./routes/verifications";
 import { users } from "./routes/users";
 import { revisions } from "./routes/revisions";
 import { audit } from "./routes/audit";
@@ -67,7 +67,7 @@ app.use(
 app.route("/", auth);
 app.route("/", bugs);
 app.route("/", patches);
-app.route("/", reviews);
+app.route("/", verifications);
 app.route("/", users);
 app.route("/", revisions);
 app.route("/", audit);
