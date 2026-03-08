@@ -96,9 +96,11 @@ export function createMcpServer(userId: string) {
       description:
         "Submit a structured fix for a known bug. Provide step-by-step instructions: " +
         "code changes (before/after), version bumps, config changes, or commands. " +
-        "Awards +5 credits. The bug's status auto-updates based on verification results.",
+        "Awards +5 credits on first submission. If you already submitted a patch for this bug, " +
+        "it updates your existing patch (no additional credits). " +
+        "The bug's status auto-updates based on verification results.",
       inputSchema: patchInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: true },
     },
     (params) =>
       toolHandler(async () => {

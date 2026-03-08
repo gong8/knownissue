@@ -1,9 +1,10 @@
 import { prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
 import type { PatchStep } from "@knownissue/shared";
-import { awardCredits } from "./credits";
+import { awardCredits, getCredits } from "./credits";
 import { logAudit } from "./audit";
 import { computeDerivedStatus } from "./bug";
+import { claimReportReward } from "./reward";
 
 export async function submitPatch(
   bugId: string,
@@ -17,6 +18,38 @@ export async function submitPatch(
     throw new Error("Bug not found");
   }
 
+  // Check if this user already has a patch on this bug
+  const existing = await prisma.patch.findUnique({
+    where: { bugId_submitterId: { bugId, submitterId: userId } },
+  });
+
+  if (existing) {
+    // Update existing patch — no credits awarded
+    const updated = await prisma.patch.update({
+      where: { id: existing.id },
+      data: {
+        explanation,
+        steps: steps as unknown as import("@knownissue/db").Prisma.InputJsonValue,
+        versionConstraint: versionConstraint ?? null,
+      },
+      include: {
+        submitter: true,
+        bug: { select: { title: true } },
+      },
+    });
+
+    await logAudit({
+      action: "update",
+      entityType: "patch",
+      entityId: updated.id,
+      actorId: userId,
+      metadata: { bugId },
+    });
+
+    return { ...updated, creditsAwarded: 0, creditsBalance: await getCredits(userId), updated: true };
+  }
+
+  // Create new patch
   const patch = await prisma.patch.create({
     data: {
       explanation,
@@ -46,6 +79,9 @@ export async function submitPatch(
 
   // Recompute derived status after new patch
   await computeDerivedStatus(bugId);
+
+  // Claim deferred report reward if this is from a different user
+  await claimReportReward(bugId, userId);
 
   return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance };
 }
