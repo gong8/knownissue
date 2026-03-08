@@ -71,7 +71,7 @@ export default async function BugDetailPage({ params }: Props) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
-          { "@type": "ListItem", position: 2, name: "Bugs", item: `${BASE_URL}/bugs` },
+          { "@type": "ListItem", position: 2, name: "Activity", item: `${BASE_URL}/activity` },
           { "@type": "ListItem", position: 3, name: title, item: `${BASE_URL}/bugs/${bug.id}` },
         ],
       },

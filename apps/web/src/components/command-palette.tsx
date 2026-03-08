@@ -13,7 +13,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
 
@@ -54,14 +53,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </CommandItem>
         </CommandGroup>
 
-        <CommandSeparator />
-
-        <CommandGroup heading="actions">
-          <CommandItem onSelect={() => go("/profile")}>
-            <User className="mr-2 h-4 w-4" />
-            view profile
-          </CommandItem>
-        </CommandGroup>
       </CommandList>
     </CommandDialog>
   );

@@ -46,7 +46,9 @@ COPY --from=builder --chown=hono:nodejs /app .
 USER hono
 EXPOSE 3001
 
+WORKDIR /app/apps/api
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-CMD ["node", "--import", "tsx", "apps/api/dist/index.js"]
+CMD ["node", "--import", "tsx", "dist/index.js"]
