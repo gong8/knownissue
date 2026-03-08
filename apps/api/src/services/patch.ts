@@ -5,13 +5,16 @@ import { awardCredits, getCredits } from "./credits";
 import { logAudit } from "./audit";
 import { computeDerivedStatus } from "./bug";
 import { claimReportReward } from "./reward";
+import { createRelation } from "./relations";
+import { inferRelationsForPatch } from "./relationInference";
 
 export async function submitPatch(
   bugId: string,
   explanation: string,
   steps: PatchStep[],
   versionConstraint: string | null | undefined,
-  userId: string
+  userId: string,
+  relatedTo?: { bugId: string; type: "shared_fix" | "fix_conflict"; note?: string }
 ) {
   const bug = await prisma.bug.findUnique({ where: { id: bugId } });
   if (!bug) {
@@ -82,6 +85,24 @@ export async function submitPatch(
 
   // Claim deferred report reward if this is from a different user
   await claimReportReward(bugId, userId);
+
+  // Handle explicit relation from agent
+  if (relatedTo) {
+    await createRelation({
+      sourceBugId: bugId,
+      targetBugId: relatedTo.bugId,
+      type: relatedTo.type,
+      source: "agent",
+      confidence: 1.0,
+      metadata: relatedTo.note ? { note: relatedTo.note } : undefined,
+      createdById: userId,
+    });
+  }
+
+  // Run relation inference (fire-and-forget)
+  inferRelationsForPatch(patch.id, bugId).catch((err) =>
+    console.error("Relation inference failed for patch", patch.id, err)
+  );
 
   return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance, updated: false };
 }

@@ -23,6 +23,8 @@ import { createBugRevision } from "./revision";
 import { awardCredits, penalizeCredits } from "./credits";
 import * as patchService from "./patch";
 import { claimReportReward } from "./reward";
+import { createRelation } from "./relations";
+import { inferRelationsForBug } from "./relationInference";
 
 export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
@@ -360,6 +362,24 @@ export async function createBug(input: ReportInput, userId: string) {
     );
     creditsAwarded += inlinePatchResult.creditsAwarded;
   }
+
+  // Handle explicit relation from agent
+  if (parsed.relatedTo) {
+    await createRelation({
+      sourceBugId: bug.id,
+      targetBugId: parsed.relatedTo.bugId,
+      type: parsed.relatedTo.type,
+      source: "agent",
+      confidence: 1.0,
+      metadata: parsed.relatedTo.note ? { note: parsed.relatedTo.note } : undefined,
+      createdById: userId,
+    });
+  }
+
+  // Run relation inference (fire-and-forget — don't block response)
+  inferRelationsForBug(bug.id, userId).catch((err) =>
+    console.error("Relation inference failed for bug", bug.id, err)
+  );
 
   return {
     bug,

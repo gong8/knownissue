@@ -109,7 +109,8 @@ export function createMcpServer(userId: string) {
           params.explanation,
           params.steps,
           params.versionConstraint,
-          userId
+          userId,
+          params.relatedTo
         );
       }, userId)
   );
