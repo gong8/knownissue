@@ -23,6 +23,17 @@ import {
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
 import type { Issue, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
 
+type RelatedIssue = {
+  id: string;
+  type: string;
+  title: string | null;
+  library: string;
+  version: string;
+  confidence: number;
+};
+
+type IssueWithRelations = Issue & { relatedIssues?: RelatedIssue[] };
+
 const SEVERITY_DOT: Record<Severity, string> = {
   critical: "bg-red-400",
   high: "bg-orange-400",
@@ -224,6 +235,18 @@ function PatchRow({
                       {v.note}
                     </p>
                   )}
+                  {v.errorBefore && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-red-400">before:</span>{" "}
+                      <code className="font-mono text-muted-foreground">{v.errorBefore}</code>
+                    </div>
+                  )}
+                  {v.errorAfter && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-green-400">after:</span>{" "}
+                      <code className="font-mono text-muted-foreground">{v.errorAfter}</code>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -241,10 +264,10 @@ export function IssueDetailClient({
   initialIssue,
 }: {
   issueId: string;
-  initialIssue: Issue;
+  initialIssue: IssueWithRelations;
 }) {
   const router = useRouter();
-  const [issue] = useState<Issue>(initialIssue);
+  const [issue] = useState<IssueWithRelations>(initialIssue);
   const [focusedPatch, setFocusedPatch] = useState(-1);
   const [stackTraceOpen, setStackTraceOpen] = useState(false);
 
@@ -259,7 +282,7 @@ export function IssueDetailClient({
 
       if (e.key === "u") {
         e.preventDefault();
-        router.push("/activity");
+        router.push("/explore");
       } else if (e.key === "j") {
         e.preventDefault();
         setFocusedPatch((prev) => Math.min(prev + 1, sortedPatches.length - 1));
@@ -277,8 +300,8 @@ export function IssueDetailClient({
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
-        <Link href="/activity" className="hover:text-foreground transition-colors">
-          activity
+        <Link href="/explore" className="hover:text-foreground transition-colors">
+          explore
         </Link>
         <span>/</span>
         <span className="text-foreground">KI-{issue.id.slice(0, 8)}</span>
@@ -289,16 +312,23 @@ export function IssueDetailClient({
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-lg font-semibold leading-tight">{displayTitle}</h1>
 
-          {/* Access count badge */}
-          {issue.accessCount > 0 && (
-            <Badge
-              variant="outline"
-              className="shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/25 font-mono text-xs tabular-nums"
-            >
-              <Users className="mr-1 h-3 w-3" />
-              {issue.accessCount} agents reached
-            </Badge>
-          )}
+          {/* Access count badge & search hit count */}
+          <div className="flex items-center gap-2 shrink-0">
+            {issue.searchHitCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                found in {issue.searchHitCount} searches
+              </span>
+            )}
+            {issue.accessCount > 0 && (
+              <Badge
+                variant="outline"
+                className="shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/25 font-mono text-xs tabular-nums"
+              >
+                <Users className="mr-1 h-3 w-3" />
+                {issue.accessCount} agents reached
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Compact badge row */}
@@ -454,6 +484,32 @@ export function IssueDetailClient({
             </div>
           )}
         </div>
+      )}
+
+      {/* Related issues */}
+      {issue.relatedIssues && issue.relatedIssues.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            related issues
+          </h3>
+          <div className="space-y-1.5">
+            {issue.relatedIssues.map((rel) => (
+              <Link
+                key={rel.id}
+                href={`/issues/${rel.id}`}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-secondary/50 transition-colors"
+              >
+                <Badge variant="outline" className="text-[10px] shrink-0">{rel.type.replace(/_/g, " ")}</Badge>
+                <span className="font-medium truncate">{rel.title ?? `${rel.library}@${rel.version}`}</span>
+                {rel.confidence < 1.0 && (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {rel.confidence >= 0.7 ? "high confidence" : "moderate"}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <Separator />

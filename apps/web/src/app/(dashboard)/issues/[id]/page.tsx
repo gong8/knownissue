@@ -71,7 +71,7 @@ export default async function IssueDetailPage({ params }: Props) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
-          { "@type": "ListItem", position: 2, name: "Activity", item: `${BASE_URL}/activity` },
+          { "@type": "ListItem", position: 2, name: "Explore", item: `${BASE_URL}/explore` },
           { "@type": "ListItem", position: 3, name: title, item: `${BASE_URL}/issues/${issue.id}` },
         ],
       },
