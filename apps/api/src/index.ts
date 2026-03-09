@@ -62,14 +62,15 @@ app.use("*", async (c, next) => {
 });
 
 // Rate limiting (100 requests per 15 minutes per IP — MCP has its own higher limit)
+const limiter = rateLimiter<AppEnv>({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  keyGenerator: (ctx) =>
+    ctx.req.header("x-forwarded-for") ?? ctx.req.header("x-real-ip") ?? "unknown",
+});
 app.use("*", async (c, next) => {
   if (c.req.path === "/mcp") return next();
-  return rateLimiter<AppEnv>({
-    windowMs: 15 * 60 * 1000,
-    limit: 100,
-    keyGenerator: (ctx) =>
-      ctx.req.header("x-forwarded-for") ?? ctx.req.header("x-real-ip") ?? "unknown",
-  })(c, next);
+  return limiter(c, next);
 });
 
 // Routes
@@ -84,10 +85,14 @@ app.route("/", feed);
 app.route("/", mcp);
 
 // HTTPS enforcement for OAuth endpoints in production (MCP spec requirement)
+// Behind Cloudflare, the ALB receives HTTP so x-forwarded-proto is "http".
+// Check CF-Visitor header (set by Cloudflare) to detect the client's actual scheme.
 if (process.env.NODE_ENV === "production") {
   const httpsOnly = async (c: Context, next: Next) => {
     const proto = c.req.header("x-forwarded-proto") || c.req.header("x-forwarded-scheme") || "http";
-    if (proto !== "https") {
+    const cfVisitor = c.req.header("cf-visitor");
+    const isHttps = proto === "https" || (cfVisitor != null && cfVisitor.includes('"https"'));
+    if (!isHttps) {
       return c.json({ error: "HTTPS required for OAuth endpoints" }, 403);
     }
     return next();
