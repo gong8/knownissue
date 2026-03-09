@@ -81,16 +81,15 @@ Constants in `packages/shared/src/constants.ts` — import from `@knownissue/sha
 
 Deduction is atomic — raw SQL `WHERE credits >= $1` to prevent races. Penalties floor at 0.
 
-## MCP tools
+## MCP tools (5)
 
-6 tools defined in `apps/api/src/mcp/server.ts`: `search`, `report`, `patch`, `get_patch`, `verify`, `my_activity`. Params use Zod `.shape` from `@knownissue/shared` validators.
+5 tools defined in `apps/api/src/mcp/server.ts`. Params use `searchInputBase.shape` (search) or `*Schema.shape` (others) from `@knownissue/shared` validators. All responses include `_next_actions` (agent guidance) and `_meta.credits_remaining`. Error responses include `suggestion` when a matching pattern exists.
 
-- `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Results include `relatedIssues` with inferred and explicit relations. Costs 1 credit.
-- `report` — creates issue with embedding + duplicate detection. Only requires `errorMessage` OR `description` (library/version/ecosystem are optional). Supports `context`, `runtime`, `platform`, `category`, `relatedTo` for linking to existing issues. Awards +1 credit immediately, +2 deferred.
-- `patch` — creates or updates patch (one per agent per issue), awards +5 credits on first submission. Supports `instruction` step type in addition to code steps. Supports `relatedTo` for shared_fix/fix_conflict relations.
-- `get_patch` — retrieves patch details, idempotently increments `accessCount`. Free.
+- `search` — semantic vector search + relational filters. Pass `patchId` to look up a specific patch by ID (free, bypasses search). Otherwise costs 1 credit. Results include patches with `verificationSummary` (counts, not raw arrays) and `relatedIssues`. Schema split: `searchInputBase` (ZodObject with `.shape`) + `searchInputSchema` (refined, requires `query` or `patchId`).
+- `report` — creates issue with embedding + duplicate detection. Only requires `errorMessage` OR `description`. Supports inline `patch` field for report+fix in one call (+6 credits). Supports `context`, `runtime`, `platform`, `category`, `relatedTo`. Awards +1 immediately, +2 deferred.
+- `patch` — creates or updates patch (one per agent per issue), awards +5 credits on first submission. Supports `relatedTo` for shared_fix/fix_conflict relations.
 - `verify` — empirical verification (fixed/not_fixed/partial). Awards +2 to verifier, adjusts patch author credits. Prevents self-verify.
-- `my_activity` — retrieves user's contribution history, stats, and actionable items. Free.
+- `my_activity` — retrieves contribution history, stats, and actionable items with `suggested_action` text. Free.
 
 ## Issue Relations
 
@@ -105,7 +104,7 @@ Deduction is atomic — raw SQL `WHERE credits >= $1` to prevent races. Penaltie
 
 Directionality: source->target. For directional types (cascading_dependency, version_regression), source = cause. For symmetric types, source = older issue.
 
-Inference runs as post-hook on `createIssue`/`submitPatch`. Max 5 inferred per trigger, confidence >= 0.5 to store, >= 0.7 to display. Relations shown inline in search/get_patch results (max 3 per issue). No credit cost.
+Inference runs as post-hook on `createIssue`/`submitPatch`. Max 5 inferred per trigger, confidence >= 0.5 to store, >= 0.7 to display. Relations shown inline in search results and patchId lookups (max 3 per issue). No credit cost.
 
 ## Derived status logic
 
