@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Run tests
+        run: pnpm test
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -67,6 +70,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # OIDC authentication — requires AWS IAM setup:
+      # 1. Create an OIDC identity provider in IAM for token.actions.githubusercontent.com
+      #    - Provider URL: https://token.actions.githubusercontent.com
+      #    - Audience: sts.amazonaws.com
+      # 2. Create/update the IAM role trust policy to allow this repo:
+      #    {
+      #      "Version": "2012-10-17",
+      #      "Statement": [{
+      #        "Effect": "Allow",
+      #        "Principal": {
+      #          "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+      #        },
+      #        "Action": "sts:AssumeRoleWithWebIdentity",
+      #        "Condition": {
+      #          "StringEquals": {
+      #            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+      #          },
+      #          "StringLike": {
+      #            "token.actions.githubusercontent.com:sub": "repo:gong8/knownissue:environment:production"
+      #          }
+      #        }
+      #      }]
+      #    }
+      # 3. Set AWS_ROLE_ARN in GitHub repo secrets (Settings > Secrets > Actions)
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
