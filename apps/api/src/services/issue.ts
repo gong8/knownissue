@@ -25,6 +25,36 @@ import { createRelation, loadRelatedIssues } from "./relations";
 import { inferRelationsForIssue } from "./relationInference";
 import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_ISSUE } from "@knownissue/shared";
 
+function summarizePatches<
+  P extends {
+    id: string;
+    explanation: string;
+    steps: unknown;
+    score: number;
+    versionConstraint: string | null;
+    submitter: unknown;
+    createdAt: Date;
+    verifications: { outcome: string }[];
+  },
+>(patches: P[]) {
+  return patches.map((p) => {
+    const counts = { fixed: 0, not_fixed: 0, partial: 0 };
+    for (const v of p.verifications) {
+      counts[v.outcome as keyof typeof counts]++;
+    }
+    return {
+      id: p.id,
+      explanation: p.explanation,
+      steps: p.steps,
+      score: p.score,
+      versionConstraint: p.versionConstraint,
+      submitter: p.submitter,
+      createdAt: p.createdAt,
+      verificationSummary: { ...counts, total: counts.fixed + counts.not_fixed + counts.partial },
+    };
+  });
+}
+
 export async function searchIssues(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
 
@@ -39,7 +69,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
         });
         return {
-          issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
+          issues: [{ ...issue, patches: summarizePatches(issue.patches), relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 1, confidence: 1.0 },
           _next_actions: [
@@ -62,7 +92,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
         });
         return {
-          issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
+          issues: [{ ...issue, patches: summarizePatches(issue.patches), relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 2, confidence: 0.95 },
           _next_actions: [
@@ -155,7 +185,9 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
 
     const issuesWithPatches = issues.map((issue) => ({
       ...issue,
-      patches: patchesByIssue.filter((p) => p.issueId === issue.id),
+      patches: summarizePatches(
+        patchesByIssue.filter((p) => p.issueId === issue.id)
+      ),
     }));
 
     // Load related issues for all results
@@ -250,6 +282,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
 
   const issuesWithRelations = issues.map((issue) => ({
     ...issue,
+    patches: summarizePatches(issue.patches),
     relatedIssues: relatedMap.get(issue.id) ?? [],
   }));
 
