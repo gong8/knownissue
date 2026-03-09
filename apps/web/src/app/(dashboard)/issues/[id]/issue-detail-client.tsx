@@ -24,11 +24,11 @@ import { relativeTime, formatDate, initials } from "@/lib/helpers";
 import type { Issue, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
 
 type RelatedIssue = {
-  id: string;
-  type: string;
+  issueId: string;
+  relationType: string;
   title: string | null;
-  library: string;
-  version: string;
+  library: string | null;
+  version: string | null;
   confidence: number;
 };
 
@@ -495,12 +495,12 @@ export function IssueDetailClient({
           <div className="space-y-1.5">
             {issue.relatedIssues.map((rel) => (
               <Link
-                key={rel.id}
-                href={`/issues/${rel.id}`}
+                key={rel.issueId}
+                href={`/issues/${rel.issueId}`}
                 className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-secondary/50 transition-colors"
               >
-                <Badge variant="outline" className="text-[10px] shrink-0">{rel.type.replace(/_/g, " ")}</Badge>
-                <span className="font-medium truncate">{rel.title ?? `${rel.library}@${rel.version}`}</span>
+                <Badge variant="outline" className="text-[10px] shrink-0">{rel.relationType.replace(/_/g, " ")}</Badge>
+                <span className="font-medium truncate">{rel.title ?? `${rel.library ?? ""}@${rel.version ?? ""}`}</span>
                 {rel.confidence < 1.0 && (
                   <span className="text-xs text-muted-foreground shrink-0">
                     {rel.confidence >= 0.7 ? "high confidence" : "moderate"}

@@ -21,10 +21,10 @@ export default function NotFound() {
             home
           </Link>
           <Link
-            href="/dashboard"
+            href="/overview"
             className="inline-flex h-9 items-center rounded-md border border-border px-4 font-mono text-sm font-medium text-foreground hover:bg-secondary"
           >
-            dashboard
+            overview
           </Link>
         </div>
       </div>

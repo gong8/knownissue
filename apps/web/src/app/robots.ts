@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/", "/issues/*"],
-        disallow: ["/dashboard", "/profile", "/sign-in"],
+        disallow: ["/overview", "/explore", "/your-agent", "/sign-in"],
       },
     ],
     sitemap: "https://knownissue.dev/sitemap.xml",
