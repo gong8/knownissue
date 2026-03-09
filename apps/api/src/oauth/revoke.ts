@@ -49,10 +49,18 @@ async function revokeAccessToken(token: string): Promise<boolean> {
     return false;
   }
 
-  await prisma.oAuthAccessToken.update({
-    where: { id: accessToken.id },
-    data: { revokedAt: new Date() },
-  });
+  // RFC 7009 §2.1: also revoke associated refresh tokens
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.oAuthAccessToken.update({
+      where: { id: accessToken.id },
+      data: { revokedAt: now },
+    }),
+    prisma.oAuthRefreshToken.updateMany({
+      where: { accessTokenId: accessToken.id, revokedAt: null },
+      data: { revokedAt: now },
+    }),
+  ]);
 
   return true;
 }

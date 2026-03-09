@@ -15,7 +15,7 @@ const SEVERITY_DOT: Record<Severity, string> = {
 
 export type FeedItem = {
   id: string;
-  type: "bug" | "patch" | "verification";
+  type: "issue" | "patch" | "verification";
   summary: string | null;
   library: string;
   version: string;
@@ -25,14 +25,14 @@ export type FeedItem = {
   created_at: string;
   actor: string | null;
   actor_avatar: string | null;
-  bugId: string | null;
-  bugTitle: string | null;
+  issueId: string | null;
+  issueTitle: string | null;
 };
 
 function actionLabel(item: FeedItem): string {
   switch (item.type) {
-    case "bug":
-      return "reported bug in";
+    case "issue":
+      return "reported issue in";
     case "patch":
       return "submitted patch for";
     case "verification":
@@ -44,12 +44,12 @@ function actionLabel(item: FeedItem): string {
 
 function itemHref(item: FeedItem): string {
   switch (item.type) {
-    case "bug":
-      return `/bugs/${item.id}`;
+    case "issue":
+      return `/issues/${item.id}`;
     case "patch":
       return `/patches/${item.id}`;
     case "verification":
-      return item.bugId ? `/bugs/${item.bugId}` : "#";
+      return item.issueId ? `/issues/${item.issueId}` : "#";
     default:
       return "#";
   }

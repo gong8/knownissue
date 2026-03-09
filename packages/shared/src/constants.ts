@@ -7,7 +7,7 @@ export const PATCH_REWARD = 5;
 export const VERIFY_REWARD = 2;
 export const PATCH_VERIFIED_FIXED_REWARD = 1;
 export const PATCH_VERIFIED_NOT_FIXED_PENALTY = 1;
-export const DUPLICATE_PENALTY = 5;
+export const DUPLICATE_PENALTY = 2;
 
 // Derived status thresholds
 export const ACCESS_COUNT_THRESHOLD = 2;
@@ -20,8 +20,8 @@ export const MIN_DESCRIPTION_LENGTH = 30;
 export const MIN_EXPLANATION_LENGTH = 10;
 
 // Duplicate detection
-export const DUPLICATE_WARN_THRESHOLD = 0.92;
-export const DUPLICATE_REJECT_THRESHOLD = 0.98;
+export const DUPLICATE_WARN_THRESHOLD = 0.90;
+export const DUPLICATE_REJECT_THRESHOLD = 0.96;
 
 // Embeddings
 export const EMBEDDING_DIMENSIONS = 1536;

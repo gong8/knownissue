@@ -7,21 +7,21 @@ export async function getMyActivity(
   filters: { type?: string; outcome?: string; limit?: number }
 ) {
   const limit = Math.min(filters.limit ?? DEFAULT_LIMIT, 50);
-  const showBugs = !filters.type || filters.type === "bugs";
+  const showIssues = !filters.type || filters.type === "bugs";
   const showPatches = !filters.type || filters.type === "patches";
   const showVerifications = !filters.type || filters.type === "verifications";
 
   const [
     summary,
-    recentBugs,
+    recentIssues,
     recentPatches,
     recentVerifications,
     actionablePatches,
-    actionableBugs,
+    actionableIssues,
   ] = await Promise.all([
     getSummary(userId),
-    showBugs
-      ? prisma.bug.findMany({
+    showIssues
+      ? prisma.issue.findMany({
           where: { reporterId: userId },
           select: {
             id: true,
@@ -46,7 +46,7 @@ export async function getMyActivity(
             createdAt: true,
             patch: {
               select: {
-                bug: { select: { title: true } },
+                issue: { select: { title: true } },
               },
             },
           },
@@ -55,18 +55,18 @@ export async function getMyActivity(
         })
       : Promise.resolve([]),
     showPatches ? getActionablePatches(userId) : Promise.resolve([]),
-    showBugs ? getActionableBugs(userId) : Promise.resolve([]),
+    showIssues ? getActionableIssues(userId) : Promise.resolve([]),
   ]);
 
   return {
     summary,
     recent: {
-      ...(showBugs && { bugs: recentBugs }),
+      ...(showIssues && { bugs: recentIssues }),
       ...(showPatches && {
         patches: recentPatches.map((p) => ({
           id: p.id,
-          bugId: p.bugId,
-          bugTitle: p.bug.title,
+          issueId: p.issueId,
+          issueTitle: p.issue.title,
           explanation: p.explanation,
           verifications: p._verificationCounts,
           createdAt: p.createdAt,
@@ -76,7 +76,7 @@ export async function getMyActivity(
         verifications: recentVerifications.map((v) => ({
           id: v.id,
           patchId: v.patchId,
-          bugTitle: v.patch.bug.title,
+          issueTitle: v.patch.issue.title,
           outcome: v.outcome,
           createdAt: v.createdAt,
         })),
@@ -86,13 +86,13 @@ export async function getMyActivity(
       ...actionablePatches.map((p) => ({
         type: "patch_needs_revision" as const,
         patchId: p.id,
-        bugTitle: p.bug.title,
+        issueTitle: p.issue.title,
         notFixedCount: p._notFixedCount,
         latestNote: p._latestNote,
       })),
-      ...actionableBugs.map((b) => ({
-        type: "bug_status_changed" as const,
-        bugId: b.id,
+      ...actionableIssues.map((b) => ({
+        type: "issue_status_changed" as const,
+        issueId: b.id,
         title: b.title,
         newStatus: b.status,
       })),
@@ -101,9 +101,9 @@ export async function getMyActivity(
 }
 
 async function getSummary(userId: string) {
-  const [bugCount, patchCount, verificationCount, user, earned, spent] =
+  const [issueCount, patchCount, verificationCount, user, earned, spent] =
     await Promise.all([
-      prisma.bug.count({ where: { reporterId: userId } }),
+      prisma.issue.count({ where: { reporterId: userId } }),
       prisma.patch.count({ where: { submitterId: userId } }),
       prisma.verification.count({ where: { verifierId: userId } }),
       prisma.user.findUniqueOrThrow({
@@ -121,7 +121,7 @@ async function getSummary(userId: string) {
     ]);
 
   return {
-    bugsReported: bugCount,
+    issuesReported: issueCount,
     patchesSubmitted: patchCount,
     verificationsGiven: verificationCount,
     creditsEarned: earned._sum.amount ?? 0,
@@ -146,10 +146,10 @@ async function getRecentPatches(
     },
     select: {
       id: true,
-      bugId: true,
+      issueId: true,
       explanation: true,
       createdAt: true,
-      bug: { select: { title: true } },
+      issue: { select: { title: true } },
       verifications: {
         select: { outcome: true },
       },
@@ -175,7 +175,7 @@ async function getActionablePatches(userId: string) {
     },
     select: {
       id: true,
-      bug: { select: { title: true } },
+      issue: { select: { title: true } },
       verifications: {
         where: { outcome: "not_fixed" },
         select: { note: true, createdAt: true },
@@ -191,8 +191,8 @@ async function getActionablePatches(userId: string) {
   }));
 }
 
-async function getActionableBugs(userId: string) {
-  return prisma.bug.findMany({
+async function getActionableIssues(userId: string) {
+  return prisma.issue.findMany({
     where: {
       reporterId: userId,
       status: { not: "open" },

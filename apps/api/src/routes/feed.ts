@@ -16,11 +16,11 @@ interface FeedRow {
   created_at: Date;
   actor: string;
   actor_avatar: string | null;
-  bug_id: string;
-  bug_title: string;
+  issue_id: string;
+  issue_title: string;
 }
 
-// GET /feed — public activity stream (bugs, patches, verifications)
+// GET /feed — public activity stream (issues, patches, verifications)
 feed.get("/feed", async (c) => {
   const typeParam = c.req.query("type");
   const severityParam = c.req.query("severity");
@@ -38,13 +38,13 @@ feed.get("/feed", async (c) => {
   const offset = (page - 1) * limit;
 
   // Parse comma-separated filter values
-  const allowedTypes = new Set(["bug", "patch", "verification"]);
+  const allowedTypes = new Set(["issue", "patch", "verification"]);
   const types = typeParam
     ? typeParam.split(",").map((t) => t.trim()).filter((t) => allowedTypes.has(t))
-    : ["bug", "patch", "verification"];
+    : ["issue", "patch", "verification"];
 
   if (types.length === 0) {
-    return c.json({ error: "Invalid type filter. Allowed: bug, patch, verification" }, 400);
+    return c.json({ error: "Invalid type filter. Allowed: issue, patch, verification" }, 400);
   }
 
   const allowedSeverities = new Set(["low", "medium", "high", "critical"]);
@@ -126,7 +126,7 @@ feed.get("/feed", async (c) => {
   // Build UNION parts
   const unionParts: string[] = [];
 
-  if (types.includes("bug")) {
+  if (types.includes("issue")) {
     const where = buildWhereClause(
       "b.\"createdAt\"",
       "b.\"severity\"",
@@ -135,7 +135,7 @@ feed.get("/feed", async (c) => {
     unionParts.push(`
       SELECT
         b."id",
-        'bug' AS "type",
+        'issue' AS "type",
         COALESCE(b."title", LEFT(b."description", 120)) AS "summary",
         b."library",
         b."version",
@@ -145,8 +145,8 @@ feed.get("/feed", async (c) => {
         b."createdAt" AS "created_at",
         COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
-        b."id" AS "bug_id",
-        COALESCE(b."title", '') AS "bug_title"
+        b."id" AS "issue_id",
+        COALESCE(b."title", '') AS "issue_title"
       FROM "Bug" b
       JOIN "User" u ON u."id" = b."reporterId"
       ${where}
@@ -172,8 +172,8 @@ feed.get("/feed", async (c) => {
         p."createdAt" AS "created_at",
         COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
-        bg."id" AS "bug_id",
-        COALESCE(bg."title", '') AS "bug_title"
+        bg."id" AS "issue_id",
+        COALESCE(bg."title", '') AS "issue_title"
       FROM "Patch" p
       JOIN "User" u ON u."id" = p."submitterId"
       JOIN "Bug" bg ON bg."id" = p."bugId"
@@ -200,8 +200,8 @@ feed.get("/feed", async (c) => {
         v."createdAt" AS "created_at",
         COALESCE(u."githubUsername", 'anonymous') AS "actor",
         u."avatarUrl" AS "actor_avatar",
-        bg."id" AS "bug_id",
-        COALESCE(bg."title", '') AS "bug_title"
+        bg."id" AS "issue_id",
+        COALESCE(bg."title", '') AS "issue_title"
       FROM "Verification" v
       JOIN "User" u ON u."id" = v."verifierId"
       JOIN "Patch" p ON p."id" = v."patchId"
@@ -248,8 +248,8 @@ feed.get("/feed", async (c) => {
         created_at: item.created_at,
         actor: item.actor,
         actor_avatar: item.actor_avatar,
-        bugId: item.bug_id,
-        bugTitle: item.bug_title,
+        issueId: item.issue_id,
+        issueTitle: item.issue_title,
       })),
       total,
       page,

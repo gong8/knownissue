@@ -20,7 +20,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<{
-    bugsReported: number;
+    issuesReported: number;
     patchesSubmitted: number;
     verificationsGiven: number;
   } | null>(null);
@@ -137,8 +137,8 @@ export default function ProfilePage() {
       {stats && (
         <div className="flex items-baseline gap-8">
           <div>
-            <span className="text-2xl font-bold font-mono">{stats.bugsReported}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">bugs reported</span>
+            <span className="text-2xl font-bold font-mono">{stats.issuesReported}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">issues reported</span>
           </div>
           <div>
             <span className="text-2xl font-bold font-mono">{stats.patchesSubmitted}</span>

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { prisma } from "@knownissue/db";
 import { authMiddleware } from "../middleware/auth";
-import * as bugService from "../services/bug";
+import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
 import { getCredits, getUserTransactions } from "../services/credits";
 import type { AppEnv } from "../lib/types";
@@ -20,14 +20,14 @@ users.get("/users/me", async (c) => {
 // GET /users/me/stats — aggregated stats
 users.get("/users/me/stats", async (c) => {
   const user = c.get("user");
-  const [credits, bugsReported, patchesSubmitted, verificationsGiven] =
+  const [credits, issuesReported, patchesSubmitted, verificationsGiven] =
     await Promise.all([
       getCredits(user.id),
-      prisma.bug.count({ where: { reporterId: user.id } }),
+      prisma.issue.count({ where: { reporterId: user.id } }),
       prisma.patch.count({ where: { submitterId: user.id } }),
       prisma.verification.count({ where: { verifierId: user.id } }),
     ]);
-  return c.json({ credits, bugsReported, patchesSubmitted, verificationsGiven });
+  return c.json({ credits, issuesReported, patchesSubmitted, verificationsGiven });
 });
 
 // GET /users/me/transactions — credit history
@@ -42,11 +42,11 @@ users.get("/users/me/transactions", async (c) => {
   return c.json(result);
 });
 
-// GET /users/me/bugs — user's bugs
-users.get("/users/me/bugs", async (c) => {
+// GET /users/me/issues — user's issues
+users.get("/users/me/issues", async (c) => {
   const user = c.get("user");
-  const bugs = await bugService.getUserBugs(user.id);
-  return c.json(bugs);
+  const issues = await issueService.getUserIssues(user.id);
+  return c.json(issues);
 });
 
 // GET /users/me/patches — user's patches

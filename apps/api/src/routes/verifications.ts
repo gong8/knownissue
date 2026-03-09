@@ -15,7 +15,7 @@ verifications.post("/verifications", async (c) => {
   const body = await c.req.json();
 
   try {
-    const { patchId, outcome, note, errorBefore, errorAfter, testedVersion, bugAccuracy } =
+    const { patchId, outcome, note, errorBefore, errorAfter, testedVersion, issueAccuracy } =
       verificationInputSchema.parse(body);
     const result = await verificationService.verify(
       patchId,
@@ -24,7 +24,7 @@ verifications.post("/verifications", async (c) => {
       errorBefore,
       errorAfter,
       testedVersion,
-      bugAccuracy,
+      issueAccuracy,
       user.id
     );
     return c.json(result, 201);

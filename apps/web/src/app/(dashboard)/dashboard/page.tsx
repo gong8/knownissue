@@ -9,7 +9,7 @@ import { ActivityFeed, type FeedItem } from "@/components/activity-feed";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<{
-    bugs: number;
+    issues: number;
     patches: number;
     approvalRate: number;
     openCriticals: number;
@@ -81,8 +81,8 @@ export default function DashboardPage() {
       {stats && (
         <div className="flex items-baseline gap-8">
           <div>
-            <span className="text-2xl font-bold font-mono">{stats.bugs}</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">bugs tracked</span>
+            <span className="text-2xl font-bold font-mono">{stats.issues}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">issues tracked</span>
           </div>
           <div>
             <span className="text-2xl font-bold font-mono">{stats.patches}</span>

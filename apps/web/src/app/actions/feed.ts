@@ -32,7 +32,7 @@ export async function fetchAggregateStats() {
     throw new Error(err.error || "Failed to fetch stats");
   }
   return res.json() as Promise<{
-    bugs: number;
+    issues: number;
     patches: number;
     users: number;
     openCriticals: number;

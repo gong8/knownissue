@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import { prisma } from "@knownissue/db";
 
 export function computeFingerprint(
-  library: string,
+  library?: string | null,
   errorCode?: string | null,
   errorMessage?: string | null
 ): string | null {
+  if (!library) return null;
+
   // Tier 1: errorCode present — most precise
   if (errorCode) {
     return sha256(`${library}::${errorCode}`);
@@ -41,7 +43,7 @@ export function normalizeErrorMessage(msg: string): string {
 }
 
 export async function findByFingerprint(fingerprint: string) {
-  return prisma.bug.findFirst({
+  return prisma.issue.findFirst({
     where: {
       fingerprint,
     },

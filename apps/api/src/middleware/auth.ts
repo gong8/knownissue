@@ -272,7 +272,7 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
           status: 403,
           headers: {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer error="insufficient_scope", scope="mcp:tools", resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+            "WWW-Authenticate": `Bearer error="insufficient_scope", scope="mcp:tools", resource_metadata="${baseUrl}/.well-known/oauth-protected-resource", error_description="The mcp:tools scope is required"`,
           },
         }
       ),

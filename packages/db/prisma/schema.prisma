@@ -22,7 +22,7 @@ enum AuditAction {
 }
 
 enum EntityType {
-  bug
+  issue @map("bug")
   patch
   verification
   user
@@ -32,12 +32,12 @@ enum CreditEventType {
   signup
   search
   patch_submitted
-  bug_reported
+  issue_reported      @map("bug_reported")
   duplicate_penalty
   verification_given
   patch_verified_fixed
   patch_verified_not_fixed
-  bug_reported_deferred
+  issue_reported_deferred @map("bug_reported_deferred")
 }
 
 enum Severity {
@@ -47,11 +47,13 @@ enum Severity {
   critical
 }
 
-enum BugStatus {
+enum IssueStatus {
   open
   confirmed
   patched
   closed
+
+  @@map("BugStatus")
 }
 
 enum VerificationOutcome {
@@ -60,12 +62,14 @@ enum VerificationOutcome {
   partial
 }
 
-enum BugAccuracy {
+enum IssueAccuracy {
   accurate
   inaccurate
+
+  @@map("BugAccuracy")
 }
 
-enum BugCategory {
+enum IssueCategory {
   crash
   build
   types
@@ -74,15 +78,21 @@ enum BugCategory {
   config
   compatibility
   install
+  hallucination
+  deprecated
+
+  @@map("BugCategory")
 }
 
-enum BugRelationType {
+enum IssueRelationType {
   same_root_cause
   version_regression
   cascading_dependency
   interaction_conflict
   shared_fix
   fix_conflict
+
+  @@map("BugRelationType")
 }
 
 enum RelationSource {
@@ -100,13 +110,13 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  bugs               Bug[]
+  issues             Issue[]
   patches            Patch[]
   verifications      Verification[]
   patchAccesses      PatchAccess[]
   creditTransactions CreditTransaction[]
   auditLogs          AuditLog[]
-  bugRelations       BugRelation[]
+  issueRelations     IssueRelation[]
   oauthAuthCodes     OAuthAuthorizationCode[]
   oauthAccessTokens  OAuthAccessToken[]
 }
@@ -120,7 +130,7 @@ model CreditTransaction {
   userId    String
   user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  relatedBugId   String?
+  relatedIssueId String? @map("relatedBugId")
   relatedPatchId String?
 
   createdAt DateTime @default(now())
@@ -128,15 +138,15 @@ model CreditTransaction {
   @@index([userId, createdAt])
 }
 
-model Bug {
-  id               String       @id @default(uuid())
+model Issue {
+  id               String        @id @default(uuid())
   title            String?
   description      String?
-  library          String
-  version          String
-  ecosystem        String
-  severity         Severity     @default(low)
-  status           BugStatus    @default(open)
+  library          String?
+  version          String?
+  ecosystem        String?
+  severity         Severity      @default(low)
+  status           IssueStatus   @default(open)
   tags             String[]
   embedding        Unsupported("vector(1536)")?
   errorMessage     String?
@@ -150,22 +160,23 @@ model Bug {
   contextLibraries String[]
   runtime          String?
   platform         String?
-  category         BugCategory?
-  accessCount      Int          @default(0)
-  searchHitCount   Int          @default(0)
-  rewardClaimed    Boolean      @default(false)
+  category         IssueCategory?
+  accessCount      Int           @default(0)
+  searchHitCount   Int           @default(0)
+  rewardClaimed    Boolean       @default(false)
 
   reporterId String
   reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  patches   Patch[]
-  revisions BugRevision[]
-  relationsFrom BugRelation[] @relation("RelationsFrom")
-  relationsTo   BugRelation[] @relation("RelationsTo")
+  patches       Patch[]
+  revisions     IssueRevision[]
+  relationsFrom IssueRelation[] @relation("RelationsFrom")
+  relationsTo   IssueRelation[] @relation("RelationsTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@map("Bug")
   @@index([library, version])
   @@index([ecosystem])
   @@index([status])
@@ -182,8 +193,8 @@ model Patch {
   score             Int     @default(0)
   versionConstraint String?
 
-  bugId String
-  bug   Bug    @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  issueId String @map("bugId")
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
   submitterId String
   submitter   User   @relation(fields: [submitterId], references: [id], onDelete: Cascade)
@@ -194,8 +205,8 @@ model Patch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([bugId, submitterId])
-  @@index([bugId])
+  @@unique([issueId, submitterId])
+  @@index([issueId])
   @@index([submitterId])
 }
 
@@ -206,7 +217,7 @@ model Verification {
   errorBefore   String?
   errorAfter    String?
   testedVersion String?
-  bugAccuracy   BugAccuracy         @default(accurate)
+  issueAccuracy IssueAccuracy       @default(accurate) @map("bugAccuracy")
 
   patchId    String
   patch      Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
@@ -251,46 +262,48 @@ model AuditLog {
   @@index([createdAt])
 }
 
-model BugRevision {
+model IssueRevision {
   id          String      @id @default(uuid())
   version     Int
   action      AuditAction
   title       String
   description String
   severity    Severity
-  status      BugStatus
+  status      IssueStatus
   tags        String[]
   snapshot    Json?
-  bugId       String
-  bug         Bug         @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  issueId     String      @map("bugId")
+  issue       Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
   actorId     String
   createdAt   DateTime    @default(now())
 
-  @@unique([bugId, version])
-  @@index([bugId, createdAt])
+  @@map("BugRevision")
+  @@unique([issueId, version])
+  @@index([issueId, createdAt])
 }
 
-model BugRelation {
-  id          String          @id @default(uuid())
-  type        BugRelationType
+model IssueRelation {
+  id          String            @id @default(uuid())
+  type        IssueRelationType
   source      RelationSource
-  confidence  Float           @default(1.0)
+  confidence  Float             @default(1.0)
   metadata    Json?
 
-  sourceBugId String
-  sourceBug   Bug    @relation("RelationsFrom", fields: [sourceBugId], references: [id], onDelete: Cascade)
+  sourceIssueId String @map("sourceBugId")
+  sourceIssue   Issue  @relation("RelationsFrom", fields: [sourceIssueId], references: [id], onDelete: Cascade)
 
-  targetBugId String
-  targetBug   Bug    @relation("RelationsTo", fields: [targetBugId], references: [id], onDelete: Cascade)
+  targetIssueId String @map("targetBugId")
+  targetIssue   Issue  @relation("RelationsTo", fields: [targetIssueId], references: [id], onDelete: Cascade)
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt   DateTime @default(now())
 
-  @@unique([sourceBugId, targetBugId, type])
-  @@index([sourceBugId])
-  @@index([targetBugId])
+  @@map("BugRelation")
+  @@unique([sourceIssueId, targetIssueId, type])
+  @@index([sourceIssueId])
+  @@index([targetIssueId])
   @@index([type])
 }
 

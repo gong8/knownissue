@@ -9,16 +9,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const res = await fetch(`${API_URL}/bugs?limit=1000`, {
+    const res = await fetch(`${API_URL}/issues?limit=1000`, {
       next: { revalidate: 3600 },
     });
 
     if (res.ok) {
-      const { bugs } = await res.json();
-      for (const bug of bugs) {
+      const { issues } = await res.json();
+      for (const issue of issues) {
         entries.push({
-          url: `${BASE_URL}/bugs/${bug.id}`,
-          lastModified: new Date(bug.updatedAt),
+          url: `${BASE_URL}/issues/${issue.id}`,
+          lastModified: new Date(issue.updatedAt),
           changeFrequency: "weekly",
           priority: 0.8,
         });

@@ -3,7 +3,7 @@ import { html, raw } from "hono/html";
 import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
-import { generateAuthCode, hashToken, AUTH_CODE_TTL } from "./utils.js";
+import { generateAuthCode, hashToken, AUTH_CODE_TTL, getApiBaseUrl } from "./utils.js";
 
 const authorize = new Hono();
 
@@ -20,37 +20,15 @@ authorize.get("/oauth/authorize", async (c) => {
   const scope = c.req.query("scope") ?? "mcp:tools";
   const resource = c.req.query("resource") ?? "";
 
-  const scopeTokens = scope.split(" ").filter(Boolean);
-  if (scopeTokens.some((s) => !SUPPORTED_SCOPES.includes(s))) {
-    return c.json({
-      error: "invalid_scope",
-      error_description: "Unsupported scope. Supported: mcp:tools",
-    }, 400);
-  }
-
-  // Validate required params
-  if (!clientId || !redirectUri || !responseType || !codeChallenge || !codeChallengeMethod) {
+  // RFC 6749 §4.1.2.1: Validate client_id and redirect_uri FIRST.
+  // If these are invalid, we MUST NOT redirect — show error directly.
+  if (!clientId || !redirectUri) {
     return c.json({
       error: "invalid_request",
-      error_description: "Missing required parameters: client_id, redirect_uri, response_type, code_challenge, code_challenge_method",
+      error_description: "Missing required parameters: client_id, redirect_uri",
     }, 400);
   }
 
-  if (responseType !== "code") {
-    return c.json({
-      error: "unsupported_response_type",
-      error_description: "Only response_type=code is supported",
-    }, 400);
-  }
-
-  if (codeChallengeMethod !== "S256") {
-    return c.json({
-      error: "invalid_request",
-      error_description: "Only code_challenge_method=S256 is supported",
-    }, 400);
-  }
-
-  // Validate client
   const client = await prisma.oAuthClient.findUnique({
     where: { clientId },
   });
@@ -67,6 +45,32 @@ authorize.get("/oauth/authorize", async (c) => {
       error: "invalid_request",
       error_description: "redirect_uri not registered for this client",
     }, 400);
+  }
+
+  // redirect_uri is now validated — remaining errors redirect per RFC 6749 §4.1.2.1
+  const redirectError = (error: string, description: string) => {
+    const url = new URL(redirectUri);
+    url.searchParams.set("error", error);
+    url.searchParams.set("error_description", description);
+    if (state) url.searchParams.set("state", state);
+    return c.redirect(url.toString(), 302);
+  };
+
+  if (!responseType || !codeChallenge || !codeChallengeMethod) {
+    return redirectError("invalid_request", "Missing required parameters: response_type, code_challenge, code_challenge_method");
+  }
+
+  if (responseType !== "code") {
+    return redirectError("unsupported_response_type", "Only response_type=code is supported");
+  }
+
+  if (codeChallengeMethod !== "S256") {
+    return redirectError("invalid_request", "Only code_challenge_method=S256 is supported");
+  }
+
+  const scopeTokens = scope.split(" ").filter(Boolean);
+  if (scopeTokens.some((s) => !SUPPORTED_SCOPES.includes(s))) {
+    return redirectError("invalid_scope", "Unsupported scope. Supported: mcp:tools");
   }
 
   const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY;
@@ -396,6 +400,10 @@ authorize.post("/oauth/approve", async (c) => {
   }
 
   // Generate auth code and store hash
+  // RFC 8707 §5.1: resource parameter is OPTIONAL in the authorization request.
+  // §5.3: if included in auth request, client MUST include it in token request.
+  // We store null when the client doesn't provide it — no audience binding.
+  const resolvedResource = resource || null;
   const code = generateAuthCode();
 
   await prisma.oAuthAuthorizationCode.create({
@@ -406,7 +414,7 @@ authorize.post("/oauth/approve", async (c) => {
       redirectUri,
       codeChallenge,
       scopes: resolvedScope.split(" "),
-      resource: resource || null,
+      resource: resolvedResource,
       expiresAt: new Date(Date.now() + AUTH_CODE_TTL),
     },
   });

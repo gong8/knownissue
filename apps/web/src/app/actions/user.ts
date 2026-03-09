@@ -13,7 +13,7 @@ export async function fetchCurrentUser() {
 
 export async function fetchUserStats(): Promise<{
   credits: number;
-  bugsReported: number;
+  issuesReported: number;
   patchesSubmitted: number;
   verificationsGiven: number;
 }> {

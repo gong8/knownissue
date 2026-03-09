@@ -26,6 +26,7 @@ const authServerHandler = (c: any) => {
     code_challenge_methods_supported: ["S256"],
     scopes_supported: ["mcp:tools"],
     token_endpoint_auth_methods_supported: ["none"],
+    client_id_metadata_document_supported: false,
   });
 };
 

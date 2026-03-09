@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { fetchBugById } from "@/app/actions/bugs";
-import { BugDetailClient } from "./bug-detail-client";
+import { fetchIssueById } from "@/app/actions/issues";
+import { IssueDetailClient } from "./issue-detail-client";
 
 const BASE_URL = "https://knownissue.dev";
 
@@ -11,15 +11,15 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const bug = await fetchBugById(id);
+  const issue = await fetchIssueById(id);
 
-  if (!bug) {
-    return { title: "Bug not found" };
+  if (!issue) {
+    return { title: "Issue not found" };
   }
 
-  const title = bug.title ?? bug.errorMessage ?? "Bug report";
-  const description = (bug.description ?? bug.errorMessage ?? "").slice(0, 160);
-  const url = `${BASE_URL}/bugs/${bug.id}`;
+  const title = issue.title ?? issue.errorMessage ?? "Issue report";
+  const description = (issue.description ?? issue.errorMessage ?? "").slice(0, 160);
+  const url = `${BASE_URL}/issues/${issue.id}`;
 
   return {
     title,
@@ -30,26 +30,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url,
       type: "article",
-      publishedTime: bug.createdAt,
-      tags: bug.tags,
-      images: [{ url: `${BASE_URL}/og/${bug.id}`, width: 1200, height: 630, alt: title }],
+      publishedTime: issue.createdAt,
+      tags: issue.tags,
+      images: [{ url: `${BASE_URL}/og/${issue.id}`, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${BASE_URL}/og/${bug.id}`],
+      images: [`${BASE_URL}/og/${issue.id}`],
     },
   };
 }
 
-export default async function BugDetailPage({ params }: Props) {
+export default async function IssueDetailPage({ params }: Props) {
   const { id } = await params;
-  const bug = await fetchBugById(id);
-  if (!bug) notFound();
+  const issue = await fetchIssueById(id);
+  if (!issue) notFound();
 
-  const title = bug.title ?? bug.errorMessage ?? "Bug report";
-  const description = (bug.description ?? bug.errorMessage ?? "").slice(0, 300);
+  const title = issue.title ?? issue.errorMessage ?? "Issue report";
+  const description = (issue.description ?? issue.errorMessage ?? "").slice(0, 300);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -60,19 +60,19 @@ export default async function BugDetailPage({ params }: Props) {
         description,
         author: {
           "@type": "Person",
-          name: bug.reporter?.githubUsername ?? "anonymous",
+          name: issue.reporter?.githubUsername ?? "anonymous",
         },
-        datePublished: bug.createdAt,
-        dateModified: bug.updatedAt,
-        keywords: bug.tags.join(", "),
-        url: `${BASE_URL}/bugs/${bug.id}`,
+        datePublished: issue.createdAt,
+        dateModified: issue.updatedAt,
+        keywords: issue.tags.join(", "),
+        url: `${BASE_URL}/issues/${issue.id}`,
       },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
           { "@type": "ListItem", position: 2, name: "Activity", item: `${BASE_URL}/activity` },
-          { "@type": "ListItem", position: 3, name: title, item: `${BASE_URL}/bugs/${bug.id}` },
+          { "@type": "ListItem", position: 3, name: title, item: `${BASE_URL}/issues/${issue.id}` },
         ],
       },
     ],
@@ -90,7 +90,7 @@ export default async function BugDetailPage({ params }: Props) {
         // eslint-disable-next-line react/no-danger -- JSON-LD requires dangerouslySetInnerHTML per Next.js docs. Content is escaped above.
         dangerouslySetInnerHTML={{ __html: safeJsonLd }}
       />
-      <BugDetailClient bugId={id} initialBug={bug} />
+      <IssueDetailClient issueId={id} initialIssue={issue} />
     </>
   );
 }

@@ -8,7 +8,7 @@ import { fetchFeed } from "@/app/actions/feed";
 import { ActivityFeed, type FeedItem } from "@/components/activity-feed";
 import { cn } from "@/lib/utils";
 
-const ACTION_TYPES = ["bugs", "patches", "verifications"] as const;
+const ACTION_TYPES = ["issues", "patches", "verifications"] as const;
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const ECOSYSTEMS = ["node", "python", "go", "rust", "other"] as const;
 const TIME_RANGES = [
@@ -61,7 +61,7 @@ export default function ActivityPage() {
     try {
       // Map filter type names to API values
       const typeMap: Record<string, string> = {
-        bugs: "bug",
+        issues: "issue",
         patches: "patch",
         verifications: "verification",
       };

@@ -37,7 +37,7 @@ export async function checkDuplicate(
     if (existing) {
       return {
         isDuplicate: true,
-        warning: "A bug with the same error signature already exists",
+        warning: "An issue with the same error signature already exists",
         similarBugs: [{
           id: existing.id,
           title: existing.title ?? existing.errorMessage ?? "Untitled",
@@ -56,7 +56,7 @@ export async function checkDuplicate(
 
   const vectorStr = `[${embedding.join(",")}]`;
 
-  const similarBugs = await prisma.$queryRaw<
+  const similarIssues = await prisma.$queryRaw<
     Array<{ id: string; title: string; similarity: number }>
   >`
     SELECT id, title, 1 - (embedding <=> ${vectorStr}::vector) as similarity
@@ -66,14 +66,14 @@ export async function checkDuplicate(
     LIMIT 5
   `;
 
-  const highSimilarity = similarBugs.filter(
-    (bug) => bug.similarity >= DUPLICATE_WARN_THRESHOLD
+  const highSimilarity = similarIssues.filter(
+    (issue) => issue.similarity >= DUPLICATE_WARN_THRESHOLD
   );
 
-  if (highSimilarity.some((bug) => bug.similarity >= DUPLICATE_REJECT_THRESHOLD)) {
+  if (highSimilarity.some((issue) => issue.similarity >= DUPLICATE_REJECT_THRESHOLD)) {
     return {
       isDuplicate: true,
-      warning: "A very similar bug already exists",
+      warning: "A very similar issue already exists",
       similarBugs: highSimilarity,
     };
   }
@@ -81,7 +81,7 @@ export async function checkDuplicate(
   if (highSimilarity.length > 0) {
     return {
       isDuplicate: false,
-      warning: "Similar bugs found — please check if yours is a duplicate",
+      warning: "Similar issues found — please check if yours is a duplicate",
       similarBugs: highSimilarity,
     };
   }

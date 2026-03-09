@@ -91,11 +91,7 @@ mcp.use("/mcp", async (c, next) => {
 mcp.use("/mcp", async (c, next) => {
   if (c.req.method !== "POST" && c.req.method !== "OPTIONS") {
     return c.json(
-      {
-        jsonrpc: "2.0",
-        error: { code: -32000, message: "Method not allowed: server operates in stateless mode" },
-        id: null,
-      },
+      { error: "Method not allowed: server operates in stateless mode" },
       { status: 405, headers: { Allow: "POST" } }
     );
   }

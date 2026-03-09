@@ -1,13 +1,13 @@
 export type Severity = "low" | "medium" | "high" | "critical";
-export type BugStatus = "open" | "confirmed" | "patched" | "closed";
+export type IssueStatus = "open" | "confirmed" | "patched" | "closed";
 export type VerificationOutcome = "fixed" | "not_fixed" | "partial";
-export type BugAccuracy = "accurate" | "inaccurate";
-export type BugCategory = "crash" | "build" | "types" | "performance" | "behavior" | "config" | "compatibility" | "install";
+export type IssueAccuracy = "accurate" | "inaccurate";
+export type IssueCategory = "crash" | "build" | "types" | "performance" | "behavior" | "config" | "compatibility" | "install" | "hallucination" | "deprecated";
 export type Role = "user" | "admin";
 export type AuditAction = "create" | "update" | "delete" | "rollback";
-export type EntityType = "bug" | "patch" | "verification" | "user";
-export type PatchStepType = "code_change" | "version_bump" | "config_change" | "command";
-export type BugRelationType = "same_root_cause" | "version_regression" | "cascading_dependency" | "interaction_conflict" | "shared_fix" | "fix_conflict";
+export type EntityType = "issue" | "patch" | "verification" | "user";
+export type PatchStepType = "code_change" | "version_bump" | "config_change" | "command" | "instruction";
+export type IssueRelationType = "same_root_cause" | "version_regression" | "cascading_dependency" | "interaction_conflict" | "shared_fix" | "fix_conflict";
 export type RelationSource = "agent" | "system";
 
 // Patch step interfaces
@@ -38,7 +38,12 @@ export interface CommandStep {
   command: string;
 }
 
-export type PatchStep = CodeChangeStep | VersionBumpStep | ConfigChangeStep | CommandStep;
+export interface InstructionStep {
+  type: "instruction";
+  text: string;
+}
+
+export type PatchStep = CodeChangeStep | VersionBumpStep | ConfigChangeStep | CommandStep | InstructionStep;
 
 export interface ContextLibrary {
   name: string;
@@ -57,15 +62,15 @@ export interface User {
   updatedAt: Date;
 }
 
-export interface Bug {
+export interface Issue {
   id: string;
   title: string | null;
   description: string | null;
-  library: string;
-  version: string;
-  ecosystem: string;
+  library: string | null;
+  version: string | null;
+  ecosystem: string | null;
   severity: Severity;
-  status: BugStatus;
+  status: IssueStatus;
   tags: string[];
   embedding: number[] | null;
   errorMessage?: string | null;
@@ -79,7 +84,7 @@ export interface Bug {
   contextLibraries?: string[];
   runtime?: string | null;
   platform?: string | null;
-  category?: BugCategory | null;
+  category?: IssueCategory | null;
   accessCount: number;
   searchHitCount: number;
   reporterId: string;
@@ -101,17 +106,17 @@ export interface AuditLog {
   createdAt: Date;
 }
 
-export interface BugRevision {
+export interface IssueRevision {
   id: string;
   version: number;
   action: AuditAction;
   title: string;
   description: string;
   severity: Severity;
-  status: BugStatus;
+  status: IssueStatus;
   tags: string[];
   snapshot?: Record<string, unknown> | null;
-  bugId: string;
+  issueId: string;
   actorId: string;
   createdAt: Date;
 }
@@ -123,8 +128,8 @@ export interface Patch {
   code?: string | null;
   score: number;
   versionConstraint?: string | null;
-  bugId: string;
-  bug?: { id: string; title: string };
+  issueId: string;
+  issue?: { id: string; title: string };
   submitterId: string;
   submitter?: User;
   verifications?: Verification[];
@@ -139,7 +144,7 @@ export interface Verification {
   errorBefore?: string | null;
   errorAfter?: string | null;
   testedVersion?: string | null;
-  bugAccuracy?: BugAccuracy;
+  issueAccuracy?: IssueAccuracy;
   patchId: string;
   patch?: Patch;
   verifierId: string;
@@ -147,14 +152,14 @@ export interface Verification {
   createdAt: Date;
 }
 
-export interface BugRelation {
+export interface IssueRelation {
   id: string;
-  type: BugRelationType;
+  type: IssueRelationType;
   source: RelationSource;
   confidence: number;
   metadata: Record<string, unknown> | null;
-  sourceBugId: string;
-  targetBugId: string;
+  sourceIssueId: string;
+  targetIssueId: string;
   createdById: string | null;
   createdAt: Date;
 }

@@ -1,9 +1,9 @@
 import { prisma } from "@knownissue/db";
-import type { VerificationOutcome, BugAccuracy } from "@knownissue/shared";
+import type { VerificationOutcome, IssueAccuracy } from "@knownissue/shared";
 import { VERIFY_REWARD, PATCH_VERIFIED_FIXED_REWARD, PATCH_VERIFIED_NOT_FIXED_PENALTY, DAILY_VERIFICATION_CAP } from "@knownissue/shared";
 import { awardCredits, penalizeCredits } from "./credits";
 import { logAudit } from "./audit";
-import { computeDerivedStatus } from "./bug";
+import { computeDerivedStatus } from "./issue";
 
 export async function verify(
   patchId: string,
@@ -12,7 +12,7 @@ export async function verify(
   errorBefore: string | null | undefined,
   errorAfter: string | null | undefined,
   testedVersion: string | null | undefined,
-  bugAccuracy: BugAccuracy | undefined,
+  issueAccuracy: IssueAccuracy | undefined,
   verifierId: string
 ) {
   const patch = await prisma.patch.findUnique({
@@ -57,7 +57,7 @@ export async function verify(
         errorBefore: errorBefore ?? null,
         errorAfter: errorAfter ?? null,
         testedVersion: testedVersion ?? null,
-        bugAccuracy: bugAccuracy ?? "accurate",
+        issueAccuracy: issueAccuracy ?? "accurate",
         patchId,
         verifierId,
       },
@@ -96,7 +96,7 @@ export async function verify(
   });
 
   // Recompute derived status
-  await computeDerivedStatus(patch.bugId);
+  await computeDerivedStatus(patch.issueId);
 
   return {
     ...verification,

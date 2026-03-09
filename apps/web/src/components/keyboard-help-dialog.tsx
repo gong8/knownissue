@@ -39,7 +39,7 @@ const shortcuts = [
     ],
   },
   {
-    group: "bug detail",
+    group: "issue detail",
     items: [
       { keys: ["U"], description: "go back to list" },
       { keys: ["J"], description: "next patch" },

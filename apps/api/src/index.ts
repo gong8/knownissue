@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { rateLimiter } from "hono-rate-limiter";
 import { auth } from "./routes/auth";
-import { bugs } from "./routes/bugs";
+import { issues } from "./routes/issues";
 import { patches } from "./routes/patches";
 import { verifications } from "./routes/verifications";
 import { users } from "./routes/users";
@@ -73,7 +73,7 @@ app.use("*", async (c, next) => {
 
 // Routes
 app.route("/", auth);
-app.route("/", bugs);
+app.route("/", issues);
 app.route("/", patches);
 app.route("/", verifications);
 app.route("/", users);

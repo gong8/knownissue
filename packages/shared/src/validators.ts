@@ -3,22 +3,22 @@ import { MIN_TITLE_LENGTH, MIN_DESCRIPTION_LENGTH, MIN_EXPLANATION_LENGTH } from
 
 export const severitySchema = z.enum(["low", "medium", "high", "critical"])
   .describe("Bug severity: low, medium, high, or critical");
-export const bugStatusSchema = z.enum(["open", "confirmed", "patched", "closed"]);
+export const issueStatusSchema = z.enum(["open", "confirmed", "patched", "closed"]);
 export const verificationOutcomeSchema = z.enum(["fixed", "not_fixed", "partial"])
   .describe("Verification outcome: 'fixed' if the patch resolved the issue, 'not_fixed' if it didn't, 'partial' if partially resolved");
-export const bugAccuracySchema = z.enum(["accurate", "inaccurate"])
-  .describe("Whether the bug report itself is accurate");
-export const bugCategorySchema = z.enum(["crash", "build", "types", "performance", "behavior", "config", "compatibility", "install"])
-  .describe("Bug category: crash, build, types, performance, behavior, config, compatibility, or install");
+export const issueAccuracySchema = z.enum(["accurate", "inaccurate"])
+  .describe("Whether the issue report itself is accurate");
+export const issueCategorySchema = z.enum(["crash", "build", "types", "performance", "behavior", "config", "compatibility", "install", "hallucination", "deprecated"])
+  .describe("Issue category: crash, build, types, performance, behavior, config, compatibility, install, hallucination, or deprecated");
 
-export const bugRelationTypeSchema = z.enum([
+export const issueRelationTypeSchema = z.enum([
   "same_root_cause",
   "version_regression",
   "cascading_dependency",
   "interaction_conflict",
   "shared_fix",
   "fix_conflict",
-]).describe("Type of relationship between two bugs");
+]).describe("Type of relationship between two issues");
 
 export const patchRelationTypeSchema = z.enum(["shared_fix", "fix_conflict"])
   .describe("Relation types available when submitting a patch");
@@ -63,11 +63,18 @@ const commandStepSchema = z.object({
     .describe("Shell command to run, e.g. 'npm install lodash@4.17.22'"),
 });
 
+const instructionStepSchema = z.object({
+  type: z.literal("instruction"),
+  text: z.string().min(1, "Instruction text is required")
+    .describe("Plain text instruction, e.g. 'Use useEffect instead of useServerEffect'"),
+});
+
 export const patchStepSchema = z.discriminatedUnion("type", [
   codeChangeStepSchema,
   versionBumpStepSchema,
   configChangeStepSchema,
   commandStepSchema,
+  instructionStepSchema,
 ]);
 
 // ── Inline Patch Schema (for embedding in report) ─────────────────────────
@@ -97,11 +104,11 @@ export const searchInputSchema = z.object({
 });
 
 export const reportInputSchema = z.object({
-  library: z.string().min(1, "Library is required")
+  library: z.string().optional()
     .describe("Package name exactly as published, e.g. 'lodash', 'react', 'fastapi'"),
-  version: z.string().min(1, "Version is required")
+  version: z.string().optional()
     .describe("Affected version, e.g. '4.17.21', '18.2.0'"),
-  ecosystem: z.string().min(1, "Ecosystem is required")
+  ecosystem: z.string().optional()
     .describe("Package ecosystem, e.g. 'npm', 'pip', 'cargo', 'gem', 'go'"),
   errorMessage: z.string().optional()
     .describe("The exact error message, e.g. 'TypeError: Cannot read properties of undefined'"),
@@ -127,7 +134,7 @@ export const reportInputSchema = z.object({
     .describe("Runtime environment, e.g. 'node 20.11.0', 'bun 1.0.0', 'python 3.12'"),
   platform: z.string().optional()
     .describe("Operating system/platform, e.g. 'macos-arm64', 'linux-x64', 'windows'"),
-  category: bugCategorySchema.optional(),
+  category: issueCategorySchema.optional(),
   tags: z.array(z.string()).default([])
     .describe("Optional labels for categorization, e.g. ['memory-leak', 'regression']"),
   severity: severitySchema.default("medium"),
@@ -136,31 +143,31 @@ export const reportInputSchema = z.object({
   patch: inlinePatchSchema.optional()
     .describe("Optional inline fix — if you already know the solution, include it here to earn bonus credits"),
   relatedTo: z.object({
-    bugId: z.uuid(),
-    type: bugRelationTypeSchema,
+    issueId: z.uuid(),
+    type: issueRelationTypeSchema,
     note: z.string().optional(),
   }).optional()
-    .describe("Link this bug to an existing bug. Use when you encountered this bug while working on another."),
+    .describe("Link this issue to an existing issue. Use when you encountered this issue while working on another."),
 }).refine(
   (data) => data.errorMessage || data.description,
   { message: "At least one of errorMessage or description is required" }
 );
 
 export const patchInputSchema = z.object({
-  bugId: z.uuid({ message: "Invalid bug ID" })
-    .describe("UUID of the bug this patch fixes. Use search to find bug IDs."),
+  issueId: z.uuid({ message: "Invalid issue ID" })
+    .describe("UUID of the issue this patch fixes. Use search to find issue IDs."),
   explanation: z.string().min(MIN_EXPLANATION_LENGTH, `Explanation must be at least ${MIN_EXPLANATION_LENGTH} characters`)
-    .describe("What this patch changes and why it fixes the bug"),
+    .describe("What this patch changes and why it fixes the issue"),
   steps: z.array(patchStepSchema).min(1, "At least one step is required")
     .describe("Ordered list of steps to apply the fix"),
   versionConstraint: z.string().optional()
     .describe("Version range this patch applies to, e.g. '>=4.17.0 <5.0.0'"),
   relatedTo: z.object({
-    bugId: z.uuid(),
+    issueId: z.uuid(),
     type: patchRelationTypeSchema,
     note: z.string().optional(),
   }).optional()
-    .describe("Link this patch's bug to another bug. Use 'shared_fix' if this patch also fixes the other bug, 'fix_conflict' if they can't coexist."),
+    .describe("Link this patch's issue to another issue. Use 'shared_fix' if this patch also fixes the other issue, 'fix_conflict' if they can't coexist."),
 });
 
 export const getPatchInputSchema = z.object({
@@ -180,8 +187,8 @@ export const verificationInputSchema = z.object({
     .describe("The error message after applying the patch (if still failing)"),
   testedVersion: z.string().optional()
     .describe("Version of the library you tested on, e.g. '4.17.21'"),
-  bugAccuracy: bugAccuracySchema.optional()
-    .describe("Whether the bug report itself was accurate"),
+  issueAccuracy: issueAccuracySchema.optional()
+    .describe("Whether the issue report itself was accurate"),
 });
 
 export const myActivityInputSchema = z.object({
@@ -195,7 +202,7 @@ export const myActivityInputSchema = z.object({
 
 // ── REST API Schemas (kept for web dashboard compat) ──────────────────────
 
-export const bugUpdateSchema = z.object({
+export const issueUpdateSchema = z.object({
   title: z.string().min(MIN_TITLE_LENGTH).optional(),
   description: z.string().min(MIN_DESCRIPTION_LENGTH).optional(),
   errorMessage: z.string().optional(),
@@ -206,7 +213,7 @@ export const bugUpdateSchema = z.object({
   actualBehavior: z.string().optional(),
   severity: severitySchema.optional(),
   tags: z.array(z.string()).optional(),
-  category: bugCategorySchema.optional(),
+  category: issueCategorySchema.optional(),
   runtime: z.string().optional(),
   platform: z.string().optional(),
 });
@@ -219,5 +226,5 @@ export type PatchInput = z.infer<typeof patchInputSchema>;
 export type GetPatchInput = z.infer<typeof getPatchInputSchema>;
 export type VerificationInput = z.infer<typeof verificationInputSchema>;
 export type MyActivityInput = z.infer<typeof myActivityInputSchema>;
-export type BugUpdate = z.infer<typeof bugUpdateSchema>;
+export type IssueUpdate = z.infer<typeof issueUpdateSchema>;
 export type PatchStepInput = z.infer<typeof patchStepSchema>;

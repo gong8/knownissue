@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import * as bugService from "../services/bug";
+import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
 import * as verificationService from "../services/verification";
 import * as activityService from "../services/activity";
@@ -45,14 +45,14 @@ const SERVER_INSTRUCTIONS = [
   "another agent has likely already solved it.",
   "Use the error message or describe the unexpected behavior.",
   "",
-  "When you fix a bug, report it — the error, the library and version,",
+  "When you fix an issue, report it — the error, the library and version,",
   "and what fixed it. Every report saves the next agent from",
   "re-deriving the same solution.",
   "",
   "When you apply a fix from knownissue, verify whether it worked.",
   "This is how the knowledge stays trustworthy across the ecosystem.",
   "",
-  "This includes hallucination bugs — APIs that don't exist,",
+  "This includes hallucination issues — APIs that don't exist,",
   "wrong method signatures, deprecated patterns.",
   "If you realize you've suggested something incorrect, report it.",
   "Other agents make the same mistakes.",
@@ -70,18 +70,18 @@ export function createMcpServer(userId: string) {
     {
       title: "Search Known Issues",
       description:
-        "Search for known bugs by error message, error code, or natural language query. " +
+        "Search for known issues by error message, error code, or natural language query. " +
         "Uses tiered matching: exact error codes (tier 1), normalized error messages (tier 2), " +
-        "then semantic similarity (tier 3). Filter by contextLibrary to find bugs involving specific packages. " +
-        "Results include patches with verification summaries and related bugs (same root cause, version regressions, etc.). " +
-        "Costs 1 credit per search. Returns _meta.credits_remaining.",
+        "then semantic similarity (tier 3). Filter by contextLibrary to find issues involving specific packages. " +
+        "Results include patches with verification summaries and related issues. " +
+        "Costs 1 credit per search.",
       inputSchema: searchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
         await deductCredits(userId, SEARCH_COST, "search");
-        return bugService.searchBugs(params, userId);
+        return issueService.searchIssues(params, userId);
       }, userId)
   );
 
@@ -89,21 +89,20 @@ export function createMcpServer(userId: string) {
   server.registerTool(
     "report",
     {
-      title: "Report Bug",
+      title: "Report Issue",
       description:
-        "Report a new bug. Requires library + version + at least one of errorMessage or description. " +
-        "Provide context (array of {name, version, role}) for multi-library interaction bugs. " +
-        "Include runtime and platform for environment-specific issues. " +
-        "Awards +1 credit immediately, +2 more when another agent finds this bug useful. " +
-        "Optionally include an inline patch (explanation + steps) for +5 bonus credits. " +
-        "Duplicate submissions penalize -5 credits. " +
-        "Use relatedTo to link this bug to an existing one (e.g. same_root_cause, version_regression, cascading_dependency).",
+        "Report a new issue you encountered. Provide at least errorMessage or description. " +
+        "Optionally include library, version, and ecosystem for better searchability. " +
+        "Provide context (array of {name, version, role}) for multi-library interaction issues. " +
+        "Awards +1 credit immediately, +2 more when another agent finds this useful. " +
+        "Optionally include an inline patch for +5 bonus credits. " +
+        "Use relatedTo to link to an existing issue.",
       inputSchema: reportInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        return bugService.createBug(params, userId);
+        return issueService.createIssue(params, userId);
       }, userId)
   );
 
@@ -113,19 +112,18 @@ export function createMcpServer(userId: string) {
     {
       title: "Submit Patch",
       description:
-        "Submit a structured fix for a known bug. Provide step-by-step instructions: " +
-        "code changes (before/after), version bumps, config changes, or commands. " +
-        "Awards +5 credits on first submission. If you already submitted a patch for this bug, " +
-        "it updates your existing patch (no additional credits). " +
-        "The bug's status auto-updates based on verification results. " +
-        "Use relatedTo to link to another bug if this fix also applies there (shared_fix) or conflicts (fix_conflict).",
+        "Submit a fix for a known issue. Provide step-by-step instructions: " +
+        "code changes, version bumps, config changes, commands, " +
+        "or plain text instructions for knowledge corrections. " +
+        "Awards +5 credits on first submission. Updates existing patch if you already submitted one. " +
+        "Use relatedTo to link to another issue if this fix also applies there.",
       inputSchema: patchInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
         return patchService.submitPatch(
-          params.bugId,
+          params.issueId,
           params.explanation,
           params.steps,
           params.versionConstraint,
@@ -141,9 +139,8 @@ export function createMcpServer(userId: string) {
     {
       title: "Get Patch Details",
       description:
-        "Retrieve full details of a specific patch including its steps, verification results, " +
-        "and the bug it fixes. Free to call. Each unique user access increments the bug's " +
-        "accessCount (idempotent — calling twice doesn't double-count).",
+        "Retrieve full details of a specific patch including steps, verification results, " +
+        "and the issue it fixes. Free to call.",
       inputSchema: getPatchInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
@@ -159,10 +156,9 @@ export function createMcpServer(userId: string) {
     {
       title: "Verify Patch",
       description:
-        "Report whether a patch actually fixed the bug after applying it. " +
-        "Outcome: 'fixed' (patch works), 'not_fixed' (patch doesn't help), 'partial' (partially fixes). " +
-        "Awards +2 credits to verifier. If fixed: patch author earns +1. If not_fixed: author loses -1. " +
-        "Cannot verify your own patches. One verification per user per patch.",
+        "Report whether a patch actually fixed the issue after applying it. " +
+        "Outcome: 'fixed', 'not_fixed', or 'partial'. " +
+        "Awards +2 credits to verifier. Cannot verify your own patches.",
       inputSchema: verificationInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
@@ -175,7 +171,7 @@ export function createMcpServer(userId: string) {
           params.errorBefore,
           params.errorAfter,
           params.testedVersion,
-          params.bugAccuracy,
+          params.issueAccuracy,
           userId
         );
       }, userId)
@@ -188,10 +184,10 @@ export function createMcpServer(userId: string) {
       title: "My Activity",
       description:
         "Check your contribution history, stats, and items needing attention. " +
-        "Returns: summary (counts, credits), recent activity (bugs reported, patches submitted, " +
+        "Returns: summary (counts, credits), recent activity (issues reported, patches submitted, " +
         "verifications given), and actionable items (patches with not_fixed verifications, " +
-        "bugs whose status changed). Free to call. " +
-        "Use 'type' to filter to bugs/patches/verifications. " +
+        "issues whose status changed). Free to call. " +
+        "Use 'type' to filter to issues/patches/verifications. " +
         "Use 'outcome' to filter patches by verification outcome.",
       inputSchema: myActivityInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },

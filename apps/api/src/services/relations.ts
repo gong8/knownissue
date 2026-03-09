@@ -1,8 +1,8 @@
 import { prisma, type Prisma } from "@knownissue/db";
-import type { BugRelationType } from "@knownissue/shared";
+import type { IssueRelationType } from "@knownissue/shared";
 import { logAudit } from "./audit";
 
-const SYMMETRIC_TYPES: BugRelationType[] = [
+const SYMMETRIC_TYPES: IssueRelationType[] = [
   "same_root_cause",
   "interaction_conflict",
   "shared_fix",
@@ -10,56 +10,56 @@ const SYMMETRIC_TYPES: BugRelationType[] = [
 ];
 
 /**
- * Create a bug relation. For symmetric types, source is always the older bug.
+ * Create an issue relation. For symmetric types, source is always the older issue.
  * Idempotent — silently skips if the relation already exists.
  */
 export async function createRelation(params: {
-  sourceBugId: string;
-  targetBugId: string;
-  type: BugRelationType;
+  sourceIssueId: string;
+  targetIssueId: string;
+  type: IssueRelationType;
   source: "agent" | "system";
   confidence: number;
   metadata?: Record<string, unknown>;
   createdById?: string;
 }): Promise<boolean> {
-  let { sourceBugId, targetBugId } = params;
+  let { sourceIssueId, targetIssueId } = params;
 
-  // For symmetric types, enforce older bug = source
+  // For symmetric types, enforce older issue = source
   if (SYMMETRIC_TYPES.includes(params.type)) {
-    const [sourceBug, targetBug] = await Promise.all([
-      prisma.bug.findUnique({ where: { id: sourceBugId }, select: { createdAt: true } }),
-      prisma.bug.findUnique({ where: { id: targetBugId }, select: { createdAt: true } }),
+    const [sourceIssue, targetIssue] = await Promise.all([
+      prisma.issue.findUnique({ where: { id: sourceIssueId }, select: { createdAt: true } }),
+      prisma.issue.findUnique({ where: { id: targetIssueId }, select: { createdAt: true } }),
     ]);
-    if (!sourceBug || !targetBug) return false;
-    if (sourceBug.createdAt > targetBug.createdAt) {
-      [sourceBugId, targetBugId] = [targetBugId, sourceBugId];
+    if (!sourceIssue || !targetIssue) return false;
+    if (sourceIssue.createdAt > targetIssue.createdAt) {
+      [sourceIssueId, targetIssueId] = [targetIssueId, sourceIssueId];
     }
   }
 
   // Prevent self-relations
-  if (sourceBugId === targetBugId) return false;
+  if (sourceIssueId === targetIssueId) return false;
 
   try {
-    await prisma.bugRelation.create({
+    await prisma.issueRelation.create({
       data: {
         type: params.type,
         source: params.source,
         confidence: params.confidence,
         metadata: (params.metadata as Prisma.InputJsonValue) ?? undefined,
-        sourceBugId,
-        targetBugId,
+        sourceIssueId,
+        targetIssueId,
         createdById: params.createdById ?? null,
       },
     });
 
     await logAudit({
       action: "create",
-      entityType: "bug",
-      entityId: sourceBugId,
+      entityType: "issue",
+      entityId: sourceIssueId,
       actorId: params.createdById ?? "system",
       metadata: {
         relationType: params.type,
-        targetBugId,
+        targetIssueId,
         source: params.source,
         confidence: params.confidence,
       },
@@ -73,18 +73,18 @@ export async function createRelation(params: {
 }
 
 /**
- * Load related bugs for a set of bugIds. Returns a map of bugId -> related bugs.
+ * Load related issues for a set of issueIds. Returns a map of issueId -> related issues.
  * Used by search and get_patch to inline relations in responses.
  */
-export async function loadRelatedBugs(
-  bugIds: string[],
+export async function loadRelatedIssues(
+  issueIds: string[],
   options: { minConfidence?: number; maxPerBug?: number } = {}
 ): Promise<Map<string, Array<{
-  bugId: string;
+  issueId: string;
   title: string | null;
-  library: string;
-  version: string;
-  relationType: BugRelationType;
+  library: string | null;
+  version: string | null;
+  relationType: IssueRelationType;
   confidence: number;
   source: "agent" | "system";
   metadata: Record<string, unknown> | null;
@@ -92,33 +92,33 @@ export async function loadRelatedBugs(
 }>>> {
   const { minConfidence = 0.7, maxPerBug = 3 } = options;
 
-  if (bugIds.length === 0) return new Map();
+  if (issueIds.length === 0) return new Map();
 
-  const relations = await prisma.bugRelation.findMany({
+  const relations = await prisma.issueRelation.findMany({
     where: {
       AND: [
         { confidence: { gte: minConfidence } },
         {
           OR: [
-            { sourceBugId: { in: bugIds } },
-            { targetBugId: { in: bugIds } },
+            { sourceIssueId: { in: issueIds } },
+            { targetIssueId: { in: issueIds } },
           ],
         },
       ],
     },
     include: {
-      sourceBug: { select: { id: true, title: true, library: true, version: true } },
-      targetBug: { select: { id: true, title: true, library: true, version: true } },
+      sourceIssue: { select: { id: true, title: true, library: true, version: true } },
+      targetIssue: { select: { id: true, title: true, library: true, version: true } },
     },
     orderBy: { confidence: "desc" },
   });
 
   const result = new Map<string, Array<{
-    bugId: string;
+    issueId: string;
     title: string | null;
-    library: string;
-    version: string;
-    relationType: BugRelationType;
+    library: string | null;
+    version: string | null;
+    relationType: IssueRelationType;
     confidence: number;
     source: "agent" | "system";
     metadata: Record<string, unknown> | null;
@@ -126,13 +126,13 @@ export async function loadRelatedBugs(
   }>>();
 
   for (const rel of relations) {
-    const sides: Array<{ ours: string; related: typeof rel.sourceBug }> = [];
+    const sides: Array<{ ours: string; related: typeof rel.sourceIssue }> = [];
 
-    if (bugIds.includes(rel.sourceBugId)) {
-      sides.push({ ours: rel.sourceBugId, related: rel.targetBug });
+    if (issueIds.includes(rel.sourceIssueId)) {
+      sides.push({ ours: rel.sourceIssueId, related: rel.targetIssue });
     }
-    if (bugIds.includes(rel.targetBugId)) {
-      sides.push({ ours: rel.targetBugId, related: rel.sourceBug });
+    if (issueIds.includes(rel.targetIssueId)) {
+      sides.push({ ours: rel.targetIssueId, related: rel.sourceIssue });
     }
 
     const meta = rel.metadata as Record<string, unknown> | null;
@@ -145,11 +145,11 @@ export async function loadRelatedBugs(
       const list = result.get(ours) ?? [];
       if (list.length >= maxPerBug) continue;
       list.push({
-        bugId: related.id,
+        issueId: related.id,
         title: related.title,
         library: related.library,
         version: related.version,
-        relationType: rel.type as BugRelationType,
+        relationType: rel.type as IssueRelationType,
         confidence: rel.confidence,
         source: rel.source as "agent" | "system",
         metadata: meta,

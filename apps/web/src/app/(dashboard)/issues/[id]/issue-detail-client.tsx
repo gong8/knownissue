@@ -21,7 +21,7 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { relativeTime, formatDate, initials } from "@/lib/helpers";
-import type { Bug, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
+import type { Issue, Patch, Severity, PatchStep, Verification } from "@knownissue/shared";
 
 const SEVERITY_DOT: Record<Severity, string> = {
   critical: "bg-red-400",
@@ -89,6 +89,10 @@ function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
           <span className="text-muted-foreground">{step.action}:</span>{" "}
           {step.value && <span>{step.value}</span>}
         </div>
+      )}
+
+      {step.type === "instruction" && (
+        <p className="text-sm leading-relaxed text-foreground/90">{step.text}</p>
       )}
     </div>
   );
@@ -230,22 +234,22 @@ function PatchRow({
   );
 }
 
-// -- Bug Detail Client Component --
+// -- Issue Detail Client Component --
 
-export function BugDetailClient({
-  bugId,
-  initialBug,
+export function IssueDetailClient({
+  issueId,
+  initialIssue,
 }: {
-  bugId: string;
-  initialBug: Bug;
+  issueId: string;
+  initialIssue: Issue;
 }) {
   const router = useRouter();
-  const [bug] = useState<Bug>(initialBug);
+  const [issue] = useState<Issue>(initialIssue);
   const [focusedPatch, setFocusedPatch] = useState(-1);
   const [stackTraceOpen, setStackTraceOpen] = useState(false);
 
-  const sortedPatches = [...(bug.patches ?? [])].sort((a, b) => b.score - a.score);
-  const displayTitle = bug.title ?? bug.errorMessage ?? "Untitled";
+  const sortedPatches = [...(issue.patches ?? [])].sort((a, b) => b.score - a.score);
+  const displayTitle = issue.title ?? issue.errorMessage ?? "Untitled";
 
   // Keyboard: U to go back, J/K between patches
   useEffect(() => {
@@ -277,49 +281,49 @@ export function BugDetailClient({
           activity
         </Link>
         <span>/</span>
-        <span className="text-foreground">KI-{bug.id.slice(0, 8)}</span>
+        <span className="text-foreground">KI-{issue.id.slice(0, 8)}</span>
       </nav>
 
-      {/* Bug header */}
+      {/* Issue header */}
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-lg font-semibold leading-tight">{displayTitle}</h1>
 
           {/* Access count badge */}
-          {bug.accessCount > 0 && (
+          {issue.accessCount > 0 && (
             <Badge
               variant="outline"
               className="shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/25 font-mono text-xs tabular-nums"
             >
               <Users className="mr-1 h-3 w-3" />
-              {bug.accessCount} agents reached
+              {issue.accessCount} agents reached
             </Badge>
           )}
         </div>
 
         {/* Compact badge row */}
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="dot" dotColor={SEVERITY_DOT[bug.severity]}>{bug.severity}</Badge>
+          <Badge variant="dot" dotColor={SEVERITY_DOT[issue.severity]}>{issue.severity}</Badge>
           <Badge variant="dot" dotColor={
-            bug.status === "open" ? "bg-blue-400" :
-            bug.status === "confirmed" ? "bg-purple-400" :
-            bug.status === "patched" ? "bg-green-400" : "bg-zinc-400"
-          }>{bug.status}</Badge>
+            issue.status === "open" ? "bg-blue-400" :
+            issue.status === "confirmed" ? "bg-purple-400" :
+            issue.status === "patched" ? "bg-green-400" : "bg-zinc-400"
+          }>{issue.status}</Badge>
           <Badge variant="secondary" className="font-mono text-xs">
-            {bug.library}@{bug.version}
+            {issue.library}@{issue.version}
           </Badge>
-          <Badge variant="outline" className="text-xs">{bug.ecosystem}</Badge>
-          {bug.errorCode && (
+          <Badge variant="outline" className="text-xs">{issue.ecosystem}</Badge>
+          {issue.errorCode && (
             <Badge variant="destructive" className="font-mono text-xs">
-              {bug.errorCode}
+              {issue.errorCode}
             </Badge>
           )}
-          {bug.category && (
+          {issue.category && (
             <Badge variant="outline" className="text-xs">
-              {bug.category}
+              {issue.category}
             </Badge>
           )}
-          {bug.tags.map((tag) => (
+          {issue.tags.map((tag) => (
             <Badge
               key={tag}
               variant="outline"
@@ -331,10 +335,10 @@ export function BugDetailClient({
         </div>
 
         {/* Context libraries */}
-        {bug.contextLibraries && bug.contextLibraries.length > 0 && (
+        {issue.contextLibraries && issue.contextLibraries.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-mono text-muted-foreground">context:</span>
-            {bug.contextLibraries.map((lib) => (
+            {issue.contextLibraries.map((lib) => (
               <Badge key={lib} variant="secondary" className="font-mono text-[10px]">
                 {lib}
               </Badge>
@@ -343,27 +347,27 @@ export function BugDetailClient({
         )}
 
         {/* Runtime/Platform */}
-        {(bug.runtime || bug.platform) && (
+        {(issue.runtime || issue.platform) && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {bug.runtime && <span className="font-mono">{bug.runtime}</span>}
-            {bug.platform && <span className="font-mono">{bug.platform}</span>}
+            {issue.runtime && <span className="font-mono">{issue.runtime}</span>}
+            {issue.platform && <span className="font-mono">{issue.platform}</span>}
           </div>
         )}
 
         {/* Reporter info */}
         <div className="flex items-center gap-2">
           <Avatar className="h-6 w-6">
-            <AvatarImage src={bug.reporter?.avatarUrl ?? undefined} />
+            <AvatarImage src={issue.reporter?.avatarUrl ?? undefined} />
             <AvatarFallback className="text-[9px]">
-              {initials(bug.reporter?.githubUsername ?? "??")}
+              {initials(issue.reporter?.githubUsername ?? "??")}
             </AvatarFallback>
           </Avatar>
           <span className="font-mono text-sm">
-            {bug.reporter?.githubUsername ?? "anonymous"}
+            {issue.reporter?.githubUsername ?? "anonymous"}
           </span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {formatDate(new Date(bug.createdAt))}
+            {formatDate(new Date(issue.createdAt))}
           </span>
         </div>
       </div>
@@ -371,61 +375,61 @@ export function BugDetailClient({
       <Separator />
 
       {/* Error message (highlighted) */}
-      {bug.errorMessage && (
+      {issue.errorMessage && (
         <div className="space-y-1.5">
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             error message
           </h2>
           <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
-            <pre className="font-mono text-sm text-red-400 whitespace-pre-wrap">{bug.errorMessage}</pre>
+            <pre className="font-mono text-sm text-red-400 whitespace-pre-wrap">{issue.errorMessage}</pre>
           </div>
         </div>
       )}
 
       {/* Description */}
-      {bug.description && (
+      {issue.description && (
         <div className="space-y-1.5">
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             description
           </h2>
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-            {bug.description}
+            {issue.description}
           </div>
         </div>
       )}
 
       {/* Trigger code */}
-      {bug.triggerCode && (
+      {issue.triggerCode && (
         <div className="space-y-1.5">
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             trigger code
           </h2>
           <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
-            <pre className="font-mono text-xs leading-relaxed whitespace-pre">{bug.triggerCode}</pre>
+            <pre className="font-mono text-xs leading-relaxed whitespace-pre">{issue.triggerCode}</pre>
           </div>
         </div>
       )}
 
       {/* Expected vs Actual */}
-      {(bug.expectedBehavior || bug.actualBehavior) && (
+      {(issue.expectedBehavior || issue.actualBehavior) && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {bug.expectedBehavior && (
+          {issue.expectedBehavior && (
             <div className="space-y-1.5">
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 expected
               </h2>
               <div className="rounded-md border border-green-500/20 bg-green-500/5 p-3 text-sm">
-                {bug.expectedBehavior}
+                {issue.expectedBehavior}
               </div>
             </div>
           )}
-          {bug.actualBehavior && (
+          {issue.actualBehavior && (
             <div className="space-y-1.5">
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 actual
               </h2>
               <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-sm">
-                {bug.actualBehavior}
+                {issue.actualBehavior}
               </div>
             </div>
           )}
@@ -433,7 +437,7 @@ export function BugDetailClient({
       )}
 
       {/* Stack trace (collapsible) */}
-      {bug.stackTrace && (
+      {issue.stackTrace && (
         <div className="space-y-1.5">
           <button
             onClick={() => setStackTraceOpen(!stackTraceOpen)}
@@ -445,7 +449,7 @@ export function BugDetailClient({
           {stackTraceOpen && (
             <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
               <pre className="font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre">
-                {bug.stackTrace}
+                {issue.stackTrace}
               </pre>
             </div>
           )}

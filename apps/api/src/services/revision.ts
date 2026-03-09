@@ -2,94 +2,94 @@ import { prisma, type Prisma } from "@knownissue/db";
 import type { AuditAction, Role } from "@knownissue/shared";
 import { logAudit } from "./audit";
 
-export async function createBugRevision(
-  bugId: string,
+export async function createIssueRevision(
+  issueId: string,
   action: AuditAction,
   actorId: string
 ) {
-  const bug = await prisma.bug.findUnique({ where: { id: bugId } });
-  if (!bug) throw new Error("Bug not found");
+  const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!issue) throw new Error("Issue not found");
 
-  const lastRevision = await prisma.bugRevision.findFirst({
-    where: { bugId },
+  const lastRevision = await prisma.issueRevision.findFirst({
+    where: { issueId },
     orderBy: { version: "desc" },
   });
   const version = (lastRevision?.version ?? 0) + 1;
 
   // Store new fields in snapshot Json column
   const snapshot: Prisma.InputJsonObject = {
-    errorMessage: bug.errorMessage,
-    errorCode: bug.errorCode,
-    stackTrace: bug.stackTrace,
-    fingerprint: bug.fingerprint,
-    triggerCode: bug.triggerCode,
-    expectedBehavior: bug.expectedBehavior,
-    actualBehavior: bug.actualBehavior,
-    context: bug.context as Prisma.InputJsonValue ?? null,
-    contextLibraries: bug.contextLibraries,
-    runtime: bug.runtime,
-    platform: bug.platform,
-    category: bug.category,
-    accessCount: bug.accessCount,
-    searchHitCount: bug.searchHitCount,
+    errorMessage: issue.errorMessage,
+    errorCode: issue.errorCode,
+    stackTrace: issue.stackTrace,
+    fingerprint: issue.fingerprint,
+    triggerCode: issue.triggerCode,
+    expectedBehavior: issue.expectedBehavior,
+    actualBehavior: issue.actualBehavior,
+    context: issue.context as Prisma.InputJsonValue ?? null,
+    contextLibraries: issue.contextLibraries,
+    runtime: issue.runtime,
+    platform: issue.platform,
+    category: issue.category,
+    accessCount: issue.accessCount,
+    searchHitCount: issue.searchHitCount,
   };
 
-  return prisma.bugRevision.create({
+  return prisma.issueRevision.create({
     data: {
       version,
       action,
-      title: bug.title ?? "",
-      description: bug.description ?? "",
-      severity: bug.severity,
-      status: bug.status,
-      tags: bug.tags,
+      title: issue.title ?? "",
+      description: issue.description ?? "",
+      severity: issue.severity,
+      status: issue.status,
+      tags: issue.tags,
       snapshot,
-      bugId,
+      issueId,
       actorId,
     },
   });
 }
 
-export async function getBugRevisions(
-  bugId: string,
+export async function getIssueRevisions(
+  issueId: string,
   params: { limit?: number; offset?: number } = {}
 ) {
   const { limit = 10, offset = 0 } = params;
 
   const [revisions, total] = await Promise.all([
-    prisma.bugRevision.findMany({
-      where: { bugId },
+    prisma.issueRevision.findMany({
+      where: { issueId },
       orderBy: { version: "desc" },
       take: limit,
       skip: offset,
     }),
-    prisma.bugRevision.count({ where: { bugId } }),
+    prisma.issueRevision.count({ where: { issueId } }),
   ]);
 
   return { revisions, total };
 }
 
-export async function getBugRevision(bugId: string, version: number) {
-  return prisma.bugRevision.findUnique({
-    where: { bugId_version: { bugId, version } },
+export async function getIssueRevision(issueId: string, version: number) {
+  return prisma.issueRevision.findUnique({
+    where: { issueId_version: { issueId, version } },
   });
 }
 
-export async function rollbackBug(
-  bugId: string,
+export async function rollbackIssue(
+  issueId: string,
   targetVersion: number,
   actorId: string,
   actorRole: Role
 ) {
-  const bug = await prisma.bug.findUnique({ where: { id: bugId } });
-  if (!bug) throw new Error("Bug not found");
+  const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!issue) throw new Error("Issue not found");
 
-  if (bug.reporterId !== actorId && actorRole !== "admin") {
-    throw new Error("Only the reporter or an admin can rollback this bug");
+  if (issue.reporterId !== actorId && actorRole !== "admin") {
+    throw new Error("Only the reporter or an admin can rollback this issue");
   }
 
-  const revision = await prisma.bugRevision.findUnique({
-    where: { bugId_version: { bugId, version: targetVersion } },
+  const revision = await prisma.issueRevision.findUnique({
+    where: { issueId_version: { issueId, version: targetVersion } },
   });
   if (!revision) throw new Error(`Revision version ${targetVersion} not found`);
 
@@ -120,19 +120,19 @@ export async function rollbackBug(
       restoreData.category = snapshotData.category ?? null;
     }
 
-    const restored = await tx.bug.update({
-      where: { id: bugId },
+    const restored = await tx.issue.update({
+      where: { id: issueId },
       data: restoreData,
       include: { reporter: true },
     });
 
-    const lastRevision = await tx.bugRevision.findFirst({
-      where: { bugId },
+    const lastRevision = await tx.issueRevision.findFirst({
+      where: { issueId },
       orderBy: { version: "desc" },
     });
     const newVersion = (lastRevision?.version ?? 0) + 1;
 
-    await tx.bugRevision.create({
+    await tx.issueRevision.create({
       data: {
         version: newVersion,
         action: "rollback",
@@ -142,7 +142,7 @@ export async function rollbackBug(
         status: revision.status,
         tags: revision.tags,
         snapshot: snapshotData as Prisma.InputJsonValue ?? undefined,
-        bugId,
+        issueId,
         actorId,
       },
     });
@@ -152,8 +152,8 @@ export async function rollbackBug(
 
   await logAudit({
     action: "rollback",
-    entityType: "bug",
-    entityId: bugId,
+    entityType: "issue",
+    entityId: issueId,
     actorId,
     metadata: { rolledBackToVersion: targetVersion },
   });

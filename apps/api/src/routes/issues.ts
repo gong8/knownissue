@@ -1,14 +1,14 @@
 import { Hono } from "hono";
-import { reportInputSchema, bugUpdateSchema, SEARCH_COST } from "@knownissue/shared";
+import { reportInputSchema, issueUpdateSchema, SEARCH_COST } from "@knownissue/shared";
 import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
-import * as bugService from "../services/bug";
+import * as issueService from "../services/issue";
 import { deductCredits } from "../services/credits";
 import type { AppEnv } from "../lib/types";
 
-const bugs = new Hono<AppEnv>();
+const issues = new Hono<AppEnv>();
 
-// GET /bugs — list/search bugs (public for list, auth required for search)
-bugs.get("/bugs", optionalAuthMiddleware, async (c) => {
+// GET /issues — list/search issues (public for list, auth required for search)
+issues.get("/issues", optionalAuthMiddleware, async (c) => {
   const query = c.req.query("q");
   const library = c.req.query("library");
   const version = c.req.query("version");
@@ -38,7 +38,7 @@ bugs.get("/bugs", optionalAuthMiddleware, async (c) => {
       return c.json({ error: error instanceof Error ? error.message : "Insufficient credits" }, 403);
     }
     const errorCode = c.req.query("errorCode");
-    const result = await bugService.searchBugs({ query, library, version, errorCode, limit, offset });
+    const result = await issueService.searchIssues({ query, library, version, errorCode, limit, offset });
     return c.json(result);
   }
 
@@ -46,30 +46,30 @@ bugs.get("/bugs", optionalAuthMiddleware, async (c) => {
   const statusList = status ? status.split(",").map((s) => s.trim()) : undefined;
   const severityList = severity ? severity.split(",").map((s) => s.trim()) : undefined;
 
-  const result = await bugService.listBugs({ library, version, ecosystem, status: statusList, severity: severityList, limit, offset });
+  const result = await issueService.listIssues({ library, version, ecosystem, status: statusList, severity: severityList, limit, offset });
   return c.json(result);
 });
 
-// GET /bugs/:id — bug detail (public)
-bugs.get("/bugs/:id", optionalAuthMiddleware, async (c) => {
+// GET /issues/:id — issue detail (public)
+issues.get("/issues/:id", optionalAuthMiddleware, async (c) => {
   const id = c.req.param("id");
-  const bug = await bugService.getBugById(id);
+  const issue = await issueService.getIssueById(id);
 
-  if (!bug) {
-    return c.json({ error: "Bug not found" }, 404);
+  if (!issue) {
+    return c.json({ error: "Issue not found" }, 404);
   }
 
-  return c.json(bug);
+  return c.json(issue);
 });
 
-// POST /bugs — create bug (auth required)
-bugs.post("/bugs", authMiddleware, async (c) => {
+// POST /issues — create issue (auth required)
+issues.post("/issues", authMiddleware, async (c) => {
   const user = c.get("user");
   const body = await c.req.json();
 
   try {
     const parsed = reportInputSchema.parse(body);
-    const result = await bugService.createBug(parsed, user.id);
+    const result = await issueService.createIssue(parsed, user.id);
     return c.json(result, 201);
   } catch (error) {
     if (error instanceof Error) {
@@ -79,18 +79,18 @@ bugs.post("/bugs", authMiddleware, async (c) => {
   }
 });
 
-// PATCH /bugs/:id — update bug (reporter only, auth required)
-bugs.patch("/bugs/:id", authMiddleware, async (c) => {
+// PATCH /issues/:id — update issue (reporter only, auth required)
+issues.patch("/issues/:id", authMiddleware, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
   const body = await c.req.json();
 
   try {
-    const bug = await bugService.updateBug(id, body, user.id, user.role);
-    return c.json(bug);
+    const issue = await issueService.updateIssue(id, body, user.id, user.role);
+    return c.json(issue);
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
+      if (error.message === "Issue not found") return c.json({ error: error.message }, 404);
       if (error.message.includes("Only the reporter")) return c.json({ error: error.message }, 403);
       return c.json({ error: error.message }, 400);
     }
@@ -98,17 +98,17 @@ bugs.patch("/bugs/:id", authMiddleware, async (c) => {
   }
 });
 
-// DELETE /bugs/:id — delete bug (reporter only, auth required)
-bugs.delete("/bugs/:id", authMiddleware, async (c) => {
+// DELETE /issues/:id — delete issue (reporter only, auth required)
+issues.delete("/issues/:id", authMiddleware, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
 
   try {
-    await bugService.deleteBug(id, user.id, user.role);
+    await issueService.deleteIssue(id, user.id, user.role);
     return c.json({ ok: true });
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
+      if (error.message === "Issue not found") return c.json({ error: error.message }, 404);
       if (error.message.includes("Only the reporter")) return c.json({ error: error.message }, 403);
       return c.json({ error: error.message }, 400);
     }
@@ -116,4 +116,4 @@ bugs.delete("/bugs/:id", authMiddleware, async (c) => {
   }
 });
 
-export { bugs };
+export { issues };

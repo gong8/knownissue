@@ -1,5 +1,5 @@
 import { prisma } from "@knownissue/db";
-import type { BugRelationType } from "@knownissue/shared";
+import type { IssueRelationType } from "@knownissue/shared";
 import {
   RELATION_SAME_ROOT_CAUSE_THRESHOLD,
   RELATION_CONFIDENCE_MIN,
@@ -15,15 +15,15 @@ const windowDate = () => {
 };
 
 /**
- * Infer bug relations after a new bug is created.
+ * Infer issue relations after a new issue is created.
  * Runs rules 1-4 and creates up to RELATION_MAX_INFERRED_PER_TRIGGER relations.
  */
-export async function inferRelationsForBug(
-  bugId: string,
+export async function inferRelationsForIssue(
+  issueId: string,
   reporterId: string
 ): Promise<void> {
-  const bug = await prisma.bug.findUnique({
-    where: { id: bugId },
+  const issue = await prisma.issue.findUnique({
+    where: { id: issueId },
     select: {
       id: true,
       library: true,
@@ -37,7 +37,7 @@ export async function inferRelationsForBug(
       createdAt: true,
     },
   });
-  if (!bug) return;
+  if (!issue) return;
 
   let inferredCount = 0;
   const cutoff = windowDate();
@@ -47,17 +47,17 @@ export async function inferRelationsForBug(
 
   // Helper to attempt creating a relation and track count
   const tryInfer = async (
-    sourceBugId: string,
-    targetBugId: string,
-    type: BugRelationType,
+    sourceIssueId: string,
+    targetIssueId: string,
+    type: IssueRelationType,
     confidence: number,
     metadata?: Record<string, unknown>
   ): Promise<boolean> => {
     if (!hasBudget()) return false;
     if (confidence < RELATION_CONFIDENCE_MIN) return false;
     const created = await createRelation({
-      sourceBugId,
-      targetBugId,
+      sourceIssueId,
+      targetIssueId,
       type,
       source: "system",
       confidence,
@@ -70,26 +70,26 @@ export async function inferRelationsForBug(
 
   // --- Rule 1: version_regression ---
   // Same library + same fingerprint/errorCode + different version
-  if (hasBudget() && (bug.fingerprint || bug.errorCode)) {
+  if (hasBudget() && (issue.fingerprint || issue.errorCode)) {
     const conditions: string[] = [
       `"library" = $1`,
       `"version" != $2`,
       `"id" != $3`,
       `"createdAt" >= $4`,
     ];
-    const params: unknown[] = [bug.library, bug.version, bug.id, cutoff];
+    const params: unknown[] = [issue.library, issue.version, issue.id, cutoff];
     let paramIndex = 5;
 
     // Match fingerprint or errorCode
     const matchClauses: string[] = [];
-    if (bug.fingerprint) {
+    if (issue.fingerprint) {
       matchClauses.push(`"fingerprint" = $${paramIndex}`);
-      params.push(bug.fingerprint);
+      params.push(issue.fingerprint);
       paramIndex++;
     }
-    if (bug.errorCode) {
+    if (issue.errorCode) {
       matchClauses.push(`"errorCode" = $${paramIndex}`);
-      params.push(bug.errorCode);
+      params.push(issue.errorCode);
       paramIndex++;
     }
     conditions.push(`(${matchClauses.join(" OR ")})`);
@@ -114,14 +114,14 @@ export async function inferRelationsForBug(
       if (!hasBudget()) break;
       // Fingerprint match gets higher confidence than errorCode-only
       const confidence =
-        bug.fingerprint && candidate.fingerprint === bug.fingerprint
+        issue.fingerprint && candidate.fingerprint === issue.fingerprint
           ? 0.95
           : 0.8;
-      // Existing bug (older version) is source, new bug is target
-      await tryInfer(candidate.id, bug.id, "version_regression", confidence, {
+      // Existing issue (older version) is source, new issue is target
+      await tryInfer(candidate.id, issue.id, "version_regression", confidence, {
         rule: "version_regression",
         matchedOn:
-          bug.fingerprint && candidate.fingerprint === bug.fingerprint
+          issue.fingerprint && candidate.fingerprint === issue.fingerprint
             ? "fingerprint"
             : "errorCode",
       });
@@ -131,7 +131,7 @@ export async function inferRelationsForBug(
   // --- Rule 2: same_root_cause ---
   // Embedding similarity > threshold, same library, different error
   if (hasBudget()) {
-    const similarBugs = await prisma.$queryRawUnsafe<
+    const similarIssues = await prisma.$queryRawUnsafe<
       Array<{
         id: string;
         similarity: number;
@@ -153,28 +153,28 @@ export async function inferRelationsForBug(
          AND 1 - (b.embedding <=> src.embedding) > $4
        ORDER BY b.embedding <=> src.embedding
        LIMIT $5`,
-      bug.id,
-      bug.library,
+      issue.id,
+      issue.library,
       cutoff,
       RELATION_SAME_ROOT_CAUSE_THRESHOLD,
       RELATION_MAX_INFERRED_PER_TRIGGER
     );
 
-    for (const candidate of similarBugs) {
+    for (const candidate of similarIssues) {
       if (!hasBudget()) break;
       // Only link if error is actually different (otherwise it's a duplicate, not same_root_cause)
       const sameError =
-        (bug.errorMessage &&
+        (issue.errorMessage &&
           candidate.errorMessage &&
-          bug.errorMessage === candidate.errorMessage) ||
-        (bug.errorCode &&
+          issue.errorMessage === candidate.errorMessage) ||
+        (issue.errorCode &&
           candidate.errorCode &&
-          bug.errorCode === candidate.errorCode);
+          issue.errorCode === candidate.errorCode);
       if (sameError) continue;
 
       await tryInfer(
         candidate.id,
-        bug.id,
+        issue.id,
         "same_root_cause",
         candidate.similarity,
         {
@@ -190,42 +190,44 @@ export async function inferRelationsForBug(
   // Same reporter, 24h window
   if (hasBudget()) {
     const twentyFourHoursAgo = new Date(
-      bug.createdAt.getTime() - 24 * 60 * 60 * 1000
+      issue.createdAt.getTime() - 24 * 60 * 60 * 1000
     );
     const laterCutoff = cutoff > twentyFourHoursAgo ? cutoff : twentyFourHoursAgo;
 
-    // Forward: candidates that depend on new bug's library (it appears in their contextLibraries)
-    // New bug is the cause (source) -- a break in its library cascades to the candidate (target)
-    const forwardCandidates = await prisma.bug.findMany({
-      where: {
-        id: { not: bug.id },
-        reporterId: bug.reporterId,
-        createdAt: { gte: laterCutoff },
-        contextLibraries: { has: bug.library },
-      },
-      select: { id: true, library: true },
-      take: RELATION_MAX_INFERRED_PER_TRIGGER,
-    });
+    // Forward: candidates that depend on new issue's library (it appears in their contextLibraries)
+    // New issue is the cause (source) -- a break in its library cascades to the candidate (target)
+    const forwardCandidates = issue.library
+      ? await prisma.issue.findMany({
+          where: {
+            id: { not: issue.id },
+            reporterId: issue.reporterId,
+            createdAt: { gte: laterCutoff },
+            contextLibraries: { has: issue.library },
+          },
+          select: { id: true, library: true },
+          take: RELATION_MAX_INFERRED_PER_TRIGGER,
+        })
+      : [];
 
     for (const candidate of forwardCandidates) {
       if (!hasBudget()) break;
-      // source=bug (cause), target=candidate (effect)
-      await tryInfer(bug.id, candidate.id, "cascading_dependency", 0.7, {
+      // source=issue (cause), target=candidate (effect)
+      await tryInfer(issue.id, candidate.id, "cascading_dependency", 0.7, {
         rule: "cascading_dependency",
         direction: "forward",
-        causeLibrary: bug.library,
+        causeLibrary: issue.library,
       });
     }
 
-    // Reverse: candidates whose library the new bug depends on (appears in new bug's contextLibraries)
-    // Candidate is the cause (source) -- a break in its library cascades to the new bug (target)
-    if (hasBudget() && bug.contextLibraries.length > 0) {
-      const reverseCandidates = await prisma.bug.findMany({
+    // Reverse: candidates whose library the new issue depends on (appears in new issue's contextLibraries)
+    // Candidate is the cause (source) -- a break in its library cascades to the new issue (target)
+    if (hasBudget() && issue.contextLibraries.length > 0) {
+      const reverseCandidates = await prisma.issue.findMany({
         where: {
-          id: { not: bug.id },
-          reporterId: bug.reporterId,
+          id: { not: issue.id },
+          reporterId: issue.reporterId,
           createdAt: { gte: laterCutoff },
-          library: { in: bug.contextLibraries },
+          library: { in: issue.contextLibraries },
         },
         select: { id: true, library: true },
         take: RELATION_MAX_INFERRED_PER_TRIGGER,
@@ -233,10 +235,10 @@ export async function inferRelationsForBug(
 
       for (const candidate of reverseCandidates) {
         if (!hasBudget()) break;
-        // source=candidate (cause), target=bug (effect)
+        // source=candidate (cause), target=issue (effect)
         await tryInfer(
           candidate.id,
-          bug.id,
+          issue.id,
           "cascading_dependency",
           0.7,
           {
@@ -251,10 +253,10 @@ export async function inferRelationsForBug(
 
   // --- Rule 4: interaction_conflict ---
   // Shares 2+ contextLibraries, compatible categories (compatibility/behavior)
-  if (hasBudget() && bug.contextLibraries.length >= 2) {
+  if (hasBudget() && issue.contextLibraries.length >= 2) {
     const compatibleCategories = ["compatibility", "behavior"];
     const categoryFilter =
-      bug.category && compatibleCategories.includes(bug.category)
+      issue.category && compatibleCategories.includes(issue.category)
         ? true
         : false;
 
@@ -279,9 +281,9 @@ export async function inferRelationsForBug(
                ), 1) >= 2
          ORDER BY "createdAt" DESC
          LIMIT $4`,
-        bug.id,
+        issue.id,
         cutoff,
-        bug.contextLibraries,
+        issue.contextLibraries,
         RELATION_MAX_INFERRED_PER_TRIGGER
       );
 
@@ -289,7 +291,7 @@ export async function inferRelationsForBug(
         if (!hasBudget()) break;
         await tryInfer(
           candidate.id,
-          bug.id,
+          issue.id,
           "interaction_conflict",
           0.6,
           {
@@ -303,29 +305,29 @@ export async function inferRelationsForBug(
 }
 
 /**
- * Infer bug relations after a patch is submitted.
+ * Infer issue relations after a patch is submitted.
  * Runs rules 5-6 and creates up to RELATION_MAX_INFERRED_PER_TRIGGER relations.
  */
 export async function inferRelationsForPatch(
   patchId: string,
-  bugId: string
+  issueId: string
 ): Promise<void> {
-  const [patch, currentBug] = await Promise.all([
+  const [patch, currentIssue] = await Promise.all([
     prisma.patch.findUnique({
       where: { id: patchId },
       select: {
         id: true,
         steps: true,
-        bugId: true,
+        issueId: true,
         submitterId: true,
       },
     }),
-    prisma.bug.findUnique({
-      where: { id: bugId },
+    prisma.issue.findUnique({
+      where: { id: issueId },
       select: { createdAt: true },
     }),
   ]);
-  if (!patch || !currentBug) return;
+  if (!patch || !currentIssue) return;
 
   const steps = (patch.steps ?? []) as Array<Record<string, unknown>>;
 
@@ -355,17 +357,17 @@ export async function inferRelationsForPatch(
   const hasBudget = () => inferredCount < RELATION_MAX_INFERRED_PER_TRIGGER;
 
   const tryInfer = async (
-    sourceBugId: string,
-    targetBugId: string,
-    type: BugRelationType,
+    sourceIssueId: string,
+    targetIssueId: string,
+    type: IssueRelationType,
     confidence: number,
     metadata?: Record<string, unknown>
   ): Promise<boolean> => {
     if (!hasBudget()) return false;
     if (confidence < RELATION_CONFIDENCE_MIN) return false;
     const created = await createRelation({
-      sourceBugId,
-      targetBugId,
+      sourceIssueId,
+      targetIssueId,
       type,
       source: "system",
       confidence,
@@ -382,21 +384,21 @@ export async function inferRelationsForPatch(
   const otherPatches = needsOtherPatches
     ? await prisma.patch.findMany({
         where: {
-          bugId: { not: bugId },
-          bug: { createdAt: { gte: cutoff } },
+          issueId: { not: issueId },
+          issue: { createdAt: { gte: cutoff } },
         },
         select: {
           id: true,
-          bugId: true,
+          issueId: true,
           steps: true,
-          bug: { select: { createdAt: true } },
+          issue: { select: { createdAt: true } },
         },
         take: 50, // limit scan scope
       })
     : [];
 
   // --- Rule 5: shared_fix ---
-  // Patches on different bugs targeting same files/packages
+  // Patches on different issues targeting same files/packages
   for (const otherPatch of otherPatches) {
     if (!hasBudget()) break;
 
@@ -442,10 +444,10 @@ export async function inferRelationsForPatch(
     }
 
     if (matched) {
-      const otherIsOlder = otherPatch.bug.createdAt <= currentBug.createdAt;
+      const otherIsOlder = otherPatch.issue.createdAt <= currentIssue.createdAt;
       await tryInfer(
-        otherIsOlder ? otherPatch.bugId : bugId,
-        otherIsOlder ? bugId : otherPatch.bugId,
+        otherIsOlder ? otherPatch.issueId : issueId,
+        otherIsOlder ? issueId : otherPatch.issueId,
         "shared_fix",
         matchConfidence,
         {
@@ -478,10 +480,10 @@ export async function inferRelationsForPatch(
           const ourVersion = packageVersions.get(otherStep.package);
           // Same package, different target version = conflict
           if (ourVersion && ourVersion !== otherStep.to) {
-            const otherIsOlder = otherPatch.bug.createdAt <= currentBug.createdAt;
+            const otherIsOlder = otherPatch.issue.createdAt <= currentIssue.createdAt;
             await tryInfer(
-              otherIsOlder ? otherPatch.bugId : bugId,
-              otherIsOlder ? bugId : otherPatch.bugId,
+              otherIsOlder ? otherPatch.issueId : issueId,
+              otherIsOlder ? issueId : otherPatch.issueId,
               "fix_conflict",
               0.9,
               {

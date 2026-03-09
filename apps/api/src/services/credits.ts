@@ -13,7 +13,7 @@ export async function awardCredits(
   userId: string,
   amount: number,
   type: CreditEventType,
-  related?: { bugId?: string; patchId?: string }
+  related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
   const user = await prisma.user.update({
     where: { id: userId },
@@ -27,7 +27,7 @@ export async function awardCredits(
       amount,
       type,
       balance: user.credits,
-      relatedBugId: related?.bugId ?? null,
+      relatedIssueId: related?.issueId ?? null,
       relatedPatchId: related?.patchId ?? null,
     },
   });
@@ -39,7 +39,7 @@ export async function deductCredits(
   userId: string,
   amount: number,
   type: CreditEventType,
-  related?: { bugId?: string; patchId?: string }
+  related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
   // Atomic: only decrements if credits >= amount
   const result = await prisma.$executeRawUnsafe(
@@ -63,7 +63,7 @@ export async function deductCredits(
       amount: -amount,
       type,
       balance: user.credits,
-      relatedBugId: related?.bugId ?? null,
+      relatedIssueId: related?.issueId ?? null,
       relatedPatchId: related?.patchId ?? null,
     },
   });
@@ -75,7 +75,7 @@ export async function penalizeCredits(
   userId: string,
   amount: number,
   type: CreditEventType,
-  related?: { bugId?: string; patchId?: string }
+  related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
   // Floor at 0 — for downvote penalties
   await prisma.$executeRawUnsafe(
@@ -95,7 +95,7 @@ export async function penalizeCredits(
       amount: -amount,
       type,
       balance: user.credits,
-      relatedBugId: related?.bugId ?? null,
+      relatedIssueId: related?.issueId ?? null,
       relatedPatchId: related?.patchId ?? null,
     },
   });

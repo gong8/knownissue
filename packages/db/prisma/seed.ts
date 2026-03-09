@@ -33,8 +33,8 @@ async function main() {
     },
   });
 
-  // Create bugs
-  const bug1 = await prisma.bug.create({
+  // Create issues
+  const issue1 = await prisma.issue.create({
     data: {
       title: "Prisma findMany throws timeout on large datasets with nested includes",
       description:
@@ -59,7 +59,7 @@ async function main() {
     },
   });
 
-  const bug2 = await prisma.bug.create({
+  const issue2 = await prisma.issue.create({
     data: {
       title: "Next.js App Router dynamic routes return 404 after deployment to Vercel",
       description:

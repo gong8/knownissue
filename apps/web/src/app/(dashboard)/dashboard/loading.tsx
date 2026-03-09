@@ -16,7 +16,7 @@ export default function DashboardLoading() {
         ))}
       </div>
 
-      {/* Recent bugs skeleton */}
+      {/* Recent activity skeleton */}
       <div>
         <div className="mb-3 flex items-center justify-between">
           <Skeleton className="h-4 w-24" />

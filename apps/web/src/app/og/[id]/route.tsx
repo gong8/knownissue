@@ -15,7 +15,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  let bug: {
+  let issue: {
     title: string;
     severity: string;
     library: string;
@@ -24,15 +24,15 @@ export async function GET(
   } | null = null;
 
   try {
-    const res = await fetch(`${API_URL}/bugs/${id}`);
+    const res = await fetch(`${API_URL}/issues/${id}`);
     if (res.ok) {
-      bug = await res.json();
+      issue = await res.json();
     }
   } catch {
     // Fall through to fallback
   }
 
-  if (!bug) {
+  if (!issue) {
     return new ImageResponse(
       (
         <div
@@ -48,7 +48,7 @@ export async function GET(
             fontFamily: "monospace",
           }}
         >
-          [knownissue] — bug not found
+          [knownissue] — issue not found
         </div>
       ),
       { width: 1200, height: 630 }
@@ -77,11 +77,11 @@ export async function GET(
                 width: "12px",
                 height: "12px",
                 borderRadius: "50%",
-                background: SEVERITY_COLORS[bug.severity] ?? "#a1a1aa",
+                background: SEVERITY_COLORS[issue.severity] ?? "#a1a1aa",
               }}
             />
             <span style={{ fontSize: "20px", color: "#a1a1aa" }}>
-              {bug.severity} · {bug.status}
+              {issue.severity} · {issue.status}
             </span>
           </div>
           <div
@@ -92,9 +92,9 @@ export async function GET(
               maxWidth: "900px",
             }}
           >
-            {bug.title.length > 80
-              ? bug.title.slice(0, 80) + "..."
-              : bug.title}
+            {issue.title.length > 80
+              ? issue.title.slice(0, 80) + "..."
+              : issue.title}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <span
@@ -105,7 +105,7 @@ export async function GET(
                 fontSize: "20px",
               }}
             >
-              {bug.library}@{bug.version}
+              {issue.library}@{issue.version}
             </span>
           </div>
         </div>

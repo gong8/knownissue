@@ -3,28 +3,28 @@ import { PATCH_REWARD } from "@knownissue/shared";
 import type { PatchStep } from "@knownissue/shared";
 import { awardCredits, getCredits } from "./credits";
 import { logAudit } from "./audit";
-import { computeDerivedStatus } from "./bug";
+import { computeDerivedStatus } from "./issue";
 import { claimReportReward } from "./reward";
-import { createRelation, loadRelatedBugs } from "./relations";
+import { createRelation, loadRelatedIssues } from "./relations";
 import { inferRelationsForPatch } from "./relationInference";
 import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
 
 export async function submitPatch(
-  bugId: string,
+  issueId: string,
   explanation: string,
   steps: PatchStep[],
   versionConstraint: string | null | undefined,
   userId: string,
-  relatedTo?: { bugId: string; type: "shared_fix" | "fix_conflict"; note?: string }
+  relatedTo?: { issueId: string; type: "shared_fix" | "fix_conflict"; note?: string }
 ) {
-  const bug = await prisma.bug.findUnique({ where: { id: bugId } });
-  if (!bug) {
-    throw new Error("Bug not found");
+  const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!issue) {
+    throw new Error("Issue not found");
   }
 
-  // Check if this user already has a patch on this bug
+  // Check if this user already has a patch on this issue
   const existing = await prisma.patch.findUnique({
-    where: { bugId_submitterId: { bugId, submitterId: userId } },
+    where: { issueId_submitterId: { issueId, submitterId: userId } },
   });
 
   if (existing) {
@@ -38,7 +38,7 @@ export async function submitPatch(
       },
       include: {
         submitter: true,
-        bug: { select: { title: true } },
+        issue: { select: { title: true } },
       },
     });
 
@@ -47,7 +47,7 @@ export async function submitPatch(
       entityType: "patch",
       entityId: updated.id,
       actorId: userId,
-      metadata: { bugId },
+      metadata: { issueId },
     });
 
     return { ...updated, creditsAwarded: 0, creditsBalance: await getCredits(userId), updated: true };
@@ -59,17 +59,17 @@ export async function submitPatch(
       explanation,
       steps: steps as unknown as import("@knownissue/db").Prisma.InputJsonValue,
       versionConstraint: versionConstraint ?? null,
-      bugId,
+      issueId,
       submitterId: userId,
     },
     include: {
       submitter: true,
-      bug: { select: { title: true } },
+      issue: { select: { title: true } },
     },
   });
 
   const newBalance = await awardCredits(userId, PATCH_REWARD, "patch_submitted", {
-    bugId,
+    issueId,
     patchId: patch.id,
   });
 
@@ -78,20 +78,20 @@ export async function submitPatch(
     entityType: "patch",
     entityId: patch.id,
     actorId: userId,
-    metadata: { bugId },
+    metadata: { issueId },
   });
 
   // Recompute derived status after new patch
-  await computeDerivedStatus(bugId);
+  await computeDerivedStatus(issueId);
 
   // Claim deferred report reward if this is from a different user
-  await claimReportReward(bugId, userId);
+  await claimReportReward(issueId, userId);
 
   // Handle explicit relation from agent
   if (relatedTo) {
     await createRelation({
-      sourceBugId: bugId,
-      targetBugId: relatedTo.bugId,
+      sourceIssueId: issueId,
+      targetIssueId: relatedTo.issueId,
       type: relatedTo.type,
       source: "agent",
       confidence: 1.0,
@@ -101,7 +101,7 @@ export async function submitPatch(
   }
 
   // Run relation inference (fire-and-forget)
-  inferRelationsForPatch(patch.id, bugId).catch((err) =>
+  inferRelationsForPatch(patch.id, issueId).catch((err) =>
     console.error("Relation inference failed for patch", patch.id, err)
   );
 
@@ -113,7 +113,7 @@ export async function getPatchById(id: string) {
     where: { id },
     include: {
       submitter: true,
-      bug: { select: { id: true, title: true } },
+      issue: { select: { id: true, title: true } },
       verifications: {
         include: { verifier: true },
         orderBy: { createdAt: "desc" },
@@ -127,7 +127,7 @@ export async function getPatchForAgent(patchId: string, userId: string) {
     where: { id: patchId },
     include: {
       submitter: true,
-      bug: { select: { id: true, title: true, library: true, version: true } },
+      issue: { select: { id: true, title: true, library: true, version: true } },
       verifications: {
         include: { verifier: true },
         orderBy: { createdAt: "desc" },
@@ -146,30 +146,30 @@ export async function getPatchForAgent(patchId: string, userId: string) {
         data: { patchId, userId },
       });
 
-      // Increment accessCount on the bug
-      await tx.bug.update({
-        where: { id: patch.bugId },
+      // Increment accessCount on the issue
+      await tx.issue.update({
+        where: { id: patch.issueId },
         data: { accessCount: { increment: 1 } },
       });
     });
 
     // Recompute derived status after accessCount change
-    await computeDerivedStatus(patch.bugId);
+    await computeDerivedStatus(patch.issueId);
 
     // Trigger deferred report reward
-    await claimReportReward(patch.bugId, userId);
+    await claimReportReward(patch.issueId, userId);
   } catch {
     // Unique constraint violation — access already recorded, do nothing
   }
 
-  const relatedMap = await loadRelatedBugs([patch.bugId], {
+  const relatedMap = await loadRelatedIssues([patch.issueId], {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
     maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
   });
 
   return {
     ...patch,
-    relatedBugs: relatedMap.get(patch.bugId) ?? [],
+    relatedIssues: relatedMap.get(patch.issueId) ?? [],
   };
 }
 
@@ -177,7 +177,7 @@ export async function getUserPatches(userId: string) {
   return prisma.patch.findMany({
     where: { submitterId: userId },
     include: {
-      bug: { select: { id: true, title: true } },
+      issue: { select: { id: true, title: true } },
       _count: { select: { verifications: true } },
     },
     orderBy: { createdAt: "desc" },

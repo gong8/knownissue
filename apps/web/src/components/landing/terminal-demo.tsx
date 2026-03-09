@@ -50,7 +50,7 @@ const lines: Line[] = [
     pauseAfter: 200,
   },
   {
-    text: "  pin next to 15.2.3 \u2014 the resolution bug was fixed in canary",
+    text: "  pin next to 15.2.3 \u2014 the resolution issue was fixed in canary",
     color: "default",
     pauseAfter: 100,
   },

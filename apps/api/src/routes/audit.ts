@@ -6,7 +6,7 @@ import type { EntityType } from "@knownissue/shared";
 
 const audit = new Hono<AppEnv>();
 
-const validEntityTypes = new Set<string>(["bug", "patch", "verification", "user"]);
+const validEntityTypes = new Set<string>(["issue", "patch", "verification", "user"]);
 
 // GET /audit/:entityType/:entityId — audit log for entity (auth required)
 audit.get("/audit/:entityType/:entityId", authMiddleware, async (c) => {
@@ -14,7 +14,7 @@ audit.get("/audit/:entityType/:entityId", authMiddleware, async (c) => {
   const entityId = c.req.param("entityId");
 
   if (!validEntityTypes.has(entityType)) {
-    return c.json({ error: "Invalid entity type. Must be: bug, patch, verification, or user" }, 400);
+    return c.json({ error: "Invalid entity type. Must be: issue, patch, verification, or user" }, 400);
   }
 
   const limit = Math.min(50, Math.max(1, parseInt(c.req.query("limit") || "20")));

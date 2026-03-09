@@ -6,18 +6,18 @@ import type { AppEnv } from "../lib/types";
 
 const patches = new Hono<AppEnv>();
 
-patches.use("/bugs/*", authMiddleware);
+patches.use("/issues/*", authMiddleware);
 patches.use("/patches/*", authMiddleware);
 
-// POST /bugs/:bugId/patches — submit patch
-patches.post("/bugs/:bugId/patches", async (c) => {
+// POST /issues/:issueId/patches — submit patch
+patches.post("/issues/:issueId/patches", async (c) => {
   const user = c.get("user");
-  const bugId = c.req.param("bugId");
+  const issueId = c.req.param("issueId");
   const body = await c.req.json();
 
   try {
-    const { explanation, steps, versionConstraint } = patchInputSchema.parse({ ...body, bugId });
-    const patch = await patchService.submitPatch(bugId, explanation, steps, versionConstraint, user.id);
+    const { explanation, steps, versionConstraint } = patchInputSchema.parse({ ...body, issueId });
+    const patch = await patchService.submitPatch(issueId, explanation, steps, versionConstraint, user.id);
     return c.json(patch, 201);
   } catch (error) {
     if (error instanceof Error) {

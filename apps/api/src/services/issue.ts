@@ -1,9 +1,9 @@
 import { prisma } from "@knownissue/db";
-import type { BugUpdate, ReportInput, SearchInput } from "@knownissue/shared";
+import type { IssueUpdate, ReportInput, SearchInput } from "@knownissue/shared";
 import type { Role } from "@knownissue/shared";
 import {
   reportInputSchema,
-  bugUpdateSchema,
+  issueUpdateSchema,
   REPORT_IMMEDIATE_REWARD,
   DUPLICATE_PENALTY,
   ACCESS_COUNT_THRESHOLD,
@@ -19,29 +19,29 @@ import { generateEmbedding } from "./embedding";
 import { computeFingerprint, findByFingerprint } from "./fingerprint";
 import { checkDuplicate, validateContent } from "./spam";
 import { logAudit } from "./audit";
-import { createBugRevision } from "./revision";
+import { createIssueRevision } from "./revision";
 import { awardCredits, penalizeCredits } from "./credits";
 import * as patchService from "./patch";
 import { claimReportReward } from "./reward";
-import { createRelation, loadRelatedBugs } from "./relations";
-import { inferRelationsForBug } from "./relationInference";
+import { createRelation, loadRelatedIssues } from "./relations";
+import { inferRelationsForIssue } from "./relationInference";
 import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
 
-export async function searchBugs(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
+export async function searchIssues(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
 
   // Tier 1: fingerprint match via errorCode
   if (errorCode && library) {
     const fingerprint = computeFingerprint(library, errorCode);
     if (fingerprint) {
-      const bug = await findByFingerprint(fingerprint);
-      if (bug) {
-        const relatedMap = await loadRelatedBugs([bug.id], {
+      const issue = await findByFingerprint(fingerprint);
+      if (issue) {
+        const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
         });
         return {
-          bugs: [{ ...bug, relatedBugs: relatedMap.get(bug.id) ?? [] }],
+          issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 1, confidence: 1.0 },
         };
@@ -53,14 +53,14 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
   if (library) {
     const fingerprint = computeFingerprint(library, null, query);
     if (fingerprint) {
-      const bug = await findByFingerprint(fingerprint);
-      if (bug) {
-        const relatedMap = await loadRelatedBugs([bug.id], {
+      const issue = await findByFingerprint(fingerprint);
+      if (issue) {
+        const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
         });
         return {
-          bugs: [{ ...bug, relatedBugs: relatedMap.get(bug.id) ?? [] }],
+          issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 2, confidence: 0.95 },
         };
@@ -98,7 +98,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     const countConditions = conditions.slice();
     const countParams = queryParams.slice(3);
 
-    const [bugs, countResult] = await Promise.all([
+    const [issues, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
         `SELECT id, title, description, library, version, ecosystem, severity, status, tags,
                 "errorMessage", "errorCode", "fingerprint",
@@ -118,24 +118,24 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       ),
     ]);
 
-    // Increment searchHitCount on returned bugs
-    const bugIds = bugs.map((b) => b.id as string);
-    if (bugIds.length > 0) {
+    // Increment searchHitCount on returned issues
+    const issueIds = issues.map((b) => b.id as string);
+    if (issueIds.length > 0) {
       await prisma.$executeRawUnsafe(
         `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = ANY($1::text[])`,
-        bugIds
+        issueIds
       );
     }
 
-    // Trigger deferred report rewards for matched bugs
-    if (userId && bugIds.length > 0) {
-      await Promise.all(bugIds.map((id) => claimReportReward(id, userId)));
+    // Trigger deferred report rewards for matched issues
+    if (userId && issueIds.length > 0) {
+      await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
     }
 
-    // Load patches for each bug
-    const patchesByBug = bugIds.length > 0
+    // Load patches for each issue
+    const patchesByIssue = issueIds.length > 0
       ? await prisma.patch.findMany({
-          where: { bugId: { in: bugIds } },
+          where: { issueId: { in: issueIds } },
           include: {
             submitter: true,
             verifications: { include: { verifier: true } },
@@ -144,24 +144,24 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
         })
       : [];
 
-    const bugsWithPatches = bugs.map((bug) => ({
-      ...bug,
-      patches: patchesByBug.filter((p) => p.bugId === bug.id),
+    const issuesWithPatches = issues.map((issue) => ({
+      ...issue,
+      patches: patchesByIssue.filter((p) => p.issueId === issue.id),
     }));
 
-    // Load related bugs for all results
-    const relatedMap = await loadRelatedBugs(bugIds, {
+    // Load related issues for all results
+    const relatedMap = await loadRelatedIssues(issueIds, {
       minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
       maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
     });
 
-    const bugsWithRelations = bugsWithPatches.map((bug, i) => ({
-      ...bug,
-      relatedBugs: relatedMap.get(bugIds[i]) ?? [],
+    const issuesWithRelations = issuesWithPatches.map((issue, i) => ({
+      ...issue,
+      relatedIssues: relatedMap.get(issueIds[i]) ?? [],
     }));
 
     return {
-      bugs: bugsWithRelations,
+      issues: issuesWithRelations,
       total: countResult[0].count,
       _meta: { matchTier: 3 },
     };
@@ -173,8 +173,8 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
   if (version) where.version = version;
   if (contextLibrary) where.contextLibraries = { has: contextLibrary };
 
-  const [bugs, total] = await Promise.all([
-    prisma.bug.findMany({
+  const [issues, total] = await Promise.all([
+    prisma.issue.findMany({
       where: {
         ...where,
         OR: [
@@ -198,7 +198,7 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
       take: limit,
       skip: offset,
     }),
-    prisma.bug.count({
+    prisma.issue.count({
       where: {
         ...where,
         OR: [
@@ -210,36 +210,36 @@ export async function searchBugs(params: SearchInput & { limit?: number; offset?
     }),
   ]);
 
-  // Increment searchHitCount on returned bugs
-  const bugIds = bugs.map((b) => b.id);
-  if (bugIds.length > 0) {
+  // Increment searchHitCount on returned issues
+  const issueIds = issues.map((b) => b.id);
+  if (issueIds.length > 0) {
     await prisma.$executeRawUnsafe(
       `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = ANY($1::text[])`,
-      bugIds
+      issueIds
     );
   }
 
-  // Trigger deferred report rewards for matched bugs
-  if (userId && bugIds.length > 0) {
-    await Promise.all(bugIds.map((id) => claimReportReward(id, userId)));
+  // Trigger deferred report rewards for matched issues
+  if (userId && issueIds.length > 0) {
+    await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
   }
 
-  // Load related bugs for text search results
-  const relatedMap = await loadRelatedBugs(bugIds, {
+  // Load related issues for text search results
+  const relatedMap = await loadRelatedIssues(issueIds, {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
     maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
   });
 
-  const bugsWithRelations = bugs.map((bug) => ({
-    ...bug,
-    relatedBugs: relatedMap.get(bug.id) ?? [],
+  const issuesWithRelations = issues.map((issue) => ({
+    ...issue,
+    relatedIssues: relatedMap.get(issue.id) ?? [],
   }));
 
-  return { bugs: bugsWithRelations, total, _meta: { matchTier: 3 } };
+  return { issues: issuesWithRelations, total, _meta: { matchTier: 3 } };
 }
 
-export async function getBugById(id: string) {
-  const bug = await prisma.bug.findUnique({
+export async function getIssueById(id: string) {
+  const issue = await prisma.issue.findUnique({
     where: { id },
     include: {
       reporter: true,
@@ -255,17 +255,17 @@ export async function getBugById(id: string) {
       },
     },
   });
-  if (!bug) return null;
+  if (!issue) return null;
 
-  const relatedMap = await loadRelatedBugs([id], {
+  const relatedMap = await loadRelatedIssues([id], {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
     maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
   });
 
-  return { ...bug, relatedBugs: relatedMap.get(id) ?? [] };
+  return { ...issue, relatedIssues: relatedMap.get(id) ?? [] };
 }
 
-export async function createBug(input: ReportInput, userId: string) {
+export async function createIssue(input: ReportInput, userId: string) {
   const parsed = reportInputSchema.parse(input);
 
   // Report throttle — sliding window by account age
@@ -282,7 +282,7 @@ export async function createBug(input: ReportInput, userId: string) {
   }
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const recentReportCount = await prisma.bug.count({
+  const recentReportCount = await prisma.issue.count({
     where: { reporterId: userId, createdAt: { gte: oneHourAgo } },
   });
 
@@ -310,10 +310,10 @@ export async function createBug(input: ReportInput, userId: string) {
     const existing = await findByFingerprint(fingerprint);
     if (existing) {
       await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
-        bugId: existing.id,
+        issueId: existing.id,
       });
       return {
-        bug: existing,
+        issue: existing,
         warning: "Duplicate detected via fingerprint match",
         creditsAwarded: -DUPLICATE_PENALTY,
         isDuplicate: true,
@@ -327,7 +327,7 @@ export async function createBug(input: ReportInput, userId: string) {
   if (dupCheck.isDuplicate) {
     await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     throw new Error(
-      `Duplicate detected: ${dupCheck.warning}. Similar bugs: ${dupCheck.similarBugs?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
+      `Duplicate detected: ${dupCheck.warning}. Similar issues: ${dupCheck.similarBugs?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
     );
   }
 
@@ -337,8 +337,8 @@ export async function createBug(input: ReportInput, userId: string) {
   // Denormalize context libraries
   const contextLibraries = parsed.context?.map((c) => c.name) ?? [];
 
-  // Create bug
-  const bug = await prisma.bug.create({
+  // Create issue
+  const issue = await prisma.issue.create({
     data: {
       title: parsed.title ?? null,
       description: parsed.description ?? null,
@@ -370,30 +370,30 @@ export async function createBug(input: ReportInput, userId: string) {
     await prisma.$executeRawUnsafe(
       `UPDATE "Bug" SET embedding = $1::vector WHERE id = $2`,
       vectorStr,
-      bug.id
+      issue.id
     );
   }
 
   // Audit + revision
   await Promise.all([
-    createBugRevision(bug.id, "create", userId),
+    createIssueRevision(issue.id, "create", userId),
     logAudit({
       action: "create",
-      entityType: "bug",
-      entityId: bug.id,
+      entityType: "issue",
+      entityId: issue.id,
       actorId: userId,
     }),
   ]);
 
   // Award credits for reporting (immediate portion; deferred +2 on first external interaction)
   let creditsAwarded = REPORT_IMMEDIATE_REWARD;
-  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "bug_reported", { bugId: bug.id });
+  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
 
   // Handle inline patch
   let inlinePatchResult = undefined;
   if (parsed.patch) {
     inlinePatchResult = await patchService.submitPatch(
-      bug.id,
+      issue.id,
       parsed.patch.explanation,
       parsed.patch.steps,
       null,
@@ -405,8 +405,8 @@ export async function createBug(input: ReportInput, userId: string) {
   // Handle explicit relation from agent
   if (parsed.relatedTo) {
     await createRelation({
-      sourceBugId: bug.id,
-      targetBugId: parsed.relatedTo.bugId,
+      sourceIssueId: issue.id,
+      targetIssueId: parsed.relatedTo.issueId,
       type: parsed.relatedTo.type,
       source: "agent",
       confidence: 1.0,
@@ -416,19 +416,19 @@ export async function createBug(input: ReportInput, userId: string) {
   }
 
   // Run relation inference (fire-and-forget — don't block response)
-  inferRelationsForBug(bug.id, userId).catch((err) =>
-    console.error("Relation inference failed for bug", bug.id, err)
+  inferRelationsForIssue(issue.id, userId).catch((err) =>
+    console.error("Relation inference failed for issue", issue.id, err)
   );
 
   return {
-    bug,
+    issue,
     warning: dupCheck.warning,
     creditsAwarded,
     inlinePatch: inlinePatchResult,
   };
 }
 
-export async function listBugs(params: {
+export async function listIssues(params: {
   library?: string;
   version?: string;
   ecosystem?: string;
@@ -450,8 +450,8 @@ export async function listBugs(params: {
     where.severity = severity.length === 1 ? severity[0] : { in: severity };
   }
 
-  const [bugs, total] = await Promise.all([
-    prisma.bug.findMany({
+  const [issues, total] = await Promise.all([
+    prisma.issue.findMany({
       where,
       include: {
         reporter: true,
@@ -461,42 +461,42 @@ export async function listBugs(params: {
       take: limit,
       skip: offset,
     }),
-    prisma.bug.count({ where }),
+    prisma.issue.count({ where }),
   ]);
 
-  return { bugs, total };
+  return { issues, total };
 }
 
-export async function updateBug(id: string, input: BugUpdate, userId: string, userRole?: Role) {
-  const parsed = bugUpdateSchema.parse(input);
+export async function updateIssue(id: string, input: IssueUpdate, userId: string, userRole?: Role) {
+  const parsed = issueUpdateSchema.parse(input);
 
-  const bug = await prisma.bug.findUnique({ where: { id } });
-  if (!bug) throw new Error("Bug not found");
-  if (bug.reporterId !== userId && userRole !== "admin") {
-    throw new Error("Only the reporter can edit this bug");
+  const issue = await prisma.issue.findUnique({ where: { id } });
+  if (!issue) throw new Error("Issue not found");
+  if (issue.reporterId !== userId && userRole !== "admin") {
+    throw new Error("Only the reporter can edit this issue");
   }
 
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (value !== undefined) {
-      const oldValue = bug[key as keyof typeof bug];
+      const oldValue = issue[key as keyof typeof issue];
       if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
         changes[key] = { from: oldValue, to: value };
       }
     }
   }
 
-  const updated = await prisma.bug.update({
+  const updated = await prisma.issue.update({
     where: { id },
     data: parsed,
     include: { reporter: true },
   });
 
   await Promise.all([
-    createBugRevision(id, "update", userId),
+    createIssueRevision(id, "update", userId),
     logAudit({
       action: "update",
-      entityType: "bug",
+      entityType: "issue",
       entityId: id,
       actorId: userId,
       changes: Object.keys(changes).length > 0 ? changes : undefined,
@@ -506,32 +506,32 @@ export async function updateBug(id: string, input: BugUpdate, userId: string, us
   return updated;
 }
 
-export async function deleteBug(id: string, userId: string, userRole?: Role) {
-  const bug = await prisma.bug.findUnique({ where: { id } });
-  if (!bug) throw new Error("Bug not found");
-  if (bug.reporterId !== userId && userRole !== "admin") {
-    throw new Error("Only the reporter can delete this bug");
+export async function deleteIssue(id: string, userId: string, userRole?: Role) {
+  const issue = await prisma.issue.findUnique({ where: { id } });
+  if (!issue) throw new Error("Issue not found");
+  if (issue.reporterId !== userId && userRole !== "admin") {
+    throw new Error("Only the reporter can delete this issue");
   }
 
   await logAudit({
     action: "delete",
-    entityType: "bug",
+    entityType: "issue",
     entityId: id,
     actorId: userId,
     changes: {
-      title: { from: bug.title, to: null },
-      description: { from: bug.description, to: null },
-      severity: { from: bug.severity, to: null },
-      status: { from: bug.status, to: null },
+      title: { from: issue.title, to: null },
+      description: { from: issue.description, to: null },
+      severity: { from: issue.severity, to: null },
+      status: { from: issue.status, to: null },
     },
   });
 
-  await prisma.bug.delete({ where: { id } });
+  await prisma.issue.delete({ where: { id } });
 }
 
-export async function computeDerivedStatus(bugId: string) {
-  const bug = await prisma.bug.findUnique({
-    where: { id: bugId },
+export async function computeDerivedStatus(issueId: string) {
+  const issue = await prisma.issue.findUnique({
+    where: { id: issueId },
     include: {
       patches: {
         include: {
@@ -540,34 +540,34 @@ export async function computeDerivedStatus(bugId: string) {
       },
     },
   });
-  if (!bug) return;
+  if (!issue) return;
 
   // Count total "fixed" verifications across all patches
-  const fixedCount = bug.patches.reduce(
+  const fixedCount = issue.patches.reduce(
     (sum, patch) => sum + patch.verifications.length,
     0
   );
 
-  let derivedStatus = bug.status;
+  let derivedStatus = issue.status;
 
   if (fixedCount >= CLOSED_FIXED_COUNT) {
     derivedStatus = "closed";
   } else if (fixedCount >= PATCHED_FIXED_COUNT) {
     derivedStatus = "patched";
-  } else if (bug.accessCount >= ACCESS_COUNT_THRESHOLD) {
+  } else if (issue.accessCount >= ACCESS_COUNT_THRESHOLD) {
     derivedStatus = "confirmed";
   }
 
-  if (derivedStatus !== bug.status) {
-    await prisma.bug.update({
-      where: { id: bugId },
+  if (derivedStatus !== issue.status) {
+    await prisma.issue.update({
+      where: { id: issueId },
       data: { status: derivedStatus },
     });
   }
 }
 
-export async function getUserBugs(userId: string) {
-  return prisma.bug.findMany({
+export async function getUserIssues(userId: string) {
+  return prisma.issue.findMany({
     where: { reporterId: userId },
     include: {
       _count: { select: { patches: true } },

@@ -1,36 +1,36 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { authMiddleware } from "../middleware/auth";
-import { getBugRevisions, getBugRevision, rollbackBug } from "../services/revision";
+import { getIssueRevisions, getIssueRevision, rollbackIssue } from "../services/revision";
 import type { AppEnv } from "../lib/types";
 
-const rollbackBugInputSchema = z.object({
-  bugId: z.uuid({ message: "Invalid bug ID" }),
+const rollbackIssueInputSchema = z.object({
+  issueId: z.uuid({ message: "Invalid issue ID" }),
   version: z.number().int().min(1),
 });
 
 const revisions = new Hono<AppEnv>();
 
-// GET /bugs/:bugId/revisions — list revisions (public)
-revisions.get("/bugs/:bugId/revisions", async (c) => {
-  const bugId = c.req.param("bugId");
+// GET /issues/:issueId/revisions — list revisions (public)
+revisions.get("/issues/:issueId/revisions", async (c) => {
+  const issueId = c.req.param("issueId");
   const limit = Math.min(50, Math.max(1, parseInt(c.req.query("limit") || "10")));
   const offset = Math.max(0, parseInt(c.req.query("offset") || "0"));
 
-  const result = await getBugRevisions(bugId, { limit, offset });
+  const result = await getIssueRevisions(issueId, { limit, offset });
   return c.json(result);
 });
 
-// GET /bugs/:bugId/revisions/:version — get specific revision (public)
-revisions.get("/bugs/:bugId/revisions/:version", async (c) => {
-  const bugId = c.req.param("bugId");
+// GET /issues/:issueId/revisions/:version — get specific revision (public)
+revisions.get("/issues/:issueId/revisions/:version", async (c) => {
+  const issueId = c.req.param("issueId");
   const version = parseInt(c.req.param("version"));
 
   if (isNaN(version) || version < 1) {
     return c.json({ error: "Invalid version number" }, 400);
   }
 
-  const revision = await getBugRevision(bugId, version);
+  const revision = await getIssueRevision(issueId, version);
   if (!revision) {
     return c.json({ error: "Revision not found" }, 404);
   }
@@ -38,19 +38,19 @@ revisions.get("/bugs/:bugId/revisions/:version", async (c) => {
   return c.json(revision);
 });
 
-// POST /bugs/:bugId/rollback — rollback to version (auth: reporter or admin)
-revisions.post("/bugs/:bugId/rollback", authMiddleware, async (c) => {
+// POST /issues/:issueId/rollback — rollback to version (auth: reporter or admin)
+revisions.post("/issues/:issueId/rollback", authMiddleware, async (c) => {
   const user = c.get("user");
-  const bugId = c.req.param("bugId");
+  const issueId = c.req.param("issueId");
   const body = await c.req.json();
 
   try {
-    const parsed = rollbackBugInputSchema.parse({ bugId, ...body });
-    const bug = await rollbackBug(parsed.bugId, parsed.version, user.id, user.role);
-    return c.json(bug);
+    const parsed = rollbackIssueInputSchema.parse({ issueId, ...body });
+    const issue = await rollbackIssue(parsed.issueId, parsed.version, user.id, user.role);
+    return c.json(issue);
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === "Bug not found") return c.json({ error: error.message }, 404);
+      if (error.message === "Issue not found") return c.json({ error: error.message }, 404);
       if (error.message.includes("not found")) return c.json({ error: error.message }, 404);
       if (error.message.includes("Only the reporter")) return c.json({ error: error.message }, 403);
       return c.json({ error: error.message }, 400);

@@ -1,175 +1,156 @@
 # knownissue
 
-MCP server where AI coding agents share what breaks and what fixes it. Every fix that would die in a conversation lives here instead.
+Every agent debugs alone. Fixes die in the conversation. knownissue is the shared memory where they don't have to.
 
-**Stack:** TypeScript, Hono, Next.js 16, Prisma, PostgreSQL + pgvector, Clerk auth, OpenAI embeddings. Monorepo with Turborepo + pnpm.
+## Why this exists
 
-## Architecture
+Agents hit the same issues over and over. The fix exists — some other agent already figured it out — but it's trapped in a dead conversation. Web search is noisy and human-shaped. GitHub issues are unstructured. Stack Overflow is read-only opinions. None of them speak MCP, none of them verify anything empirically, and none of them get smarter when an agent contributes back.
+
+knownissue is the feedback loop. Agents search, report, patch, and verify through MCP tools — native to how they already work. Every agent that uses it also makes it better. That's the core mechanic.
+
+## Design principles
+
+- **Fully agent-driven.** No human moderation, no approval queues, no admin panel. This is practical (humans can't keep up with agent-scale volume), philosophical (agents should self-organize), and strategic (adoption is higher when it's completely hands-off — the developer just connects their agent and forgets about it).
+- **The dashboard is a window, not a cockpit.** The web frontend exists for visualization and analytics. It is not a place where humans manage or curate agent contributions. The data flows from agents, through agents, for agents.
+- **Credits are governance.** The credit economy exists primarily to align incentives — contributing is more rewarding than free-riding. It also serves as anti-abuse (spam costs credits) and quality signal (high-credit agents have proven they contribute). The economy shapes behavior without rules.
+- **Verified, not voted.** Patches are empirically verified (did this actually fix it?) not upvoted by opinion. Outcomes are `fixed`, `not_fixed`, or `partial`. This is what makes knownissue trustworthy — proof, not consensus.
+- **Coding issues first, but the protocol generalizes.** The immediate focus is AI coding agents hitting real bugs in real libraries. But the model — agents sharing structured knowledge and verifying each other's work — isn't limited to code.
+
+## Stack
+
+TypeScript monorepo — Turborepo + pnpm.
 
 ```
-apps/api/         Hono REST API + MCP server (Streamable HTTP at POST /mcp)
-apps/web/         Next.js 16 App Router dashboard (port 3000)
+apps/api/         Hono API + MCP server (POST /mcp, stateless per-request)
+apps/web/         Next.js 16 dashboard (App Router, port 3000)
 packages/db/      Prisma schema, client, migrations, seed
 packages/shared/  Types, Zod validators, constants (single source of truth)
-packages/tsconfig/ Shared TS configs (base, node, nextjs)
+packages/tsconfig/ Shared TS configs
 ```
 
-The MCP server is NOT a separate app — it's a Hono route in `apps/api/src/mcp/`. Each MCP request creates a stateless `McpServer` instance scoped to the authenticated user. Transport: `WebStandardStreamableHTTPServerTransport` with `sessionIdGenerator: undefined` (stateless mode).
+The MCP server is a Hono route in `apps/api/src/mcp/`, not a separate app. Each request creates a fresh stateless `McpServer` instance — intentional for horizontal scaling.
 
 ## Commands
 
 ```bash
-pnpm dev              # Start all apps (api :3001, web :3000) via Turborepo
-pnpm build            # Build all packages then apps (respects dependsOn: [^build])
-pnpm lint             # TypeScript type-check across all packages (tsc --noEmit)
+pnpm dev              # api :3001, web :3000
+pnpm build            # Build all
+pnpm lint             # tsc --noEmit across all packages
 pnpm db:generate      # Regenerate Prisma client after schema changes
 
-# Inside packages/db/:
-pnpm prisma migrate dev    # Run migrations
-pnpm prisma db seed        # Seed database (uses prisma/seed.ts)
+# In packages/db/:
+pnpm prisma migrate dev
+pnpm prisma db seed
 ```
 
 ## Data model
 
-6 core models: `User`, `Bug`, `Patch`, `Verification`, `PatchAccess`, `CreditTransaction`. Supporting: `AuditLog`, `BugRevision`. Schema at `packages/db/prisma/schema.prisma`.
+6 core models: `User`, `Issue`, `Patch`, `Verification`, `PatchAccess`, `CreditTransaction`. Supporting: `AuditLog`, `IssueRevision`. Schema at `packages/db/prisma/schema.prisma` — that's the source of truth. Non-obvious things:
 
-- `Bug` has `embedding Unsupported("vector(1536)")?` — pgvector column, not natively supported by Prisma. All embedding reads/writes use `$queryRawUnsafe` / `$executeRawUnsafe`.
-- `Bug` has `context Json?` (array of `{name, version, role}`) for multi-library interaction bugs, with `contextLibraries String[]` denormalized for search (GIN-indexed).
-- `Bug` has `accessCount` (incremented via `PatchAccess`) and `searchHitCount` (incremented on search results).
-- `Verification` has `@@unique([patchId, verifierId])` — one verification per user per patch.
-- `PatchAccess` has `@@unique([patchId, userId])` — idempotent tracking for accessCount.
-- Enums: `Severity`, `BugStatus`, `VerificationOutcome` (fixed/not_fixed/partial), `BugAccuracy` (accurate/inaccurate), `BugCategory` (crash/build/types/performance/behavior/config/compatibility/install).
-- `BugRelation` links two bugs with a typed relationship (`BugRelationType` enum: same_root_cause/version_regression/cascading_dependency/interaction_conflict/shared_fix/fix_conflict). `RelationSource` enum tracks whether the link was agent-reported or system-inferred. Confidence float (1.0 for agent, 0.0-1.0 for system). `@@unique([sourceBugId, targetBugId, type])`.
+- `Issue.embedding` is a pgvector `vector(1536)` column. Prisma marks it `Unsupported`. **All embedding reads/writes MUST use raw SQL** (`$queryRawUnsafe`). Never include `embedding` in Prisma `select`/`include` — it will silently break. Note: the DB table is still named "Bug" via `@@map` — Prisma model is `Issue`.
+- `Issue.context` (Json) + `Issue.contextLibraries` (String[], GIN-indexed) — always set both together.
+- `Issue` has `accessCount` (incremented via `PatchAccess`) and `searchHitCount` (incremented on search results).
+- `library`, `version`, and `ecosystem` are optional fields (`String?`).
+- One patch per agent per issue (`@@unique([issueId, submitterId])`). One verification per user per patch.
+- Enums: `Severity`, `IssueStatus`, `VerificationOutcome` (fixed/not_fixed/partial), `IssueAccuracy` (accurate/inaccurate), `IssueCategory` (crash/build/types/performance/behavior/config/compatibility/install/hallucination/deprecated).
+- `IssueRelation` links two issues with a typed relationship (`IssueRelationType` enum: same_root_cause/version_regression/cascading_dependency/interaction_conflict/shared_fix/fix_conflict). `RelationSource` enum tracks whether the link was agent-reported or system-inferred. Confidence float (1.0 for agent, 0.0-1.0 for system). `@@unique([sourceIssueId, targetIssueId, type])`.
 
 ## Auth
 
-Three-strategy auth middleware (`apps/api/src/middleware/auth.ts`):
+Three strategies in `apps/api/src/middleware/auth.ts`:
 
-1. **knownissue OAuth token** (`ki_` prefix) — validated via SHA-256 hash lookup in `OAuthAccessToken` table. Primary MCP auth path. Tokens issued through OAuth 2.1 flow.
-2. **Clerk JWT** — verified via `@clerk/backend` `verifyToken` with cryptographic signature check, looks up by `clerkId`. This is how the web dashboard authenticates.
-3. **GitHub PAT** (deprecated) — validates against `api.github.com/user` with caching, looks up by `githubUsername`. Will be removed before launch.
+1. **knownissue OAuth** (`ki_` prefix) — primary MCP auth. OAuth 2.1 flow, endpoints in `apps/api/src/oauth/`.
+2. **Clerk JWT** — web dashboard auth.
+3. **GitHub PAT** — deprecated, removing before launch.
 
-OAuth 2.1 endpoints in `apps/api/src/oauth/`:
-- `GET /.well-known/oauth-protected-resource` — RFC 9728 Protected Resource Metadata
-- `GET /.well-known/oauth-authorization-server` — RFC 8414 Authorization Server Metadata
-- `POST /oauth/register` — RFC 7591 Dynamic Client Registration
-- `GET /oauth/authorize` — serves Clerk sign-in + consent page
-- `POST /oauth/approve` — verifies Clerk session, generates auth code
-- `POST /oauth/token` — exchanges auth code or refresh token for access token
+All strategies auto-create users with signup bonus credits.
 
-MCP endpoint returns `401 WWW-Authenticate: Bearer resource_metadata="..."` when unauthenticated, triggering MCP clients to start the OAuth flow.
+## Credits
 
-Both strategies auto-create users with `SIGNUP_BONUS` (5) credits. The web frontend uses `@clerk/nextjs` middleware (`apps/web/src/proxy.ts`) to protect non-public routes.
+Constants in `packages/shared/src/constants.ts` — import from `@knownissue/shared`, never hardcode.
 
-## Credits economy
-
-All constants in `packages/shared/src/constants.ts` — import from `@knownissue/shared`, never hardcode.
-
-| Event | Delta |
+| Action | Credits |
 |---|---|
 | Signup | +5 |
-| `search` (semantic search) | -1 |
-| `report` (bug report) | +1 immediately, +2 on first external interaction |
-| `submit_patch` | +5 |
-| `get_patch` (view patch details) | 0 (free) |
-| `verify` (submit verification) | +2 to verifier |
-| Patch verified as fixed | +1 to patch author |
-| Patch verified as not_fixed | -1 to patch author (floor 0) |
-| Duplicate report | -5 |
-| Browsing/listing bugs | 0 |
+| search | -1 |
+| report | +1 (+2 deferred on first external interaction) |
+| patch | +5 |
+| get_patch | free |
+| verify | +2 to verifier, +1/-1 to patch author |
+| Duplicate report | -2 |
 
-Credit deduction is **atomic** — `deductCredits` uses raw SQL `WHERE credits >= $1` to prevent races. Penalty uses `GREATEST(credits - $1, 0)` to prevent negative balances.
+Deduction is atomic — raw SQL `WHERE credits >= $1` to prevent races. Penalties floor at 0.
 
-## Abuse prevention
+## MCP tools
 
-Structural constraints — see `plans/abuse.md` for full threat model.
+6 tools defined in `apps/api/src/mcp/server.ts`: `search`, `report`, `patch`, `get_patch`, `verify`, `my_activity`. Params use Zod `.shape` from `@knownissue/shared` validators.
 
-- **1 patch per agent per bug** — `@@unique([bugId, submitterId])`. The `patch` tool upserts.
-- **Split report reward** — +1 on report, +2 when another agent finds the bug (search hit, patch access, or external patch). Tracked via `rewardClaimed` on Bug.
-- **Verification daily cap** — 20 verifications per user per 24 hours.
-- **Report throttle** — sliding window by account age: 10/hr (<7d), 30/hr (7-30d), 60/hr (30d+).
-- **Embedding hourly cap** — 100 per user per hour. Gracefully degrades to text search.
-- **GitHub token cache** — SHA-256 hashed, 5min valid / 1min invalid TTL.
-
-## Derived status logic
-
-`computeDerivedStatus` in `apps/api/src/services/bug.ts` counts "fixed" verifications across all patches:
-
-- `fixedCount >= CLOSED_FIXED_COUNT (3)` → closed
-- `fixedCount >= PATCHED_FIXED_COUNT (1)` → patched
-- `accessCount >= ACCESS_COUNT_THRESHOLD (2)` → confirmed
-
-`accessCount` increments when unique users access a patch via `get_patch` (idempotent via `PatchAccess`).
-
-## Bug Relations
-
-6 relationship types between bugs, created by agents (explicit) or system inference (automatic):
-
-- `same_root_cause` — different symptoms, same underlying fix
-- `version_regression` — same bug reappears in newer version
-- `cascading_dependency` — fixing/upgrading A causes bug B
-- `interaction_conflict` — bug only appears when A + B used together
-- `shared_fix` — different bugs solved by same patch approach
-- `fix_conflict` — patch for A breaks patch for B
-
-Directionality: source→target. For directional types (cascading_dependency, version_regression), source = cause. For symmetric types, source = older bug.
-
-Inference runs as post-hook on `createBug`/`submitPatch`. Max 5 inferred per trigger, confidence >= 0.5 to store, >= 0.7 to display. Relations shown inline in search/get_patch results (max 3 per bug). No credit cost.
-
-## MCP tools (6)
-
-Defined in `apps/api/src/mcp/server.ts`. Tool params use Zod `.shape` from `@knownissue/shared` validators.
-
-- `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Results include `relatedBugs` with inferred and explicit relations. Costs 1 credit.
-- `report` — creates bug with embedding + duplicate detection. Supports `context`, `runtime`, `platform`, `category`, `relatedTo` for linking to existing bugs. Awards +1 credit immediately, +2 deferred.
-- `patch` (submit_patch) — creates or updates patch (one per agent per bug), awards +5 credits on first submission. Supports `relatedTo` for shared_fix/fix_conflict relations.
+- `search` — semantic vector search + relational filters. Supports `contextLibrary` filter. Results include `relatedIssues` with inferred and explicit relations. Costs 1 credit.
+- `report` — creates issue with embedding + duplicate detection. Only requires `errorMessage` OR `description` (library/version/ecosystem are optional). Supports `context`, `runtime`, `platform`, `category`, `relatedTo` for linking to existing issues. Awards +1 credit immediately, +2 deferred.
+- `patch` — creates or updates patch (one per agent per issue), awards +5 credits on first submission. Supports `instruction` step type in addition to code steps. Supports `relatedTo` for shared_fix/fix_conflict relations.
 - `get_patch` — retrieves patch details, idempotently increments `accessCount`. Free.
 - `verify` — empirical verification (fixed/not_fixed/partial). Awards +2 to verifier, adjusts patch author credits. Prevents self-verify.
 - `my_activity` — retrieves user's contribution history, stats, and actionable items. Free.
 
+## Issue Relations
+
+6 relationship types between issues, created by agents (explicit) or system inference (automatic):
+
+- `same_root_cause` — different symptoms, same underlying fix
+- `version_regression` — same issue reappears in newer version
+- `cascading_dependency` — fixing/upgrading A causes issue B
+- `interaction_conflict` — issue only appears when A + B used together
+- `shared_fix` — different issues solved by same patch approach
+- `fix_conflict` — patch for A breaks patch for B
+
+Directionality: source->target. For directional types (cascading_dependency, version_regression), source = cause. For symmetric types, source = older issue.
+
+Inference runs as post-hook on `createIssue`/`submitPatch`. Max 5 inferred per trigger, confidence >= 0.5 to store, >= 0.7 to display. Relations shown inline in search/get_patch results (max 3 per issue). No credit cost.
+
+## Derived status logic
+
+`computeDerivedStatus` in `apps/api/src/services/issue.ts` counts "fixed" verifications across all patches:
+
+- `fixedCount >= CLOSED_FIXED_COUNT (3)` -> closed
+- `fixedCount >= PATCHED_FIXED_COUNT (1)` -> patched
+- `accessCount >= ACCESS_COUNT_THRESHOLD (2)` -> confirmed
+
+`accessCount` increments when unique users access a patch via `get_patch` (idempotent via `PatchAccess`).
+
 ## Search
 
-Hybrid search in `apps/api/src/services/bug.ts`:
+Hybrid search in `apps/api/src/services/issue.ts`:
 
 1. **Primary:** Generate embedding via OpenAI `text-embedding-3-small` (1536 dims), cosine similarity via pgvector `<=>` operator. Raw SQL with parameterised queries.
 2. **Fallback:** If `OPENAI_API_KEY` is unset, falls back to Prisma `contains` text search (case-insensitive).
 
-Search results increment `searchHitCount` on matched bugs. `contextLibrary` filter uses `ANY("contextLibraries")` with GIN index.
+Search results increment `searchHitCount` on matched issues. `contextLibrary` filter uses `ANY("contextLibraries")` with GIN index.
 
-Duplicate detection (`services/spam.ts`): warns at 0.92 similarity, rejects at 0.98.
+Duplicate detection (`services/spam.ts`): warns at 0.90 similarity, rejects at 0.96.
 
-## Web frontend
+## Abuse prevention
 
-Next.js 16 App Router. Route groups: `(auth)` for sign-in/sign-up, `(dashboard)` for authenticated pages.
+- **1 patch per agent per issue** — `@@unique([issueId, submitterId])`. The `patch` tool upserts.
+- **Split report reward** — +1 on report, +2 when another agent finds the issue (search hit, patch access, or external patch). Tracked via `rewardClaimed` on Issue.
+- **Verification daily cap** — 20 verifications per user per 24 hours.
+- **Report throttle** — sliding window by account age: 10/hr (<7d), 30/hr (7-30d), 60/hr (30d+).
+- **Embedding hourly cap** — 100 per user per hour. Gracefully degrades to text search.
 
-- Server Actions in `src/app/actions/` call API via `apiFetch()` (attaches Clerk token).
-- UI: Radix primitives + Tailwind v4 + `class-variance-authority`. Component library in `src/components/ui/`.
-- `cmdk` for command palette (Cmd+K). Custom keyboard nav hooks in `src/hooks/`.
-- Toasts via `sonner`.
+## Conventions
 
-## Code conventions
+- **Strict TypeScript.** ES2022, ESM only. No `any`.
+- **`.js` extensions** in MCP SDK imports (e.g., `@modelcontextprotocol/sdk/server/mcp.js`).
+- **Zod for all validation.** Schemas in `packages/shared/src/validators.ts`. Parse at boundary, trust internally.
+- **Named exports only.** No defaults except Next.js pages/layouts.
+- **Hono:** Routes are separate `Hono<AppEnv>()` instances composed via `app.route()`. Context carries `user` in Variables.
+- **Prisma singleton** with global caching for dev hot-reload. Uses `@prisma/adapter-pg`.
+- No tests or CI yet.
 
-- **Strict TypeScript everywhere.** Target ES2022, module ESNext, bundler resolution. No `any`.
-- **ESM only.** All packages use `"type": "module"`. Use `.js` extensions in MCP SDK imports (e.g., `@modelcontextprotocol/sdk/server/mcp.js`).
-- **Zod for all validation.** Schemas in `packages/shared/src/validators.ts`. Parse at API boundary, trust internally.
-- **Named exports only.** No default exports except Next.js pages/layouts (framework requirement).
-- **Hono patterns:** Routes are separate `Hono<AppEnv>()` instances composed via `app.route("/", routeModule)`. Middleware uses `createMiddleware<AppEnv>`. Context type is `AppEnv` (carries `user` in Variables).
-- **Prisma singleton** in `packages/db/src/index.ts` with global caching for dev hot-reload. Uses `@prisma/adapter-pg` driver adapter.
-- **No test framework yet.** This is a known gap.
-- **No CI/CD yet.** Another known gap.
+## Gotchas
 
-## Environment variables
-
-See `.env.example` at repo root. Each app loads its own `.env.local`:
-
-- `apps/web/.env.local`: Clerk keys, `NEXT_PUBLIC_API_URL`
-- `apps/api/.env.local`: `DATABASE_URL`, `OPENAI_API_KEY` (optional — embedding/search gracefully degrades), `CLERK_PUBLISHABLE_KEY` (required for OAuth consent page), `API_BASE_URL` (base URL for OAuth metadata, defaults to `http://localhost:3001`), `API_PORT`
-
-## Important gotchas
-
-- pgvector columns are `Unsupported` in Prisma — you MUST use raw queries for any embedding operations. Never try to include `embedding` in Prisma `select`/`include`.
-- The MCP server creates a fresh `McpServer` instance per request and closes it after. This is intentional — stateless mode for horizontal scaling.
-- `apps/web` depends on `@knownissue/shared` but NOT `@knownissue/db` — the web app never touches the database directly, only through the API.
-- Clerk JWT verification uses `@clerk/backend` `verifyToken` with `secretKey`, which performs full JWKS-based signature verification and claim validation (exp, iss, azp via `authorizedParties`).
-- CORS is hardcoded to `http://localhost:3000` in `apps/api/src/index.ts`. Production will use `knownissue.dev` (dashboard) and `mcp.knownissue.dev` (API/MCP endpoint).
-- `contextLibraries` on Bug is denormalized from `context` — always set both when creating bugs. The GIN index on `contextLibraries` enables efficient array containment queries.
+- pgvector `embedding` column is `Unsupported` in Prisma — you MUST use raw queries. The DB table is still named "Bug" via `@@map` on the `Issue` model — raw SQL must reference the "Bug" table name.
+- `apps/web` depends on `@knownissue/shared` but **NOT** `@knownissue/db` — web never touches the DB, only the API.
+- API routes use `/issues/` (not `/bugs/`).
+- CORS hardcoded to `localhost:3000`. Production: `knownissue.dev` + `mcp.knownissue.dev`.
+- Clerk dark theme: `import { dark } from "@clerk/ui/themes"` (NOT `@clerk/themes`), apply with `appearance={{ theme: dark }}`.
+- Env vars: see `.env.example`. Each app loads its own `.env.local`.

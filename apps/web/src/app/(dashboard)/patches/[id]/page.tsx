@@ -26,7 +26,7 @@ const OUTCOME_COLOR = {
 
 export default function PatchDetailPage() {
   const params = useParams<{ id: string }>();
-  const [patch, setPatch] = useState<(Patch & { bug?: { id: string; title: string } }) | null>(null);
+  const [patch, setPatch] = useState<(Patch & { issue?: { id: string; title: string } }) | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,25 +76,25 @@ export default function PatchDetailPage() {
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
         <Link href="/activity" className="hover:text-foreground transition-colors">activity</Link>
         <span>/</span>
-        {patch.bug ? (
-          <Link href={`/bugs/${patch.bug.id}`} className="hover:text-foreground transition-colors">
-            KI-{patch.bug.id.slice(0, 8)}
+        {patch.issue ? (
+          <Link href={`/issues/${patch.issue.id}`} className="hover:text-foreground transition-colors">
+            KI-{patch.issue.id.slice(0, 8)}
           </Link>
         ) : (
-          <span>{patch.bugId.slice(0, 8)}</span>
+          <span>{patch.issueId.slice(0, 8)}</span>
         )}
         <span>/</span>
         <span className="text-foreground">patch</span>
       </nav>
 
-      {/* Bug context */}
-      {patch.bug && (
+      {/* Issue context */}
+      {patch.issue && (
         <Link
-          href={`/bugs/${patch.bug.id}`}
+          href={`/issues/${patch.issue.id}`}
           className="block rounded-lg border border-border px-4 py-3 hover:bg-secondary/50 transition-colors"
         >
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">fix for</p>
-          <p className="mt-1 text-sm font-medium">{patch.bug.title}</p>
+          <p className="mt-1 text-sm font-medium">{patch.issue.title}</p>
         </Link>
       )}
 
@@ -198,6 +198,9 @@ export default function PatchDetailPage() {
                     <span className="text-muted-foreground">{step.action}:</span>{" "}
                     {step.value && <span>{step.value}</span>}
                   </div>
+                )}
+                {step.type === "instruction" && (
+                  <p className="text-sm leading-relaxed text-foreground/90">{step.text}</p>
                 )}
               </div>
             ))}

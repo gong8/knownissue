@@ -130,6 +130,31 @@ async function handleAuthorizationCode(c: any, body: any) {
   });
 
   if (count === 0) {
+    // OAuth 2.1 §4.1.2: SHOULD revoke all tokens previously issued based on this code
+    const previousTokens = await prisma.oAuthAccessToken.findMany({
+      where: {
+        clientId,
+        userId: authCode.userId,
+        createdAt: { gte: authCode.createdAt },
+        revokedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (previousTokens.length > 0) {
+      const tokenIds = previousTokens.map((t) => t.id);
+      await prisma.$transaction([
+        prisma.oAuthAccessToken.updateMany({
+          where: { id: { in: tokenIds } },
+          data: { revokedAt: new Date() },
+        }),
+        prisma.oAuthRefreshToken.updateMany({
+          where: { accessTokenId: { in: tokenIds }, revokedAt: null },
+          data: { revokedAt: new Date() },
+        }),
+      ]);
+    }
+
     return c.json(
       {
         error: "invalid_grant",
@@ -173,6 +198,8 @@ async function handleAuthorizationCode(c: any, body: any) {
     expires_in: Math.floor(ACCESS_TOKEN_TTL / 1000),
     refresh_token: refreshToken,
     scope: authCode.scopes.join(" "),
+    // RFC 8707 §3: include resource in token response for audience binding
+    ...(resolvedResource && { resource: resolvedResource }),
   });
 }
 
@@ -281,5 +308,7 @@ async function handleRefreshToken(c: any, body: any) {
     expires_in: Math.floor(ACCESS_TOKEN_TTL / 1000),
     refresh_token: newRefreshToken,
     scope: refreshTokenRecord.accessToken.scopes.join(" "),
+    // RFC 8707 §3: include resource in token response for audience binding
+    ...(refreshTokenRecord.accessToken.resource && { resource: refreshTokenRecord.accessToken.resource }),
   });
 }

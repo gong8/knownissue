@@ -1,4 +1,4 @@
-import type { Severity, BugStatus } from "@knownissue/shared";
+import type { Severity, IssueStatus } from "@knownissue/shared";
 
 export const severityColor: Record<Severity, string> = {
   critical: "bg-red-500/15 text-red-400 border-red-500/20",
@@ -7,7 +7,7 @@ export const severityColor: Record<Severity, string> = {
   low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
 };
 
-export const statusColor: Record<BugStatus, string> = {
+export const statusColor: Record<IssueStatus, string> = {
   open: "bg-blue-500/15 text-blue-400 border-blue-500/20",
   confirmed: "bg-purple-500/15 text-purple-400 border-purple-500/20",
   patched: "bg-green-500/15 text-green-400 border-green-500/20",
