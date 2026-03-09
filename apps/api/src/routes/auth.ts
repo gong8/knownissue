@@ -34,7 +34,7 @@ auth.get("/stats", async (c) => {
       where: { score: { gt: 0 } },
     }),
     prisma.$queryRawUnsafe<[{ total: bigint }]>(
-      `SELECT COALESCE(SUM("accessCount"), 0) AS total FROM "Issue"`,
+      `SELECT COALESCE(SUM("accessCount"), 0) AS total FROM "Bug"`,
     ),
     prisma.issue.count({
       where: { status: { in: ["patched", "closed"] } },
