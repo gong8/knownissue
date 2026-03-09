@@ -77,7 +77,7 @@ export async function penalizeCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
-  // Floor at 0 — for downvote penalties
+  // Floor at 0 — penalties cannot go negative
   await prisma.$executeRawUnsafe(
     `UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
     amount,
