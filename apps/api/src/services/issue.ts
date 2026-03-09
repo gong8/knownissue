@@ -69,6 +69,9 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   }
 
   // Tier 3: embedding/semantic search
+  if (!query) {
+    return { issues: [], total: 0, _meta: { matchTier: null, confidence: 0 } };
+  }
   const embedding = await generateEmbedding(query, userId);
 
   if (embedding) {
