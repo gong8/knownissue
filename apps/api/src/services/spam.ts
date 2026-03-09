@@ -29,7 +29,7 @@ export async function checkDuplicate(
 ): Promise<{
   isDuplicate: boolean;
   warning?: string;
-  similarBugs?: Array<{ id: string; title: string; similarity: number }>;
+  similarIssues?: Array<{ id: string; title: string; similarity: number }>;
 }> {
   // Tier 1: fingerprint check (fast, free)
   if (fingerprint) {
@@ -38,7 +38,7 @@ export async function checkDuplicate(
       return {
         isDuplicate: true,
         warning: "An issue with the same error signature already exists",
-        similarBugs: [{
+        similarIssues: [{
           id: existing.id,
           title: existing.title ?? existing.errorMessage ?? "Untitled",
           similarity: 1.0,
@@ -74,7 +74,7 @@ export async function checkDuplicate(
     return {
       isDuplicate: true,
       warning: "A very similar issue already exists",
-      similarBugs: highSimilarity,
+      similarIssues: highSimilarity,
     };
   }
 
@@ -82,7 +82,7 @@ export async function checkDuplicate(
     return {
       isDuplicate: false,
       warning: "Similar issues found — please check if yours is a duplicate",
-      similarBugs: highSimilarity,
+      similarIssues: highSimilarity,
     };
   }
 

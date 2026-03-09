@@ -7,7 +7,7 @@ import { computeDerivedStatus } from "./issue";
 import { claimReportReward } from "./reward";
 import { createRelation, loadRelatedIssues } from "./relations";
 import { inferRelationsForPatch } from "./relationInference";
-import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
+import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_ISSUE } from "@knownissue/shared";
 
 export async function submitPatch(
   issueId: string,
@@ -164,7 +164,7 @@ export async function getPatchForAgent(patchId: string, userId: string) {
 
   const relatedMap = await loadRelatedIssues([patch.issueId], {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+    maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
   });
 
   return {

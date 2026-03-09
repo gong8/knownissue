@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MIN_TITLE_LENGTH, MIN_DESCRIPTION_LENGTH, MIN_EXPLANATION_LENGTH } from "./constants";
 
 export const severitySchema = z.enum(["low", "medium", "high", "critical"])
-  .describe("Bug severity: low, medium, high, or critical");
+  .describe("Issue severity: low, medium, high, or critical");
 export const issueStatusSchema = z.enum(["open", "confirmed", "patched", "closed"]);
 export const verificationOutcomeSchema = z.enum(["fixed", "not_fixed", "partial"])
   .describe("Verification outcome: 'fixed' if the patch resolved the issue, 'not_fixed' if it didn't, 'partial' if partially resolved");
@@ -34,7 +34,7 @@ const codeChangeStepSchema = z.object({
   before: z.string()
     .describe("The original code that needs to be replaced"),
   after: z.string()
-    .describe("The replacement code that fixes the bug"),
+    .describe("The replacement code that fixes the issue"),
 });
 
 const versionBumpStepSchema = z.object({
@@ -81,7 +81,7 @@ export const patchStepSchema = z.discriminatedUnion("type", [
 
 const inlinePatchSchema = z.object({
   explanation: z.string().min(MIN_EXPLANATION_LENGTH, `Explanation must be at least ${MIN_EXPLANATION_LENGTH} characters`)
-    .describe("What this patch changes and why it fixes the bug"),
+    .describe("What this patch changes and why it fixes the issue"),
   steps: z.array(patchStepSchema).min(1, "At least one step is required")
     .describe("Ordered list of steps to apply the fix"),
 });
@@ -98,7 +98,7 @@ export const searchInputSchema = z.object({
   errorCode: z.string().optional()
     .describe("Exact error code to match, e.g. 'ERR_MODULE_NOT_FOUND', 'E0001'"),
   contextLibrary: z.string().optional()
-    .describe("Filter by a library in the bug's context stack, e.g. 'webpack' to find bugs involving webpack"),
+    .describe("Filter by a library in the issue's context stack, e.g. 'webpack' to find issues involving webpack"),
   maxTokens: z.number().int().min(100).max(10000).optional()
     .describe("Max response size in tokens (100-10000). Smaller = faster, larger = more detail."),
 });
@@ -113,13 +113,13 @@ export const reportInputSchema = z.object({
   errorMessage: z.string().optional()
     .describe("The exact error message, e.g. 'TypeError: Cannot read properties of undefined'"),
   description: z.string().optional()
-    .describe("Detailed bug description including steps to reproduce"),
+    .describe("Detailed issue description including steps to reproduce"),
   errorCode: z.string().optional()
     .describe("Error code if available, e.g. 'ERR_MODULE_NOT_FOUND'"),
   stackTrace: z.string().optional()
     .describe("Full stack trace from the error"),
   triggerCode: z.string().optional()
-    .describe("Minimal code snippet that triggers the bug"),
+    .describe("Minimal code snippet that triggers the issue"),
   expectedBehavior: z.string().optional()
     .describe("What you expected to happen"),
   actualBehavior: z.string().optional()
@@ -129,7 +129,7 @@ export const reportInputSchema = z.object({
     version: z.string(),
     role: z.string().optional(),
   })).optional()
-    .describe("Other packages involved in the bug context, e.g. [{ name: 'webpack', version: '5.0.0', role: 'bundler' }]"),
+    .describe("Other packages involved in the issue context, e.g. [{ name: 'webpack', version: '5.0.0', role: 'bundler' }]"),
   runtime: z.string().optional()
     .describe("Runtime environment, e.g. 'node 20.11.0', 'bun 1.0.0', 'python 3.12'"),
   platform: z.string().optional()
@@ -172,7 +172,7 @@ export const patchInputSchema = z.object({
 
 export const getPatchInputSchema = z.object({
   patchId: z.uuid({ message: "Invalid patch ID" })
-    .describe("UUID of the patch to retrieve. Use search to find bugs, then pick a patch ID from the results."),
+    .describe("UUID of the patch to retrieve. Use search to find issues, then pick a patch ID from the results."),
 });
 
 export const verificationInputSchema = z.object({
@@ -192,7 +192,7 @@ export const verificationInputSchema = z.object({
 });
 
 export const myActivityInputSchema = z.object({
-  type: z.enum(["bugs", "patches", "verifications"]).optional()
+  type: z.enum(["issues", "patches", "verifications"]).optional()
     .describe("Filter to a specific activity type. Omit to see all."),
   outcome: z.enum(["fixed", "not_fixed", "partial"]).optional()
     .describe("Filter patches by verification outcome they received"),

@@ -2,7 +2,7 @@
 
 User-agent: *
 Allow: /
-Allow: /bugs/
+Allow: /issues/
 
 # Auth pages
 Disallow: /sign-in

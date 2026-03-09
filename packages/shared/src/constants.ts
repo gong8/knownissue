@@ -39,12 +39,12 @@ export const REPORT_THROTTLE_ESTABLISHED = 60;
 export const ACCOUNT_AGE_MATURE = 7 * 24 * 60 * 60 * 1000;
 export const ACCOUNT_AGE_ESTABLISHED = 30 * 24 * 60 * 60 * 1000;
 
-// Bug relation inference
+// Issue relation inference
 export const RELATION_SAME_ROOT_CAUSE_THRESHOLD = 0.85;
 export const RELATION_CONFIDENCE_MIN = 0.5;
 export const RELATION_DISPLAY_CONFIDENCE_MIN = 0.7;
 export const RELATION_MAX_INFERRED_PER_TRIGGER = 5;
-export const RELATION_MAX_DISPLAYED_PER_BUG = 3;
+export const RELATION_MAX_DISPLAYED_PER_ISSUE = 3;
 export const RELATION_INFERENCE_WINDOW_DAYS = 180;
 
 // OAuth 2.1

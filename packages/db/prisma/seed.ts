@@ -84,7 +84,7 @@ async function main() {
     },
   });
 
-  const bug3 = await prisma.bug.create({
+  const issue3 = await prisma.issue.create({
     data: {
       title: "React useEffect cleanup runs twice in development causing race conditions",
       description:
@@ -107,7 +107,7 @@ async function main() {
     },
   });
 
-  const bug4 = await prisma.bug.create({
+  const issue4 = await prisma.issue.create({
     data: {
       title: "Tailwind CSS arbitrary values break with CSS variables containing spaces",
       description:
@@ -123,7 +123,7 @@ async function main() {
     },
   });
 
-  const bug5 = await prisma.bug.create({
+  const issue5 = await prisma.issue.create({
     data: {
       title: "TypeScript 5.7 incorrectly narrows union types in switch statements with fallthrough",
       description:
@@ -158,7 +158,7 @@ const result = await prisma.post.findMany({
   }
 });`,
       score: 3,
-      bugId: bug1.id,
+      issueId: issue1.id,
       submitterId: bob.id,
     },
   });
@@ -184,7 +184,7 @@ const result = await prisma.post.findMany({
   return () => controller.abort();
 }, [url]);`,
       score: 5,
-      bugId: bug3.id,
+      issueId: issue3.id,
       submitterId: carol.id,
     },
   });
@@ -203,7 +203,7 @@ export async function generateStaticParams() {
   return posts.map((post) => ({ slug: post.slug }));
 }`,
       score: 1,
-      bugId: bug2.id,
+      issueId: issue2.id,
       submitterId: alice.id,
     },
   });

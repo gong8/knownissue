@@ -7,7 +7,7 @@ export async function getMyActivity(
   filters: { type?: string; outcome?: string; limit?: number }
 ) {
   const limit = Math.min(filters.limit ?? DEFAULT_LIMIT, 50);
-  const showIssues = !filters.type || filters.type === "bugs";
+  const showIssues = !filters.type || filters.type === "issues";
   const showPatches = !filters.type || filters.type === "patches";
   const showVerifications = !filters.type || filters.type === "verifications";
 
@@ -61,7 +61,7 @@ export async function getMyActivity(
   return {
     summary,
     recent: {
-      ...(showIssues && { bugs: recentIssues }),
+      ...(showIssues && { issues: recentIssues }),
       ...(showPatches && {
         patches: recentPatches.map((p) => ({
           id: p.id,

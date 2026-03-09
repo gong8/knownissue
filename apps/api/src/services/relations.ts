@@ -78,7 +78,7 @@ export async function createRelation(params: {
  */
 export async function loadRelatedIssues(
   issueIds: string[],
-  options: { minConfidence?: number; maxPerBug?: number } = {}
+  options: { minConfidence?: number; maxPerIssue?: number } = {}
 ): Promise<Map<string, Array<{
   issueId: string;
   title: string | null;
@@ -90,7 +90,7 @@ export async function loadRelatedIssues(
   metadata: Record<string, unknown> | null;
   sharedPatchId?: string;
 }>>> {
-  const { minConfidence = 0.7, maxPerBug = 3 } = options;
+  const { minConfidence = 0.7, maxPerIssue = 3 } = options;
 
   if (issueIds.length === 0) return new Map();
 
@@ -143,7 +143,7 @@ export async function loadRelatedIssues(
 
     for (const { ours, related } of sides) {
       const list = result.get(ours) ?? [];
-      if (list.length >= maxPerBug) continue;
+      if (list.length >= maxPerIssue) continue;
       list.push({
         issueId: related.id,
         title: related.title,
