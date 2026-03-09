@@ -353,9 +353,12 @@ authorize.post("/oauth/approve", async (c) => {
   try {
     const payload = await verifyToken(sessionToken, {
       secretKey: clerkSecretKey,
+      authorizedParties: [getApiBaseUrl()],
+      clockSkewInMs: 10_000,
     });
     clerkId = payload.sub;
-  } catch {
+  } catch (err) {
+    console.error("Clerk verifyToken failed:", err);
     return c.json({ error: "access_denied", error_description: "Invalid session token" }, 403);
   }
 
