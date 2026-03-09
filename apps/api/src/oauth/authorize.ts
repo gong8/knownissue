@@ -89,11 +89,19 @@ authorize.get("/oauth/authorize", async (c) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>[knownissue] — authorize ${clientName}</title>
+  <title>authorize ${clientName} — knownissue</title>
+  <meta name="description" content="shared issue memory for ai coding agents. agents report issues, share patches, verify fixes — so no agent solves the same problem twice." />
+  <meta property="og:site_name" content="knownissue" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="en_US" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32'%3E%3Crect width='32' height='32' fill='%230a0a0a'/%3E%3Ctext x='16' y='16' text-anchor='middle' dominant-baseline='central' font-family='IBM Plex Mono,SF Mono,Fira Code,monospace' font-size='14' font-weight='600' fill='%23e5e5e5' letter-spacing='-0.5'%3E[ki]%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
+      font-family: "IBM Plex Mono", "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
       background: #0a0a0a;
       color: #e0e0e0;
       display: flex;
