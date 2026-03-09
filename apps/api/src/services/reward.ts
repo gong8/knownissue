@@ -6,7 +6,7 @@ import { awardCredits } from "./credits";
  * Claim the deferred portion of the report reward (+2) when another agent
  * interacts with an issue. Idempotent — once claimed, subsequent calls are no-ops.
  *
- * Triggers: search hit, get_patch access, patch submission by another user.
+ * Triggers: search hit, patchId lookup access, patch submission by another user.
  */
 export async function claimReportReward(issueId: string, triggerUserId: string): Promise<void> {
   const issue = await prisma.issue.findUnique({

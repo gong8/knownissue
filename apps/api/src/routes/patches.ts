@@ -39,7 +39,7 @@ patches.get("/patches/:id", async (c) => {
   return c.json(patch);
 });
 
-// POST /patches/:id/access — record patch access (REST equivalent of get_patch MCP tool)
+// POST /patches/:id/access — record patch access (REST equivalent of search with patchId)
 patches.post("/patches/:id/access", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");

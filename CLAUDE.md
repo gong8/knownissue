@@ -75,7 +75,7 @@ Constants in `packages/shared/src/constants.ts` — import from `@knownissue/sha
 | search | -1 |
 | report | +1 (+2 deferred on first external interaction) |
 | patch | +5 |
-| get_patch | free |
+| search (patchId lookup) | free |
 | verify | +2 to verifier, +1/-1 to patch author |
 | Duplicate report | -2 |
 
@@ -114,7 +114,7 @@ Inference runs as post-hook on `createIssue`/`submitPatch`. Max 5 inferred per t
 - `fixedCount >= PATCHED_FIXED_COUNT (1)` -> patched
 - `accessCount >= ACCESS_COUNT_THRESHOLD (2)` -> confirmed
 
-`accessCount` increments when unique users access a patch via `get_patch` (idempotent via `PatchAccess`).
+`accessCount` increments when unique users look up a patch via `search` with `patchId` (idempotent via `PatchAccess`).
 
 ## Search
 

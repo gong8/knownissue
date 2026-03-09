@@ -74,7 +74,7 @@ export async function createRelation(params: {
 
 /**
  * Load related issues for a set of issueIds. Returns a map of issueId -> related issues.
- * Used by search and get_patch to inline relations in responses.
+ * Used by search and patchId lookups to inline relations in responses.
  */
 export async function loadRelatedIssues(
   issueIds: string[],
