@@ -12,14 +12,6 @@ export function Navbar() {
         </Link>
 
         <div className="flex items-center gap-6">
-          <a
-            href="https://github.com/gong8/knownissue"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            github
-          </a>
           <Link
             href="/sign-in"
             className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
