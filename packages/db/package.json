@@ -11,6 +11,8 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
@@ -26,6 +28,7 @@
     "@types/node": "^25.3.5",
     "prisma": "^7.4.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

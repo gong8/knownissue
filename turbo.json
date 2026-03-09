@@ -12,6 +12,15 @@
     "lint": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**", "vitest.config.ts"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
     "db:generate": {
       "cache": false
     }
