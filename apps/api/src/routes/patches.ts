@@ -6,17 +6,18 @@ import type { AppEnv } from "../lib/types";
 
 const patches = new Hono<AppEnv>();
 
-patches.use("/*", authMiddleware);
+patches.use("/issues/*", authMiddleware);
+patches.use("/patches/*", authMiddleware);
 
-// POST /bugs/:bugId/patches — submit patch
-patches.post("/bugs/:bugId/patches", async (c) => {
+// POST /issues/:issueId/patches — submit patch
+patches.post("/issues/:issueId/patches", async (c) => {
   const user = c.get("user");
-  const bugId = c.req.param("bugId");
+  const issueId = c.req.param("issueId");
   const body = await c.req.json();
 
   try {
-    const { description, code } = patchInputSchema.parse({ ...body, bugId });
-    const patch = await patchService.submitPatch(bugId, description, code, user.id);
+    const { explanation, steps, versionConstraint } = patchInputSchema.parse({ ...body, issueId });
+    const patch = await patchService.submitPatch(issueId, explanation, steps, versionConstraint, user.id);
     return c.json(patch, 201);
   } catch (error) {
     if (error instanceof Error) {
@@ -36,6 +37,22 @@ patches.get("/patches/:id", async (c) => {
   }
 
   return c.json(patch);
+});
+
+// POST /patches/:id/access — record patch access (REST equivalent of search with patchId)
+patches.post("/patches/:id/access", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+
+  try {
+    const patch = await patchService.getPatchForAgent(id, user.id);
+    return c.json(patch);
+  } catch (error) {
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 400);
+    }
+    throw error;
+  }
 });
 
 export { patches };

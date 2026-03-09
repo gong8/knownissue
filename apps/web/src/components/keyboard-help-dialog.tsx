@@ -19,15 +19,14 @@ const shortcuts = [
     items: [
       { keys: ["\u2318", "K"], description: "open command palette" },
       { keys: ["?"], description: "show keyboard shortcuts" },
-      { keys: ["C"], description: "report a new bug" },
     ],
   },
   {
     group: "navigation",
     items: [
-      { keys: ["G", "D"], description: "go to dashboard" },
-      { keys: ["G", "B"], description: "go to bugs" },
-      { keys: ["G", "P"], description: "go to profile" },
+      { keys: ["G", "O"], description: "go to overview" },
+      { keys: ["G", "E"], description: "go to explore" },
+      { keys: ["G", "A"], description: "go to your agent" },
     ],
   },
   {
@@ -40,17 +39,11 @@ const shortcuts = [
     ],
   },
   {
-    group: "bug detail",
+    group: "issue detail",
     items: [
       { keys: ["U"], description: "go back to list" },
       { keys: ["J"], description: "next patch" },
       { keys: ["K"], description: "previous patch" },
-    ],
-  },
-  {
-    group: "forms",
-    items: [
-      { keys: ["\u2318", "Enter"], description: "submit form" },
     ],
   },
 ];

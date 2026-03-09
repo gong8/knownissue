@@ -2,17 +2,23 @@ import Link from "next/link";
 
 export function Navbar() {
   return (
-    <nav className="sticky top-0 z-50 border-b border-border/50 backdrop-blur-xl bg-background/80">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-        <Link href="/" className="font-mono text-sm font-semibold text-foreground">
+    <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-6 lg:px-10">
+        <Link
+          href="/"
+          className="font-mono text-sm font-semibold text-foreground"
+        >
           [knownissue]
         </Link>
-        <Link
-          href="/sign-in"
-          className="inline-flex h-8 items-center rounded-md bg-primary px-4 font-mono text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          sign in
-        </Link>
+
+        <div className="flex items-center gap-6">
+          <Link
+            href="/sign-in"
+            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            sign in
+          </Link>
+        </div>
       </div>
     </nav>
   );

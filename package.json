@@ -5,9 +5,13 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "quality": "bash scripts/quality.sh",
     "db:generate": "turbo db:generate"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "playwright": "^1.58.2",
+    "sst": "^3",
     "turbo": "^2.8.14"
   },
   "packageManager": "pnpm@9.15.4"

@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
-  Bug,
-  PlusCircle,
+  Activity,
   User,
   ChevronLeft,
   ChevronRight,
@@ -15,13 +14,11 @@ import {
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import { UserButton } from "@clerk/nextjs";
-import { currentUser } from "@/lib/mock-data";
 
 const navItems = [
-  { href: "/dashboard", label: "dashboard", icon: LayoutDashboard, shortcut: "G D" },
-  { href: "/bugs", label: "bugs", icon: Bug, shortcut: "G B" },
-  { href: "/bugs/new", label: "report bug", icon: PlusCircle, shortcut: "C" },
-  { href: "/profile", label: "profile", icon: User, shortcut: "G P" },
+  { href: "/overview", label: "overview", icon: LayoutDashboard, shortcut: "G O" },
+  { href: "/explore", label: "explore", icon: Activity, shortcut: "G E" },
+  { href: "/your-agent", label: "your agent", icon: User, shortcut: "G A" },
 ];
 
 interface SidebarProps {
@@ -111,12 +108,6 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-3">
           <UserButton />
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-mono text-sm font-medium">{currentUser.credits}</span>
-              <span className="text-xs text-muted-foreground">credits</span>
-            </div>
-          )}
         </div>
       </div>
     </aside>

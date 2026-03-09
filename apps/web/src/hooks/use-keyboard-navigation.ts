@@ -43,13 +43,6 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         return;
       }
 
-      // C -> create new bug
-      if (e.key === "c" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        router.push("/bugs/new");
-        return;
-      }
-
       // G-then-X chord navigation
       if (e.key === "g" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
@@ -66,17 +59,17 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         if (pendingTimeout.current) clearTimeout(pendingTimeout.current);
 
         switch (e.key) {
-          case "d":
+          case "o":
             e.preventDefault();
-            router.push("/dashboard");
+            router.push("/overview");
             break;
-          case "b":
+          case "e":
             e.preventDefault();
-            router.push("/bugs");
+            router.push("/explore");
             break;
-          case "p":
+          case "a":
             e.preventDefault();
-            router.push("/profile");
+            router.push("/your-agent");
             break;
         }
       }

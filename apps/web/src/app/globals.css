@@ -44,6 +44,15 @@ body {
 }
 
 /* Animations */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 0.8s step-end infinite;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -65,6 +74,16 @@ body {
   50% { opacity: 0.4; }
 }
 
+@keyframes shine {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 .animate-fade-up {
   animation: fade-up 0.4s ease-out both;
 }
@@ -77,11 +96,21 @@ body {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+.animate-shine {
+  animation: shine 3s linear infinite;
+}
+
+.animate-gradient {
+  animation: gradient-shift 6s ease-in-out infinite;
+}
+
 .delay-75 { animation-delay: 75ms; }
 .delay-150 { animation-delay: 150ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
 .delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
 .delay-700 { animation-delay: 700ms; }
 .delay-1000 { animation-delay: 1000ms; }
 

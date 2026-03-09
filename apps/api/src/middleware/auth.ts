@@ -1,67 +1,68 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
+import { createHash } from "node:crypto";
 import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
+import type { User } from "@knownissue/shared";
 import type { AppEnv } from "../lib/types";
+import { getApiBaseUrl } from "../oauth/utils";
 
-export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
-  const authorization = c.req.header("Authorization");
+type AuthResult = { user: User; scopes?: string[] };
 
-  if (!authorization) {
-    throw new HTTPException(401, { message: "Authorization header required" });
+function sha256(input: string): string {
+  return createHash("sha256").update(input).digest("hex");
+}
+
+function toUser(row: {
+  id: string;
+  clerkId: string;
+  avatarUrl: string | null;
+  credits: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): User {
+  return {
+    id: row.id,
+    clerkId: row.clerkId,
+    avatarUrl: row.avatarUrl,
+    credits: row.credits,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/**
+ * Strategy 1: knownissue OAuth access token (ki_xxx)
+ */
+async function authenticateKnownissueToken(token: string): Promise<AuthResult | null> {
+  if (!token.startsWith("ki_")) return null;
+
+  const hash = sha256(token);
+  const record = await prisma.oAuthAccessToken.findUnique({
+    where: { tokenHash: hash },
+    include: { user: true },
+  });
+
+  if (!record) return null;
+  if (record.revokedAt) return null;
+  if (new Date() > record.expiresAt) return null;
+
+  // RFC 8707: if the token was issued for a specific resource, validate it
+  // matches this server's base URL (normalize trailing slashes)
+  if (record.resource) {
+    const serverResource = getApiBaseUrl().replace(/\/+$/, "");
+    const tokenResource = record.resource.replace(/\/+$/, "");
+    if (tokenResource !== serverResource) return null;
   }
 
-  const token = authorization.replace("Bearer ", "");
+  return { user: toUser(record.user), scopes: record.scopes };
+}
 
-  if (!token) {
-    throw new HTTPException(401, { message: "Invalid authorization token" });
-  }
-
-  // Strategy 1: GitHub personal access token
-  try {
-    const ghResponse = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github.v3+json",
-        "User-Agent": "KnownIssue-API",
-      },
-    });
-
-    if (ghResponse.ok) {
-      const ghUser = (await ghResponse.json()) as { login: string; avatar_url: string };
-
-      let user = await prisma.user.findUnique({
-        where: { githubUsername: ghUser.login },
-      });
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            githubUsername: ghUser.login,
-            avatarUrl: ghUser.avatar_url,
-            credits: SIGNUP_BONUS,
-          },
-        });
-      }
-
-      c.set("user", {
-        id: user.id,
-        githubUsername: user.githubUsername,
-        clerkId: user.clerkId,
-        avatarUrl: user.avatarUrl,
-        credits: user.credits,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      });
-
-      return next();
-    }
-  } catch {
-    // Not a valid GitHub token, try next strategy
-  }
-
-  // Strategy 2: Clerk JWT token (cryptographic signature verification)
+/**
+ * Strategy 2: Clerk JWT
+ */
+async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
   try {
     const authorizedParties = process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
@@ -73,41 +74,138 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     });
 
     const clerkUserId = payload.sub;
+    if (!clerkUserId) return null;
 
-    if (clerkUserId) {
-      let user = await prisma.user.findUnique({
-        where: { clerkId: clerkUserId },
+    let user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          clerkId: clerkUserId,
+          credits: SIGNUP_BONUS,
+        },
       });
-
-      if (!user) {
-        const username =
-          (payload as Record<string, unknown>).username as string | undefined ||
-          `user-${clerkUserId.slice(0, 8)}`;
-        user = await prisma.user.create({
-          data: {
-            githubUsername: username,
-            clerkId: clerkUserId,
-            avatarUrl: ((payload as Record<string, unknown>).image_url as string | undefined) ?? null,
-            credits: SIGNUP_BONUS,
-          },
-        });
-      }
-
-      c.set("user", {
-        id: user.id,
-        githubUsername: user.githubUsername,
-        clerkId: user.clerkId,
-        avatarUrl: user.avatarUrl,
-        credits: user.credits,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      });
-
-      return next();
     }
-  } catch (e) {
-    console.error("[auth] Clerk JWT verification failed:", e);
+
+    return { user: toUser(user) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve auth: tries all strategies in order.
+ */
+async function resolveUser(token: string): Promise<AuthResult | null> {
+  // Strategy 1: knownissue token
+  const kiResult = await authenticateKnownissueToken(token);
+  if (kiResult) return kiResult;
+
+  // Strategy 2: Clerk JWT
+  const clerkResult = await authenticateClerkJwt(token);
+  if (clerkResult) return clerkResult;
+
+  return null;
+}
+
+function extractToken(c: { req: { header: (name: string) => string | undefined } }): string | null {
+  const auth = c.req.header("Authorization");
+  if (!auth) return null;
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
+export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
+  const token = extractToken(c);
+
+  if (!token) {
+    throw new HTTPException(401, { message: "Authorization header required" });
   }
 
-  throw new HTTPException(401, { message: "Invalid or expired token" });
+  const result = await resolveUser(token);
+
+  if (!result) {
+    throw new HTTPException(401, { message: "Invalid or expired token" });
+  }
+
+  c.set("user", result.user);
+  return next();
+});
+
+export const optionalAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
+  const token = extractToken(c);
+
+  if (token) {
+    const result = await resolveUser(token);
+    if (result) {
+      c.set("user", result.user);
+    }
+  }
+
+  return next();
+});
+
+function mcpUnauthorized(
+  message: string,
+  error?: { code: string; description: string }
+): HTTPException {
+  const baseUrl = getApiBaseUrl();
+  const resourceMetadata = `resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`;
+  const wwwAuthenticate = error
+    ? `Bearer error="${error.code}", error_description="${error.description}", ${resourceMetadata}, scope="mcp:tools"`
+    : `Bearer ${resourceMetadata}, scope="mcp:tools"`;
+  return new HTTPException(401, {
+    res: new Response(JSON.stringify({ error: message }), {
+      status: 401,
+      headers: {
+        "Content-Type": "application/json",
+        "WWW-Authenticate": wwwAuthenticate,
+      },
+    }),
+  });
+}
+
+/**
+ * MCP-specific auth middleware: returns OAuth-compliant 401 with WWW-Authenticate.
+ * Enforces scope checks for OAuth tokens — requires "mcp:tools" scope.
+ */
+export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
+  const token = extractToken(c);
+
+  if (!token) {
+    throw mcpUnauthorized("Authorization required");
+  }
+
+  const result = await resolveUser(token);
+
+  if (!result) {
+    throw mcpUnauthorized("Invalid or expired token", {
+      code: "invalid_token",
+      description: "The access token is invalid or expired",
+    });
+  }
+
+  c.set("user", result.user);
+
+  // Enforce scope for OAuth tokens (scopes defined = OAuth token)
+  // Clerk auth has no scopes — implicit full access
+  if (result.scopes && !result.scopes.includes("mcp:tools")) {
+    const baseUrl = getApiBaseUrl();
+    throw new HTTPException(403, {
+      res: new Response(
+        JSON.stringify({ error: "Forbidden: insufficient scope" }),
+        {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+            "WWW-Authenticate": `Bearer error="insufficient_scope", scope="mcp:tools", resource_metadata="${baseUrl}/.well-known/oauth-protected-resource", error_description="The mcp:tools scope is required"`,
+          },
+        }
+      ),
+    });
+  }
+
+  return next();
 });

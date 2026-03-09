@@ -11,7 +11,7 @@ async function main() {
   // Create users
   const alice = await prisma.user.create({
     data: {
-      githubUsername: "alice-dev",
+      clerkId: "seed_alice",
       avatarUrl: "https://github.com/alice-dev.png",
       credits: 50,
     },
@@ -19,7 +19,7 @@ async function main() {
 
   const bob = await prisma.user.create({
     data: {
-      githubUsername: "bob-codes",
+      clerkId: "seed_bob",
       avatarUrl: "https://github.com/bob-codes.png",
       credits: 35,
     },
@@ -27,14 +27,14 @@ async function main() {
 
   const carol = await prisma.user.create({
     data: {
-      githubUsername: "carol-eng",
+      clerkId: "seed_carol",
       avatarUrl: "https://github.com/carol-eng.png",
       credits: 20,
     },
   });
 
-  // Create bugs
-  const bug1 = await prisma.bug.create({
+  // Create issues
+  const issue1 = await prisma.issue.create({
     data: {
       title: "Prisma findMany throws timeout on large datasets with nested includes",
       description:
@@ -45,11 +45,21 @@ async function main() {
       severity: "high",
       status: "open",
       tags: ["performance", "query", "postgresql"],
+      context: [
+        { name: "postgresql", version: "15.0", role: "database" },
+        { name: "@prisma/client", version: "5.22.0", role: "orm" },
+      ],
+      contextLibraries: ["postgresql", "@prisma/client"],
+      runtime: "node 20.11.0",
+      platform: "linux-x64",
+      category: "performance",
+      accessCount: 2,
+      rewardClaimed: true,
       reporterId: alice.id,
     },
   });
 
-  const bug2 = await prisma.bug.create({
+  const issue2 = await prisma.issue.create({
     data: {
       title: "Next.js App Router dynamic routes return 404 after deployment to Vercel",
       description:
@@ -60,11 +70,21 @@ async function main() {
       severity: "critical",
       status: "confirmed",
       tags: ["deployment", "routing", "vercel", "isr"],
+      context: [
+        { name: "react", version: "19.0.0", role: "framework" },
+        { name: "vercel", version: "latest", role: "platform" },
+      ],
+      contextLibraries: ["react", "vercel"],
+      runtime: "node 20.11.0",
+      platform: "linux-x64",
+      category: "behavior",
+      accessCount: 3,
+      rewardClaimed: true,
       reporterId: bob.id,
     },
   });
 
-  const bug3 = await prisma.bug.create({
+  const issue3 = await prisma.issue.create({
     data: {
       title: "React useEffect cleanup runs twice in development causing race conditions",
       description:
@@ -75,11 +95,19 @@ async function main() {
       severity: "medium",
       status: "patched",
       tags: ["hooks", "strict-mode", "websocket"],
+      context: [
+        { name: "react-dom", version: "18.3.1", role: "renderer" },
+      ],
+      contextLibraries: ["react-dom"],
+      runtime: "node 20.11.0",
+      category: "behavior",
+      accessCount: 5,
+      rewardClaimed: true,
       reporterId: alice.id,
     },
   });
 
-  const bug4 = await prisma.bug.create({
+  const issue4 = await prisma.issue.create({
     data: {
       title: "Tailwind CSS arbitrary values break with CSS variables containing spaces",
       description:
@@ -90,11 +118,12 @@ async function main() {
       severity: "low",
       status: "open",
       tags: ["css", "parser", "custom-properties"],
+      category: "build",
       reporterId: carol.id,
     },
   });
 
-  const bug5 = await prisma.bug.create({
+  const issue5 = await prisma.issue.create({
     data: {
       title: "TypeScript 5.7 incorrectly narrows union types in switch statements with fallthrough",
       description:
@@ -105,6 +134,7 @@ async function main() {
       severity: "medium",
       status: "open",
       tags: ["type-narrowing", "control-flow", "switch"],
+      category: "types",
       reporterId: bob.id,
     },
   });
@@ -127,8 +157,7 @@ const result = await prisma.post.findMany({
     }
   }
 });`,
-      score: 3,
-      bugId: bug1.id,
+      issueId: issue1.id,
       submitterId: bob.id,
     },
   });
@@ -153,8 +182,7 @@ const result = await prisma.post.findMany({
   connect();
   return () => controller.abort();
 }, [url]);`,
-      score: 5,
-      bugId: bug3.id,
+      issueId: issue3.id,
       submitterId: carol.id,
     },
   });
@@ -172,31 +200,64 @@ export async function generateStaticParams() {
   const posts = await getTopPosts(50);
   return posts.map((post) => ({ slug: post.slug }));
 }`,
-      score: 1,
-      bugId: bug2.id,
+      issueId: issue2.id,
       submitterId: alice.id,
     },
   });
 
-  // Create reviews
-  await prisma.review.create({
+  // Create verifications
+  await prisma.verification.create({
     data: {
-      vote: "up",
-      comment:
+      outcome: "fixed",
+      note:
         "This fixed our production timeout issues. The relationLoadStrategy option is underrated.",
+      testedVersion: "5.22.0",
       patchId: patch1.id,
-      reviewerId: alice.id,
+      verifierId: alice.id,
     },
   });
 
-  await prisma.review.create({
+  await prisma.verification.create({
     data: {
-      vote: "up",
-      comment:
-        "Clean solution using AbortController. Works correctly with strict mode double-mount.",
-      patchId: patch2.id,
-      reviewerId: bob.id,
+      outcome: "fixed",
+      note: "Confirmed — query time dropped from 12s to 200ms with relationLoadStrategy: 'join'.",
+      testedVersion: "5.22.0",
+      patchId: patch1.id,
+      verifierId: carol.id,
     },
+  });
+
+  await prisma.verification.create({
+    data: {
+      outcome: "fixed",
+      note:
+        "Clean solution using AbortController. Works correctly with strict mode double-mount.",
+      testedVersion: "18.3.1",
+      patchId: patch2.id,
+      verifierId: bob.id,
+    },
+  });
+
+  await prisma.verification.create({
+    data: {
+      outcome: "partial",
+      note:
+        "Works for new paths but existing cached paths still serve stale content until revalidate period.",
+      testedVersion: "15.1.0",
+      patchId: patch3.id,
+      verifierId: carol.id,
+    },
+  });
+
+  // Create patch accesses
+  await prisma.patchAccess.create({
+    data: { patchId: patch1.id, userId: alice.id },
+  });
+  await prisma.patchAccess.create({
+    data: { patchId: patch1.id, userId: carol.id },
+  });
+  await prisma.patchAccess.create({
+    data: { patchId: patch2.id, userId: bob.id },
   });
 
   console.log("Seed data created successfully");

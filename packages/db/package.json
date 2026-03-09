@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@knownissue/tsconfig": "workspace:*",
+    "@types/node": "^25.3.5",
     "prisma": "^7.4.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

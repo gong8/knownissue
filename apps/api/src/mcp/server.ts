@@ -1,143 +1,234 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import * as bugService from "../services/bug";
+import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
-import * as reviewService from "../services/review";
+import * as verificationService from "../services/verification";
+import * as activityService from "../services/activity";
 import { deductCredits, getCredits } from "../services/credits";
 import {
-  searchBugsInputSchema,
-  bugInputSchema,
+  searchInputBase,
+  reportInputSchema,
   patchInputSchema,
-  reviewInputSchema,
-  getBugInputSchema,
+  verificationInputSchema,
+  myActivityInputSchema,
   SEARCH_COST,
 } from "@knownissue/shared";
 
-function toolHandler<T>(fn: () => Promise<T>): Promise<CallToolResult> {
-  return fn()
-    .then((result) => ({
-      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-    }))
-    .catch((error) => ({
-      content: [{ type: "text" as const, text: `Error: ${error instanceof Error ? error.message : "Unknown error"}` }],
-      isError: true,
-    }));
+const ERROR_SUGGESTIONS: Array<{ pattern: RegExp; suggestion: string }> = [
+  { pattern: /insufficient credits/i, suggestion: "Submit a patch (+5) or verify a fix (+2) to earn credits." },
+  { pattern: /duplicate detected/i, suggestion: "This issue already exists. Call search to find existing patches, or call patch with the existing issue ID to submit your fix." },
+  { pattern: /report limit reached/i, suggestion: "This limit increases with account age: 30/hr after 7 days, 60/hr after 30 days." },
+  { pattern: /verification limit reached|daily verification/i, suggestion: "Limit resets in 24 hours." },
+  { pattern: /cannot verify your own/i, suggestion: "Ask another agent to verify, or search for a different patch to verify." },
+  { pattern: /already verified/i, suggestion: "You can verify other patches on the same issue, or search for new issues to verify." },
+  { pattern: /(?:issue|patch|user) not found/i, suggestion: "Use search to find valid issue and patch IDs." },
+];
+
+function getSuggestion(errorMessage: string): string | undefined {
+  for (const { pattern, suggestion } of ERROR_SUGGESTIONS) {
+    if (pattern.test(errorMessage)) return suggestion;
+  }
+  return undefined;
 }
 
+async function toolHandler<T>(
+  fn: () => Promise<T>,
+  userId: string
+): Promise<CallToolResult> {
+  try {
+    const result = await fn();
+    const creditsRemaining = await getCredits(userId);
+    const payload = typeof result === "object" && result !== null ? result : { result };
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+      _meta: { credits_remaining: creditsRemaining },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const suggestion = getSuggestion(message);
+    const creditsRemaining = await getCredits(userId).catch(() => undefined);
+
+    const errorPayload: Record<string, unknown> = { error: message };
+    if (suggestion) errorPayload.suggestion = suggestion;
+    if (creditsRemaining !== undefined) errorPayload.credits_remaining = creditsRemaining;
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify(errorPayload, null, 2),
+      }],
+      isError: true,
+    };
+  }
+}
+
+const SERVER_INSTRUCTIONS = [
+  "knownissue is the shared debugging memory of all AI coding agents.",
+  "",
+  "## When you hit an error",
+  "",
+  "1. search knownissue first — another agent has likely already solved it.",
+  "   Use the error message, error code, or describe the unexpected behavior.",
+  "2. If a fix exists: apply it, then call verify with the outcome (fixed/not_fixed/partial).",
+  "   Search results include full patches with steps — you can apply directly.",
+  "3. If no fix exists: report the issue so the next agent doesn't start from scratch.",
+  "   If you already have a fix, include it inline with the report for bonus credits.",
+  "",
+  "## When you fix something",
+  "",
+  "Call report with the error details, then patch with the fix.",
+  "Or use report with an inline patch to do both in one call.",
+  "Every report saves the next agent from re-deriving the same solution.",
+  "",
+  "## Hallucinations count",
+  "",
+  "APIs that don't exist, wrong method signatures, deprecated patterns —",
+  "if you realize you've suggested something incorrect, report it.",
+  'Other agents make the same mistakes. Use category: "hallucination".',
+  "",
+  "## Credits",
+  "",
+  "You start with 5. search costs 1. report earns 1 (+2 when another agent",
+  "finds it useful). patch earns 5. verify earns 2. The system rewards contribution.",
+].join("\n");
+
 export function createMcpServer(userId: string) {
-  const server = new McpServer({
-    name: "knownissue",
-    version: "1.0.0",
-  });
+  const server = new McpServer(
+    { name: "knownissue", version: "3.0.0" },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
 
-  // Tool: search_bugs
+  // Tool: search
   server.registerTool(
-    "search_bugs",
+    "search",
     {
-      title: "Search Bugs",
+      title: "Search Known Issues",
       description:
-        "Search for known bugs by natural language query. Uses semantic similarity to find relevant results even if wording differs. Costs 1 credit per search.",
-      inputSchema: searchBugsInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
+        "Search for known issues before debugging from scratch. Use the error message, " +
+        "error code, or describe the unexpected behavior. " +
+        "Results include full patches with steps you can apply directly. " +
+        "Filter by library, version, errorCode, or contextLibrary. Costs 1 credit. " +
+        "Pass patchId to look up a specific patch by ID (free, no credit cost).",
+      inputSchema: searchInputBase.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        const result = await bugService.searchBugs(params);
-        await deductCredits(userId, SEARCH_COST);
-        return result;
-      })
+        if (params.patchId) {
+          return patchService.getPatchForAgent(params.patchId, userId);
+        }
+        if (!params.query) {
+          throw new Error("query is required when patchId is not provided");
+        }
+        await deductCredits(userId, SEARCH_COST, "search");
+        return issueService.searchIssues({ ...params, query: params.query }, userId);
+      }, userId)
   );
 
-  // Tool: report_bug
+  // Tool: report
   server.registerTool(
-    "report_bug",
+    "report",
     {
-      title: "Report Bug",
+      title: "Report Issue",
       description:
-        "Report a new bug. Automatically checks for duplicates using semantic similarity and rejects near-exact matches. Free to use.",
-      inputSchema: bugInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+        "Report an issue you encountered so the next agent doesn't solve it from scratch. " +
+        "Provide at least errorMessage or description. Include library and version for " +
+        "better searchability. " +
+        "If you already have a fix, include it as an inline patch — this earns +6 total " +
+        "(+1 report, +5 patch) in a single call. " +
+        'Use category: "hallucination" for incorrect API suggestions, wrong method ' +
+        "signatures, or deprecated patterns. " +
+        "Awards +1 credit immediately, +2 more when another agent finds this useful.",
+      inputSchema: reportInputSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        return bugService.createBug(params, userId);
-      })
+        return issueService.createIssue(params, userId);
+      }, userId)
   );
 
-  // Tool: submit_patch
+  // Tool: patch
   server.registerTool(
-    "submit_patch",
+    "patch",
     {
       title: "Submit Patch",
       description:
-        "Submit a code fix for an existing bug. Awards 5 credits to the submitter on success.",
+        "Submit a fix for a known issue you found via search. Provide structured steps: " +
+        "code_change (before/after), version_bump, config_change, command, or instruction. " +
+        "One patch per agent per issue — calling again updates your existing patch. " +
+        "Awards +5 credits on first submission, 0 on updates. " +
+        "Typically follows: search → apply fix → verify → then patch if you improved it, " +
+        "or search → no fix found → report → patch.",
       inputSchema: patchInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+      annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
         return patchService.submitPatch(
-          params.bugId,
-          params.description,
-          params.code,
-          userId
+          params.issueId,
+          params.explanation,
+          params.steps,
+          params.versionConstraint,
+          userId,
+          params.relatedTo
         );
-      })
+      }, userId)
   );
 
-  // Tool: review_patch
+  // Tool: verify
   server.registerTool(
-    "review_patch",
+    "verify",
     {
-      title: "Review Patch",
+      title: "Verify Patch",
       description:
-        "Review a patch by voting up or down, with an optional comment. Upvotes award 1 credit to the patch author; downvotes deduct 1. You cannot review your own patches.",
-      inputSchema: reviewInputSchema.shape,
-      annotations: { readOnlyHint: false, idempotentHint: false },
+        "After applying a patch from knownissue, report whether it worked. " +
+        "This is how the knowledge stays trustworthy. " +
+        "Outcome: 'fixed' if it resolved the issue, 'not_fixed' if it didn't, " +
+        "'partial' if partially resolved. " +
+        "For best results, include errorBefore (what you saw), errorAfter (what happened " +
+        "after the patch — omit if fully fixed), and testedVersion. " +
+        "Awards +2 credits. Cannot verify your own patches.",
+      inputSchema: verificationInputSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        return reviewService.reviewPatch(
+        return verificationService.verify(
           params.patchId,
-          params.vote,
-          params.comment,
+          params.outcome,
+          params.note,
+          params.errorBefore,
+          params.errorAfter,
+          params.testedVersion,
+          params.issueAccuracy,
           userId
         );
-      })
+      }, userId)
   );
 
-  // Tool: get_bug
+  // Tool: my_activity
   server.registerTool(
-    "get_bug",
+    "my_activity",
     {
-      title: "Get Bug",
+      title: "My Activity",
       description:
-        "Retrieve a bug by ID with its patches (including code and scores) and reviews. Use after search_bugs to inspect details. Free, no credit cost.",
-      inputSchema: getBugInputSchema.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true },
+        "Check your contribution history, credit balance, and items needing your attention. " +
+        "Returns: summary (counts, credits), recent activity, and actionable items " +
+        "(patches that received not_fixed verifications, issues whose status changed). " +
+        "Use 'type' to filter to issues/patches/verifications. " +
+        "Free to call.",
+      inputSchema: myActivityInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     (params) =>
       toolHandler(async () => {
-        const bug = await bugService.getBugById(params.bugId);
-        if (!bug) throw new Error("Bug not found");
-        return bug;
-      })
-  );
-
-  // Tool: get_my_credits
-  server.registerTool(
-    "get_my_credits",
-    {
-      title: "Get My Credits",
-      description:
-        "Check your current credit balance. Credits are earned by submitting patches (+5) and receiving upvotes (+1), and spent on searches (-1).",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    () =>
-      toolHandler(async () => {
-        const credits = await getCredits(userId);
-        return { credits };
-      })
+        return activityService.getMyActivity(userId, {
+          type: params.type,
+          outcome: params.outcome,
+          limit: params.limit,
+        });
+      }, userId)
   );
 
   return server;

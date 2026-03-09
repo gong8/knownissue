@@ -28,5 +28,8 @@ packages/db/src/generated/
 .vscode/
 .idea/
 
+# SST
+.sst/
+
 # Worktrees
 .worktrees/

@@ -9,18 +9,30 @@ datasource db {
   extensions = [vector]
 }
 
-model User {
-  id             String   @id @default(uuid())
-  githubUsername  String   @unique
-  clerkId        String?  @unique
-  avatarUrl      String?
-  credits        Int      @default(10)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+enum AuditAction {
+  create
+  update
+  delete
+  rollback
+}
 
-  bugs    Bug[]
-  patches Patch[]
-  reviews Review[]
+enum EntityType {
+  issue @map("bug")
+  patch
+  verification
+  user
+}
+
+enum CreditEventType {
+  signup
+  search
+  patch_submitted
+  issue_reported      @map("bug_reported")
+  duplicate_penalty
+  verification_given
+  patch_verified_fixed
+  patch_verified_not_fixed
+  issue_reported_deferred @map("bug_reported_deferred")
 }
 
 enum Severity {
@@ -30,78 +42,313 @@ enum Severity {
   critical
 }
 
-enum BugStatus {
+enum IssueStatus {
   open
   confirmed
   patched
   closed
+
+  @@map("BugStatus")
 }
 
-model Bug {
-  id          String    @id @default(uuid())
-  title       String
-  description String
-  library     String
-  version     String
-  ecosystem   String
-  severity    Severity  @default(low)
-  status      BugStatus @default(open)
-  tags        String[]
-  embedding   Unsupported("vector(1536)")?
+enum VerificationOutcome {
+  fixed
+  not_fixed
+  partial
+}
+
+enum IssueAccuracy {
+  accurate
+  inaccurate
+
+  @@map("BugAccuracy")
+}
+
+enum IssueCategory {
+  crash
+  build
+  types
+  performance
+  behavior
+  config
+  compatibility
+  install
+  hallucination
+  deprecated
+
+  @@map("BugCategory")
+}
+
+enum IssueRelationType {
+  same_root_cause
+  version_regression
+  cascading_dependency
+  interaction_conflict
+  shared_fix
+  fix_conflict
+
+  @@map("BugRelationType")
+}
+
+enum RelationSource {
+  agent
+  system
+}
+
+model User {
+  id             String   @id @default(uuid())
+  clerkId        String   @unique
+  avatarUrl      String?
+  credits        Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  issues             Issue[]
+  patches            Patch[]
+  verifications      Verification[]
+  patchAccesses      PatchAccess[]
+  creditTransactions CreditTransaction[]
+  auditLogs          AuditLog[]
+  issueRelations     IssueRelation[]
+  oauthAuthCodes     OAuthAuthorizationCode[]
+  oauthAccessTokens  OAuthAccessToken[]
+}
+
+model CreditTransaction {
+  id        String          @id @default(uuid())
+  amount    Int
+  type      CreditEventType
+  balance   Int
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  relatedIssueId String? @map("relatedBugId")
+  relatedPatchId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Issue {
+  id               String        @id @default(uuid())
+  title            String?
+  description      String?
+  library          String?
+  version          String?
+  ecosystem        String?
+  severity         Severity      @default(low)
+  status           IssueStatus   @default(open)
+  tags             String[]
+  embedding        Unsupported("vector(1536)")?
+  errorMessage     String?
+  errorCode        String?
+  stackTrace       String?
+  fingerprint      String?
+  triggerCode      String?
+  expectedBehavior String?
+  actualBehavior   String?
+  context          Json?
+  contextLibraries String[]
+  runtime          String?
+  platform         String?
+  category         IssueCategory?
+  accessCount      Int           @default(0)
+  searchHitCount   Int           @default(0)
+  rewardClaimed    Boolean       @default(false)
 
   reporterId String
   reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  patches Patch[]
+  patches       Patch[]
+  revisions     IssueRevision[]
+  relationsFrom IssueRelation[] @relation("RelationsFrom")
+  relationsTo   IssueRelation[] @relation("RelationsTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@map("Bug")
   @@index([library, version])
   @@index([ecosystem])
   @@index([status])
   @@index([reporterId])
-}
-
-enum Vote {
-  up
-  down
+  @@index([fingerprint])
+  @@index([contextLibraries], type: Gin)
 }
 
 model Patch {
-  id          String @id @default(uuid())
-  description String
-  code        String
-  score       Int    @default(0)
+  id                String  @id @default(uuid())
+  explanation       String  @map("description")
+  code              String?
+  steps             Json?
+  versionConstraint String?
 
-  bugId String
-  bug   Bug    @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  issueId String @map("bugId")
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
   submitterId String
   submitter   User   @relation(fields: [submitterId], references: [id], onDelete: Cascade)
 
-  reviews Review[]
+  verifications Verification[]
+  patchAccesses PatchAccess[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([bugId])
+  @@unique([issueId, submitterId])
+  @@index([issueId])
   @@index([submitterId])
 }
 
-model Review {
-  id      String  @id @default(uuid())
-  vote    Vote
-  comment String?
+model Verification {
+  id            String              @id @default(uuid())
+  outcome       VerificationOutcome
+  note          String?
+  errorBefore   String?
+  errorAfter    String?
+  testedVersion String?
+  issueAccuracy IssueAccuracy       @default(accurate) @map("bugAccuracy")
 
-  patchId String
-  patch   Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  patchId    String
+  patch      Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
 
-  reviewerId String
-  reviewer   User   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  verifierId String
+  verifier   User   @relation(fields: [verifierId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  @@unique([patchId, reviewerId])
+  @@unique([patchId, verifierId])
+  @@index([patchId])
+  @@index([verifierId])
+}
+
+model PatchAccess {
+  id        String   @id @default(uuid())
+
+  patchId   String
+  patch     Patch    @relation(fields: [patchId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([patchId, userId])
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  action     AuditAction
+  entityType EntityType
+  entityId   String
+  changes    Json?
+  metadata   Json?
+  actorId    String
+  actor      User        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model IssueRevision {
+  id          String      @id @default(uuid())
+  version     Int
+  action      AuditAction
+  title       String
+  description String
+  severity    Severity
+  status      IssueStatus
+  tags        String[]
+  snapshot    Json?
+  issueId     String      @map("bugId")
+  issue       Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorId     String
+  createdAt   DateTime    @default(now())
+
+  @@map("BugRevision")
+  @@unique([issueId, version])
+  @@index([issueId, createdAt])
+}
+
+model IssueRelation {
+  id          String            @id @default(uuid())
+  type        IssueRelationType
+  source      RelationSource
+  confidence  Float             @default(1.0)
+  metadata    Json?
+
+  sourceIssueId String @map("sourceBugId")
+  sourceIssue   Issue  @relation("RelationsFrom", fields: [sourceIssueId], references: [id], onDelete: Cascade)
+
+  targetIssueId String @map("targetBugId")
+  targetIssue   Issue  @relation("RelationsTo", fields: [targetIssueId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@map("BugRelation")
+  @@unique([sourceIssueId, targetIssueId, type])
+  @@index([sourceIssueId])
+  @@index([targetIssueId])
+  @@index([type])
+}
+
+model OAuthClient {
+  id           String   @id @default(uuid())
+  clientId     String   @unique
+  clientName   String
+  redirectUris String[]
+  grantTypes   String[]
+  createdAt    DateTime @default(now())
+
+  authCodes    OAuthAuthorizationCode[]
+  accessTokens OAuthAccessToken[]
+}
+
+model OAuthAuthorizationCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  clientId      String
+  client        OAuthClient @relation(fields: [clientId], references: [clientId])
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String
+  codeChallenge String
+  scopes        String[]
+  resource      String?
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model OAuthAccessToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  clientId  String
+  client    OAuthClient @relation(fields: [clientId], references: [clientId])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes    String[]
+  resource  String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  refreshToken OAuthRefreshToken?
+}
+
+model OAuthRefreshToken {
+  id            String    @id @default(uuid())
+  tokenHash     String    @unique
+  accessTokenId String    @unique
+  accessToken   OAuthAccessToken @relation(fields: [accessTokenId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
 }
