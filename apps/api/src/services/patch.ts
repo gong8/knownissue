@@ -109,17 +109,29 @@ export async function submitPatch(
 }
 
 export async function getPatchById(id: string) {
-  return prisma.patch.findUnique({
+  const patch = await prisma.patch.findUnique({
     where: { id },
     include: {
       submitter: true,
-      issue: { select: { id: true, title: true } },
+      issue: { select: { id: true, title: true, library: true, version: true } },
       verifications: {
         include: { verifier: true },
         orderBy: { createdAt: "desc" },
       },
     },
   });
+  if (!patch) return null;
+
+  // Load related issues for the parent issue
+  const relatedMap = await loadRelatedIssues([patch.issueId], {
+    minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
+    maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
+  });
+
+  return {
+    ...patch,
+    issue: patch.issue ? { ...patch.issue, relatedIssues: relatedMap.get(patch.issueId) ?? [] } : patch.issue,
+  };
 }
 
 export async function getPatchForAgent(patchId: string, userId: string) {

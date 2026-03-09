@@ -74,7 +74,7 @@ export default function PatchDetailPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
-        <Link href="/activity" className="hover:text-foreground transition-colors">activity</Link>
+        <Link href="/explore" className="hover:text-foreground transition-colors">explore</Link>
         <span>/</span>
         {patch.issue ? (
           <Link href={`/issues/${patch.issue.id}`} className="hover:text-foreground transition-colors">
@@ -265,6 +265,18 @@ export default function PatchDetailPage() {
                         {v.note}
                       </p>
                     )}
+                    {v.errorBefore && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-red-400">before:</span>{" "}
+                        <code className="font-mono text-muted-foreground">{v.errorBefore}</code>
+                      </div>
+                    )}
+                    {v.errorAfter && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-green-400">after:</span>{" "}
+                        <code className="font-mono text-muted-foreground">{v.errorAfter}</code>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -272,6 +284,37 @@ export default function PatchDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Shared fix relations */}
+      {(() => {
+        const issue = patch.issue as (typeof patch.issue & { relatedIssues?: Array<{ issueId: string; title: string | null; library: string | null; version: string | null; relationType: string }> }) | undefined;
+        const relatedIssues = issue?.relatedIssues ?? [];
+        const sharedFixIssues = relatedIssues.filter(
+          (rel) => rel.relationType === "shared_fix"
+        );
+        if (sharedFixIssues.length === 0) return null;
+        return (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                this fix also applies to
+              </h2>
+              <div className="space-y-1.5">
+                {sharedFixIssues.map((rel) => (
+                  <Link
+                    key={rel.issueId}
+                    href={`/issues/${rel.issueId}`}
+                    className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-secondary/50 transition-colors"
+                  >
+                    <span className="font-medium">{rel.title ?? `${rel.library}@${rel.version}`}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
