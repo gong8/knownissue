@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   experimental: {
     viewTransition: true,
   },
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/overview", permanent: true },
+      { source: "/activity", destination: "/overview", permanent: true },
+      { source: "/profile", destination: "/your-agent", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
