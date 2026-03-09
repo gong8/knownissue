@@ -25,7 +25,7 @@ import * as patchService from "./patch";
 import { claimReportReward } from "./reward";
 import { createRelation, loadRelatedIssues } from "./relations";
 import { inferRelationsForIssue } from "./relationInference";
-import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_BUG } from "@knownissue/shared";
+import { RELATION_DISPLAY_CONFIDENCE_MIN, RELATION_MAX_DISPLAYED_PER_ISSUE } from "@knownissue/shared";
 
 export async function searchIssues(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
   const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
@@ -38,7 +38,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       if (issue) {
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-          maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+          maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
         });
         return {
           issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
@@ -57,7 +57,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       if (issue) {
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-          maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+          maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
         });
         return {
           issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
@@ -152,7 +152,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     // Load related issues for all results
     const relatedMap = await loadRelatedIssues(issueIds, {
       minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-      maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+      maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
     });
 
     const issuesWithRelations = issuesWithPatches.map((issue, i) => ({
@@ -227,7 +227,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   // Load related issues for text search results
   const relatedMap = await loadRelatedIssues(issueIds, {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+    maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
   });
 
   const issuesWithRelations = issues.map((issue) => ({
@@ -259,7 +259,7 @@ export async function getIssueById(id: string) {
 
   const relatedMap = await loadRelatedIssues([id], {
     minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
-    maxPerBug: RELATION_MAX_DISPLAYED_PER_BUG,
+    maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
   });
 
   return { ...issue, relatedIssues: relatedMap.get(id) ?? [] };
@@ -327,7 +327,7 @@ export async function createIssue(input: ReportInput, userId: string) {
   if (dupCheck.isDuplicate) {
     await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     throw new Error(
-      `Duplicate detected: ${dupCheck.warning}. Similar issues: ${dupCheck.similarBugs?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
+      `Duplicate detected: ${dupCheck.warning}. Similar issues: ${dupCheck.similarIssues?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
     );
   }
 
@@ -434,15 +434,18 @@ export async function listIssues(params: {
   ecosystem?: string;
   status?: string[];
   severity?: string[];
+  category?: string;
+  sort?: string;
   limit?: number;
   offset?: number;
 }) {
-  const { library, version, ecosystem, status, severity, limit = 20, offset = 0 } = params;
+  const { library, version, ecosystem, status, severity, category, sort = "recent", limit = 20, offset = 0 } = params;
 
   const where: Record<string, unknown> = {};
-  if (library) where.library = library;
+  if (library) where.library = { contains: library, mode: "insensitive" };
   if (version) where.version = version;
   if (ecosystem) where.ecosystem = ecosystem;
+  if (category) where.category = category;
   if (status && status.length > 0) {
     where.status = status.length === 1 ? status[0] : { in: status };
   }
@@ -450,21 +453,55 @@ export async function listIssues(params: {
     where.severity = severity.length === 1 ? severity[0] : { in: severity };
   }
 
+  const orderBy: Record<string, string> =
+    sort === "accessed" ? { accessCount: "desc" } : { createdAt: "desc" };
+
   const [issues, total] = await Promise.all([
     prisma.issue.findMany({
       where,
       include: {
         reporter: true,
-        _count: { select: { patches: true } },
+        _count: {
+          select: {
+            patches: true,
+            relationsFrom: true,
+            relationsTo: true,
+          },
+        },
+        patches: {
+          select: {
+            verifications: {
+              where: { outcome: "fixed" },
+              select: { id: true },
+            },
+          },
+        },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       take: limit,
       skip: offset,
     }),
     prisma.issue.count({ where }),
   ]);
 
-  return { issues, total };
+  const enriched = issues.map((issue) => {
+    const verifiedFixCount = issue.patches.reduce(
+      (sum, p) => sum + p.verifications.length,
+      0
+    );
+    return {
+      ...issue,
+      patches: undefined,
+      verifiedFixCount,
+      relatedCount: issue._count.relationsFrom + issue._count.relationsTo,
+    };
+  });
+
+  if (sort === "patches") {
+    enriched.sort((a, b) => (b._count?.patches ?? 0) - (a._count?.patches ?? 0));
+  }
+
+  return { issues: enriched, total };
 }
 
 export async function updateIssue(id: string, input: IssueUpdate, userId: string, userRole?: Role) {

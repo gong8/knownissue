@@ -45,8 +45,16 @@ issues.get("/issues", optionalAuthMiddleware, async (c) => {
   // List mode — supports comma-separated multi-values for status/severity
   const statusList = status ? status.split(",").map((s) => s.trim()) : undefined;
   const severityList = severity ? severity.split(",").map((s) => s.trim()) : undefined;
+  const category = c.req.query("category");
+  const sort = c.req.query("sort");
 
-  const result = await issueService.listIssues({ library, version, ecosystem, status: statusList, severity: severityList, limit, offset });
+  const result = await issueService.listIssues({
+    library, version, ecosystem,
+    status: statusList, severity: severityList,
+    category: category || undefined,
+    sort: sort || undefined,
+    limit, offset,
+  });
   return c.json(result);
 });
 
