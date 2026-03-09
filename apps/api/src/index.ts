@@ -73,6 +73,14 @@ app.use("*", async (c, next) => {
   return limiter(c, next);
 });
 
+// Favicon — inline SVG so the API doesn't 404 on browser requests
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" fill="#0a0a0a"/><text x="16" y="16" text-anchor="middle" dominant-baseline="central" font-family="'IBM Plex Mono','SF Mono','Fira Code',monospace" font-size="14" font-weight="600" fill="#e5e5e5" letter-spacing="-0.5">[ki]</text></svg>`;
+app.get("/favicon.ico", (c) => {
+  c.header("Content-Type", "image/svg+xml");
+  c.header("Cache-Control", "public, max-age=604800, immutable");
+  return c.body(FAVICON_SVG);
+});
+
 // Routes
 app.route("/", auth);
 app.route("/", issues);
