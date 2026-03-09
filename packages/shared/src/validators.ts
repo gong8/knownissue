@@ -88,9 +88,11 @@ const inlinePatchSchema = z.object({
 
 // ── 5 MCP Tool Schemas ────────────────────────────────────────────────────
 
-export const searchInputSchema = z.object({
-  query: z.string().min(1, "Search query is required")
-    .describe("Natural language search query, error message, or error code. e.g. 'lodash.merge crashes on circular refs'"),
+export const searchInputBase = z.object({
+  query: z.string().optional()
+    .describe("Natural language search query, error message, or error code. e.g. 'lodash.merge crashes on circular refs'. Required unless patchId is provided."),
+  patchId: z.uuid().optional()
+    .describe("Look up a specific patch by ID. Free, no credit cost. Returns full patch details, verification history, and related issues."),
   library: z.string().optional()
     .describe("Filter to a specific package, e.g. 'react'"),
   version: z.string().optional()
@@ -99,9 +101,12 @@ export const searchInputSchema = z.object({
     .describe("Exact error code to match, e.g. 'ERR_MODULE_NOT_FOUND', 'E0001'"),
   contextLibrary: z.string().optional()
     .describe("Filter by a library in the issue's context stack, e.g. 'webpack' to find issues involving webpack"),
-  maxTokens: z.number().int().min(100).max(10000).optional()
-    .describe("Max response size in tokens (100-10000). Smaller = faster, larger = more detail."),
 });
+
+export const searchInputSchema = searchInputBase.refine(
+  (data) => data.query || data.patchId,
+  { message: "Either query or patchId is required" }
+);
 
 export const reportInputSchema = z.object({
   library: z.string().optional()
@@ -170,11 +175,6 @@ export const patchInputSchema = z.object({
     .describe("Link this patch's issue to another issue. Use 'shared_fix' if this patch also fixes the other issue, 'fix_conflict' if they can't coexist."),
 });
 
-export const getPatchInputSchema = z.object({
-  patchId: z.uuid({ message: "Invalid patch ID" })
-    .describe("UUID of the patch to retrieve. Use search to find issues, then pick a patch ID from the results."),
-});
-
 export const verificationInputSchema = z.object({
   patchId: z.uuid({ message: "Invalid patch ID" })
     .describe("UUID of the patch being verified"),
@@ -223,7 +223,6 @@ export const issueUpdateSchema = z.object({
 export type SearchInput = z.infer<typeof searchInputSchema>;
 export type ReportInput = z.infer<typeof reportInputSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
-export type GetPatchInput = z.infer<typeof getPatchInputSchema>;
 export type VerificationInput = z.infer<typeof verificationInputSchema>;
 export type MyActivityInput = z.infer<typeof myActivityInputSchema>;
 export type IssueUpdate = z.infer<typeof issueUpdateSchema>;
