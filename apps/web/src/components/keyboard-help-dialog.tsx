@@ -24,9 +24,9 @@ const shortcuts = [
   {
     group: "navigation",
     items: [
-      { keys: ["G", "D"], description: "go to dashboard" },
-      { keys: ["G", "A"], description: "go to activity" },
-      { keys: ["G", "P"], description: "go to profile" },
+      { keys: ["G", "O"], description: "go to overview" },
+      { keys: ["G", "E"], description: "go to explore" },
+      { keys: ["G", "A"], description: "go to your agent" },
     ],
   },
   {

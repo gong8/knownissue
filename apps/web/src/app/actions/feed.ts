@@ -37,5 +37,25 @@ export async function fetchAggregateStats() {
     users: number;
     openCriticals: number;
     approvalRate: number;
+    fixesReused: number;
+    issuesResolved: number;
+    verifiedThisWeek: number;
   }>;
+}
+
+export async function fetchEcosystemStats() {
+  const res = await apiFetch("/stats/ecosystem");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to fetch ecosystem stats" }));
+    throw new Error(err.error || "Failed to fetch ecosystem stats");
+  }
+  return res.json() as Promise<
+    Array<{
+      ecosystem: string;
+      issueCount: number;
+      patchCount: number;
+      resolutionRate: number;
+      topLibraries: Array<{ library: string; issueCount: number }>;
+    }>
+  >;
 }

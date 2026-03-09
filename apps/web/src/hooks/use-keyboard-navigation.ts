@@ -59,17 +59,17 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         if (pendingTimeout.current) clearTimeout(pendingTimeout.current);
 
         switch (e.key) {
-          case "d":
+          case "o":
             e.preventDefault();
-            router.push("/dashboard");
+            router.push("/overview");
+            break;
+          case "e":
+            e.preventDefault();
+            router.push("/explore");
             break;
           case "a":
             e.preventDefault();
-            router.push("/activity");
-            break;
-          case "p":
-            e.preventDefault();
-            router.push("/profile");
+            router.push("/your-agent");
             break;
         }
       }

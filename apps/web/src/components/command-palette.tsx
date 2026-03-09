@@ -36,20 +36,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandEmpty>no results found.</CommandEmpty>
 
         <CommandGroup heading="navigation">
-          <CommandItem onSelect={() => go("/dashboard")}>
+          <CommandItem onSelect={() => go("/overview")}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             overview
-            <CommandShortcut>G D</CommandShortcut>
+            <CommandShortcut>G O</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => go("/activity")}>
+          <CommandItem onSelect={() => go("/explore")}>
             <Activity className="mr-2 h-4 w-4" />
-            activity
-            <CommandShortcut>G A</CommandShortcut>
+            explore
+            <CommandShortcut>G E</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => go("/profile")}>
+          <CommandItem onSelect={() => go("/your-agent")}>
             <User className="mr-2 h-4 w-4" />
-            profile
-            <CommandShortcut>G P</CommandShortcut>
+            your agent
+            <CommandShortcut>G A</CommandShortcut>
           </CommandItem>
         </CommandGroup>
 

@@ -16,9 +16,9 @@ import { Kbd } from "@/components/ui/kbd";
 import { UserButton } from "@clerk/nextjs";
 
 const navItems = [
-  { href: "/dashboard", label: "overview", icon: LayoutDashboard, shortcut: "G D" },
-  { href: "/activity", label: "activity", icon: Activity, shortcut: "G A" },
-  { href: "/profile", label: "profile", icon: User, shortcut: "G P" },
+  { href: "/overview", label: "overview", icon: LayoutDashboard, shortcut: "G O" },
+  { href: "/explore", label: "explore", icon: Activity, shortcut: "G E" },
+  { href: "/your-agent", label: "your agent", icon: User, shortcut: "G A" },
 ];
 
 interface SidebarProps {
