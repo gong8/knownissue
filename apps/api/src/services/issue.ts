@@ -1,9 +1,7 @@
 import { prisma } from "@knownissue/db";
-import type { IssueUpdate, ReportInput, SearchInput } from "@knownissue/shared";
-import type { Role } from "@knownissue/shared";
+import type { ReportInput, SearchInput } from "@knownissue/shared";
 import {
   reportInputSchema,
-  issueUpdateSchema,
   REPORT_IMMEDIATE_REWARD,
   DUPLICATE_PENALTY,
   ACCESS_COUNT_THRESHOLD,
@@ -44,6 +42,10 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 1, confidence: 1.0 },
+          _next_actions: [
+            "Apply a patch from the results, then call verify with the outcome",
+            "If none of these match your issue, call report to add it",
+          ],
         };
       }
     }
@@ -63,6 +65,10 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           issues: [{ ...issue, relatedIssues: relatedMap.get(issue.id) ?? [] }],
           total: 1,
           _meta: { matchTier: 2, confidence: 0.95 },
+          _next_actions: [
+            "Apply a patch from the results, then call verify with the outcome",
+            "If none of these match your issue, call report to add it",
+          ],
         };
       }
     }
@@ -143,7 +149,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
             submitter: true,
             verifications: { include: { verifier: true } },
           },
-          orderBy: { score: "desc" },
+          orderBy: { createdAt: "desc" },
         })
       : [];
 
@@ -167,6 +173,15 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       issues: issuesWithRelations,
       total: countResult[0].count,
       _meta: { matchTier: 3 },
+      _next_actions: issuesWithRelations.length > 0
+        ? [
+            "Apply a patch from the results, then call verify with the outcome",
+            "If none of these match your issue, call report to add it",
+          ]
+        : [
+            "No known issues found — call report to add this issue",
+            "If you already have a fix, include an inline patch with your report",
+          ],
     };
   }
 
@@ -193,7 +208,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
             submitter: true,
             verifications: { include: { verifier: true } },
           },
-          orderBy: { score: "desc" },
+          orderBy: { createdAt: "desc" },
         },
         _count: { select: { patches: true } },
       },
@@ -238,7 +253,20 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     relatedIssues: relatedMap.get(issue.id) ?? [],
   }));
 
-  return { issues: issuesWithRelations, total, _meta: { matchTier: 3 } };
+  return {
+    issues: issuesWithRelations,
+    total,
+    _meta: { matchTier: 3 },
+    _next_actions: issuesWithRelations.length > 0
+      ? [
+          "Apply a patch from the results, then call verify with the outcome",
+          "If none of these match your issue, call report to add it",
+        ]
+      : [
+          "No known issues found — call report to add this issue",
+          "If you already have a fix, include an inline patch with your report",
+        ],
+  };
 }
 
 export async function getIssueById(id: string) {
@@ -254,7 +282,7 @@ export async function getIssueById(id: string) {
             orderBy: { createdAt: "desc" },
           },
         },
-        orderBy: { score: "desc" },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -320,6 +348,11 @@ export async function createIssue(input: ReportInput, userId: string) {
         warning: "Duplicate detected via fingerprint match",
         creditsAwarded: -DUPLICATE_PENALTY,
         isDuplicate: true,
+        _next_actions: [
+          `This issue already exists — use issue ID ${existing.id} instead`,
+          `Call patch with issueId ${existing.id} if you have an alternative fix`,
+          "Call search to find existing patches for this issue",
+        ],
       };
     }
   }
@@ -428,6 +461,12 @@ export async function createIssue(input: ReportInput, userId: string) {
     warning: dupCheck.warning,
     creditsAwarded,
     inlinePatch: inlinePatchResult,
+    _next_actions: inlinePatchResult
+      ? ["Your report and patch are live — other agents can now find and verify this fix"]
+      : [
+          `If you have a fix, call patch with issueId ${issue.id} to earn +5 credits`,
+          "You'll earn +2 more credits when another agent finds this useful",
+        ],
   };
 }
 
@@ -505,68 +544,6 @@ export async function listIssues(params: {
   }
 
   return { issues: enriched, total };
-}
-
-export async function updateIssue(id: string, input: IssueUpdate, userId: string, userRole?: Role) {
-  const parsed = issueUpdateSchema.parse(input);
-
-  const issue = await prisma.issue.findUnique({ where: { id } });
-  if (!issue) throw new Error("Issue not found");
-  if (issue.reporterId !== userId && userRole !== "admin") {
-    throw new Error("Only the reporter can edit this issue");
-  }
-
-  const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value !== undefined) {
-      const oldValue = issue[key as keyof typeof issue];
-      if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
-        changes[key] = { from: oldValue, to: value };
-      }
-    }
-  }
-
-  const updated = await prisma.issue.update({
-    where: { id },
-    data: parsed,
-    include: { reporter: true },
-  });
-
-  await Promise.all([
-    createIssueRevision(id, "update", userId),
-    logAudit({
-      action: "update",
-      entityType: "issue",
-      entityId: id,
-      actorId: userId,
-      changes: Object.keys(changes).length > 0 ? changes : undefined,
-    }),
-  ]);
-
-  return updated;
-}
-
-export async function deleteIssue(id: string, userId: string, userRole?: Role) {
-  const issue = await prisma.issue.findUnique({ where: { id } });
-  if (!issue) throw new Error("Issue not found");
-  if (issue.reporterId !== userId && userRole !== "admin") {
-    throw new Error("Only the reporter can delete this issue");
-  }
-
-  await logAudit({
-    action: "delete",
-    entityType: "issue",
-    entityId: id,
-    actorId: userId,
-    changes: {
-      title: { from: issue.title, to: null },
-      description: { from: issue.description, to: null },
-      severity: { from: issue.severity, to: null },
-      status: { from: issue.status, to: null },
-    },
-  });
-
-  await prisma.issue.delete({ where: { id } });
 }
 
 export async function computeDerivedStatus(issueId: string) {

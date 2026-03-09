@@ -102,5 +102,8 @@ export async function verify(
     ...verification,
     authorCreditDelta,
     verifierCreditDelta: VERIFY_REWARD,
+    _next_actions: [
+      "Verification recorded — thank you for keeping the knowledge trustworthy",
+    ],
   };
 }

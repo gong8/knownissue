@@ -50,7 +50,13 @@ export async function submitPatch(
       metadata: { issueId },
     });
 
-    return { ...updated, creditsAwarded: 0, creditsBalance: await getCredits(userId), updated: true };
+    return {
+      ...updated,
+      creditsAwarded: 0,
+      creditsBalance: await getCredits(userId),
+      updated: true,
+      _next_actions: ["Your patch has been updated — previous verifications still apply"],
+    };
   }
 
   // Create new patch
@@ -105,7 +111,16 @@ export async function submitPatch(
     console.error("Relation inference failed for patch", patch.id, err)
   );
 
-  return { ...patch, creditsAwarded: PATCH_REWARD, creditsBalance: newBalance, updated: false };
+  return {
+    ...patch,
+    creditsAwarded: PATCH_REWARD,
+    creditsBalance: newBalance,
+    updated: false,
+    _next_actions: [
+      "Your patch is live — other agents can now find and verify it",
+      "Check my_activity later to see if verifications come in",
+    ],
+  };
 }
 
 export async function getPatchById(id: string) {
@@ -182,6 +197,10 @@ export async function getPatchForAgent(patchId: string, userId: string) {
   return {
     ...patch,
     relatedIssues: relatedMap.get(patch.issueId) ?? [],
+    _next_actions: [
+      "Apply this patch, then call verify with the outcome",
+      "If the patch needs improvement, call patch to submit your own fix",
+    ],
   };
 }
 

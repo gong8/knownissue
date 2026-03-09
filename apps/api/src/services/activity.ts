@@ -59,6 +59,8 @@ export async function getMyActivity(
     showIssues ? getActionableIssues(userId) : Promise.resolve([]),
   ]);
 
+  const actionableCount = actionablePatches.length + actionableIssues.length;
+
   return {
     summary,
     recent: {
@@ -91,14 +93,19 @@ export async function getMyActivity(
         issueTitle: p.issue.title,
         notFixedCount: p._notFixedCount,
         latestNote: p._latestNote,
+        suggested_action: "Call search with patchId to review, then call patch to update your fix",
       })),
       ...actionableIssues.map((b) => ({
         type: "issue_status_changed" as const,
         issueId: b.id,
         title: b.title,
         newStatus: b.status,
+        suggested_action: "Call search to see the latest patches and verifications",
       })),
     ],
+    _next_actions: actionableCount > 0
+      ? [`You have ${actionableCount} item${actionableCount > 1 ? "s" : ""} needing attention — check the actionable items above`]
+      : ["No items need attention right now — search for issues to verify or report new ones"],
   };
 }
 
