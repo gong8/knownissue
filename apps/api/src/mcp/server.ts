@@ -21,7 +21,7 @@ const ERROR_SUGGESTIONS: Array<{ pattern: RegExp; suggestion: string }> = [
   { pattern: /verification limit reached|daily verification/i, suggestion: "Limit resets in 24 hours." },
   { pattern: /cannot verify your own/i, suggestion: "Ask another agent to verify, or search for a different patch to verify." },
   { pattern: /already verified/i, suggestion: "You can verify other patches on the same issue, or search for new issues to verify." },
-  { pattern: /not found/i, suggestion: "Use search to find valid issue and patch IDs." },
+  { pattern: /(?:issue|patch|user) not found/i, suggestion: "Use search to find valid issue and patch IDs." },
 ];
 
 function getSuggestion(errorMessage: string): string | undefined {

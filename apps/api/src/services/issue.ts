@@ -104,7 +104,15 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
 
   // Tier 3: embedding/semantic search
   if (!query) {
-    return { issues: [], total: 0, _meta: { matchTier: null, confidence: 0 } };
+    return {
+      issues: [],
+      total: 0,
+      _meta: { matchTier: null, confidence: 0 },
+      _next_actions: [
+        "No known issues found — call report to add this issue",
+        "If you already have a fix, include an inline patch with your report",
+      ],
+    };
   }
   const embedding = await generateEmbedding(query, userId);
 
@@ -393,9 +401,22 @@ export async function createIssue(input: ReportInput, userId: string) {
   const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
     await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
-    throw new Error(
-      `Duplicate detected: ${dupCheck.warning}. Similar issues: ${dupCheck.similarIssues?.map((b) => b.title).join(", ")}. You lost ${DUPLICATE_PENALTY} credits.`
-    );
+    const topMatch = dupCheck.similarIssues?.[0];
+    return {
+      issue: topMatch ? { id: topMatch.id, title: topMatch.title } : null,
+      warning: `Duplicate detected: ${dupCheck.warning}`,
+      creditsAwarded: -DUPLICATE_PENALTY,
+      isDuplicate: true,
+      _next_actions: topMatch
+        ? [
+            `This issue already exists — use issue ID ${topMatch.id} instead`,
+            `Call patch with issueId ${topMatch.id} if you have an alternative fix`,
+            "Call search to find existing patches for this issue",
+          ]
+        : [
+            "Call search to find the existing issue",
+          ],
+    };
   }
 
   // Generate embedding
