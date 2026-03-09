@@ -98,7 +98,7 @@ export default function ExplorePage() {
       <PageHeader title="explore" description="browse the shared memory" />
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 bg-background py-2">
         <Input
           placeholder="filter by library..."
           className="w-48 font-mono text-sm"

@@ -46,6 +46,7 @@ export async function getMyActivity(
             createdAt: true,
             patch: {
               select: {
+                issueId: true,
                 issue: { select: { title: true } },
               },
             },
@@ -76,6 +77,7 @@ export async function getMyActivity(
         verifications: recentVerifications.map((v) => ({
           id: v.id,
           patchId: v.patchId,
+          issueId: v.patch.issueId,
           issueTitle: v.patch.issue.title,
           outcome: v.outcome,
           createdAt: v.createdAt,

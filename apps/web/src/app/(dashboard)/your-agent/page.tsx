@@ -51,6 +51,7 @@ type ActivityPatch = {
 type ActivityVerification = {
   id: string;
   patchId: string;
+  issueId: string;
   issueTitle: string;
   outcome: string;
   createdAt: string;
@@ -66,7 +67,7 @@ type ActivityData = {
     currentBalance: number;
   };
   recent: {
-    bugs?: ActivityBug[];
+    issues?: ActivityBug[];
     patches?: ActivityPatch[];
     verifications?: ActivityVerification[];
   };
@@ -92,7 +93,7 @@ type FeedItem = {
 function buildFeed(activity: ActivityData): FeedItem[] {
   const items: FeedItem[] = [];
 
-  for (const bug of activity.recent.bugs ?? []) {
+  for (const bug of activity.recent.issues ?? []) {
     items.push({
       type: "bug",
       id: bug.id,
@@ -137,7 +138,7 @@ function buildFeed(activity: ActivityData): FeedItem[] {
     items.push({
       type: "verification",
       id: verification.id,
-      href: `/issues/${verification.patchId}`,
+      href: `/issues/${verification.issueId}`,
       text: (
         <>
           you verified a fix for{" "}
@@ -166,6 +167,8 @@ export default function YourAgentPage() {
   const [activity, setActivity] = useState<ActivityData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoaded, setTransactionsLoaded] = useState(false);
+  const [transactionsPage, setTransactionsPage] = useState(1);
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,18 +202,31 @@ export default function YourAgentPage() {
     });
   }
 
+  function loadTransactions(page: number, append: boolean) {
+    fetchUserTransactions({ page, limit: 20 })
+      .then((data) => {
+        const txList: Transaction[] = data.transactions ?? data ?? [];
+        const list = Array.isArray(txList) ? txList : [];
+        setTransactions((prev) => (append ? [...prev, ...list] : list));
+        setTransactionsLoaded(true);
+        if (list.length < 20) setHasMoreTransactions(false);
+      })
+      .catch(() => {
+        setTransactionsLoaded(true);
+        setHasMoreTransactions(false);
+      });
+  }
+
   function handleToggleTransactions() {
     if (!transactionsLoaded) {
-      fetchUserTransactions({ limit: 20 })
-        .then((data) => {
-          const txList: Transaction[] = data.transactions ?? data ?? [];
-          setTransactions(Array.isArray(txList) ? txList : []);
-          setTransactionsLoaded(true);
-        })
-        .catch(() => {
-          setTransactionsLoaded(true);
-        });
+      loadTransactions(1, false);
     }
+  }
+
+  function handleLoadMoreTransactions() {
+    const nextPage = transactionsPage + 1;
+    setTransactionsPage(nextPage);
+    loadTransactions(nextPage, true);
   }
 
   const feedItems = activity ? buildFeed(activity) : [];
@@ -389,34 +405,44 @@ export default function YourAgentPage() {
           credit history
         </summary>
         {transactionsLoaded && transactions.length > 0 ? (
-          <div className="mt-3 rounded-lg border border-border">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0 text-xs"
-              >
-                <span className="text-muted-foreground w-24 shrink-0">
-                  {formatDate(new Date(tx.createdAt))}
-                </span>
-                <span
-                  className={
-                    tx.amount >= 0
-                      ? "text-green-400 font-mono w-12"
-                      : "text-red-400 font-mono w-12"
-                  }
+          <>
+            <div className="mt-3 rounded-lg border border-border">
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0 text-xs"
                 >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {tx.amount}
-                </span>
-                <span className="flex-1 text-muted-foreground">
-                  {tx.type.replace(/_/g, " ")}
-                </span>
-                <span className="font-mono text-muted-foreground">
-                  {tx.balance}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span className="text-muted-foreground w-24 shrink-0">
+                    {formatDate(new Date(tx.createdAt))}
+                  </span>
+                  <span
+                    className={
+                      tx.amount >= 0
+                        ? "text-green-400 font-mono w-12"
+                        : "text-red-400 font-mono w-12"
+                    }
+                  >
+                    {tx.amount >= 0 ? "+" : ""}
+                    {tx.amount}
+                  </span>
+                  <span className="flex-1 text-muted-foreground">
+                    {tx.type.replace(/_/g, " ")}
+                  </span>
+                  <span className="font-mono text-muted-foreground">
+                    {tx.balance}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {hasMoreTransactions && (
+              <button
+                onClick={handleLoadMoreTransactions}
+                className="mt-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+              >
+                load more
+              </button>
+            )}
+          </>
         ) : transactionsLoaded ? (
           <p className="mt-3 text-sm text-muted-foreground">
             no transactions yet.
