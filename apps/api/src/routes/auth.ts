@@ -19,7 +19,6 @@ auth.get("/stats", async (c) => {
     patches,
     users,
     openCriticals,
-    patchesWithPositiveScore,
     fixesReusedResult,
     issuesResolved,
     verifiedThisWeek,
@@ -29,9 +28,6 @@ auth.get("/stats", async (c) => {
     prisma.user.count(),
     prisma.issue.count({
       where: { severity: "critical", status: "open" },
-    }),
-    prisma.patch.count({
-      where: { score: { gt: 0 } },
     }),
     prisma.$queryRawUnsafe<[{ total: bigint }]>(
       `SELECT COALESCE(SUM("accessCount"), 0) AS total FROM "Bug"`,
@@ -48,11 +44,6 @@ auth.get("/stats", async (c) => {
     }),
   ]);
 
-  const approvalRate =
-    patches > 0
-      ? Math.round((patchesWithPositiveScore / patches) * 100)
-      : 0;
-
   const fixesReused = Number(fixesReusedResult[0].total);
 
   return c.json({
@@ -60,7 +51,6 @@ auth.get("/stats", async (c) => {
     patches,
     users,
     openCriticals,
-    approvalRate,
     fixesReused,
     issuesResolved,
     verifiedThisWeek,

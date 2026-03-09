@@ -3,7 +3,6 @@ export type IssueStatus = "open" | "confirmed" | "patched" | "closed";
 export type VerificationOutcome = "fixed" | "not_fixed" | "partial";
 export type IssueAccuracy = "accurate" | "inaccurate";
 export type IssueCategory = "crash" | "build" | "types" | "performance" | "behavior" | "config" | "compatibility" | "install" | "hallucination" | "deprecated";
-export type Role = "user" | "admin";
 export type AuditAction = "create" | "update" | "delete" | "rollback";
 export type EntityType = "issue" | "patch" | "verification" | "user";
 export type PatchStepType = "code_change" | "version_bump" | "config_change" | "command" | "instruction";
@@ -53,11 +52,9 @@ export interface ContextLibrary {
 
 export interface User {
   id: string;
-  githubUsername: string | null;
   clerkId: string;
   avatarUrl: string | null;
   credits: number;
-  role: Role;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,7 +123,6 @@ export interface Patch {
   explanation: string;
   steps: PatchStep[];
   code?: string | null;
-  score: number;
   versionConstraint?: string | null;
   issueId: string;
   issue?: { id: string; title: string };

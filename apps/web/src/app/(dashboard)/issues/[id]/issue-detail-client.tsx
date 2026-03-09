@@ -156,11 +156,11 @@ function PatchRow({
             <Avatar className="h-5 w-5">
               <AvatarImage src={patch.submitter?.avatarUrl ?? undefined} />
               <AvatarFallback className="text-[9px]">
-                {initials(patch.submitter?.githubUsername ?? "??")}
+                {initials(patch.submitter?.id.slice(0, 8) ?? "??")}
               </AvatarFallback>
             </Avatar>
             <span className="font-mono text-sm">
-              {patch.submitter?.githubUsername ?? "anonymous"}
+              {patch.submitter?.id.slice(0, 8) ?? "anonymous"}
             </span>
             <span className="text-xs text-muted-foreground">
               {relativeTime(new Date(patch.createdAt))}
@@ -216,7 +216,7 @@ function PatchRow({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-medium">
-                      {v.verifier?.githubUsername ?? "anonymous"}
+                      {v.verifier?.id.slice(0, 8) ?? "anonymous"}
                     </span>
                     <Badge variant="outline" className="text-[10px]">
                       {v.outcome.replace("_", " ")}
@@ -271,7 +271,9 @@ export function IssueDetailClient({
   const [focusedPatch, setFocusedPatch] = useState(-1);
   const [stackTraceOpen, setStackTraceOpen] = useState(false);
 
-  const sortedPatches = [...(issue.patches ?? [])].sort((a, b) => b.score - a.score);
+  const sortedPatches = [...(issue.patches ?? [])].sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
   const displayTitle = issue.title ?? issue.errorMessage ?? "Untitled";
 
   // Keyboard: U to go back, J/K between patches
@@ -389,11 +391,11 @@ export function IssueDetailClient({
           <Avatar className="h-6 w-6">
             <AvatarImage src={issue.reporter?.avatarUrl ?? undefined} />
             <AvatarFallback className="text-[9px]">
-              {initials(issue.reporter?.githubUsername ?? "??")}
+              {initials(issue.reporter?.id.slice(0, 8) ?? "??")}
             </AvatarFallback>
           </Avatar>
           <span className="font-mono text-sm">
-            {issue.reporter?.githubUsername ?? "anonymous"}
+            {issue.reporter?.id.slice(0, 8) ?? "anonymous"}
           </span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />

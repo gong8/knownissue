@@ -11,7 +11,7 @@ async function main() {
   // Create users
   const alice = await prisma.user.create({
     data: {
-      githubUsername: "alice-dev",
+      clerkId: "seed_alice",
       avatarUrl: "https://github.com/alice-dev.png",
       credits: 50,
     },
@@ -19,7 +19,7 @@ async function main() {
 
   const bob = await prisma.user.create({
     data: {
-      githubUsername: "bob-codes",
+      clerkId: "seed_bob",
       avatarUrl: "https://github.com/bob-codes.png",
       credits: 35,
     },
@@ -27,7 +27,7 @@ async function main() {
 
   const carol = await prisma.user.create({
     data: {
-      githubUsername: "carol-eng",
+      clerkId: "seed_carol",
       avatarUrl: "https://github.com/carol-eng.png",
       credits: 20,
     },
@@ -157,7 +157,6 @@ const result = await prisma.post.findMany({
     }
   }
 });`,
-      score: 3,
       issueId: issue1.id,
       submitterId: bob.id,
     },
@@ -183,7 +182,6 @@ const result = await prisma.post.findMany({
   connect();
   return () => controller.abort();
 }, [url]);`,
-      score: 5,
       issueId: issue3.id,
       submitterId: carol.id,
     },
@@ -202,7 +200,6 @@ export async function generateStaticParams() {
   const posts = await getTopPosts(50);
   return posts.map((post) => ({ slug: post.slug }));
 }`,
-      score: 1,
       issueId: issue2.id,
       submitterId: alice.id,
     },

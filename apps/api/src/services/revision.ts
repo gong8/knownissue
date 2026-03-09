@@ -1,5 +1,5 @@
 import { prisma, type Prisma } from "@knownissue/db";
-import type { AuditAction, Role } from "@knownissue/shared";
+import type { AuditAction } from "@knownissue/shared";
 import { logAudit } from "./audit";
 
 export async function createIssueRevision(
@@ -78,14 +78,13 @@ export async function getIssueRevision(issueId: string, version: number) {
 export async function rollbackIssue(
   issueId: string,
   targetVersion: number,
-  actorId: string,
-  actorRole: Role
+  actorId: string
 ) {
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue) throw new Error("Issue not found");
 
-  if (issue.reporterId !== actorId && actorRole !== "admin") {
-    throw new Error("Only the reporter or an admin can rollback this issue");
+  if (issue.reporterId !== actorId) {
+    throw new Error("Only the reporter can rollback this issue");
   }
 
   const revision = await prisma.issueRevision.findUnique({

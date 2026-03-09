@@ -47,31 +47,18 @@ export async function verify(
     throw new Error("Daily verification limit reached (20/day). Try again tomorrow.");
   }
 
-  const scoreChange = outcome === "fixed" ? 1 : outcome === "not_fixed" ? -1 : 0;
-
-  const verification = await prisma.$transaction(async (tx) => {
-    const created = await tx.verification.create({
-      data: {
-        outcome,
-        note,
-        errorBefore: errorBefore ?? null,
-        errorAfter: errorAfter ?? null,
-        testedVersion: testedVersion ?? null,
-        issueAccuracy: issueAccuracy ?? "accurate",
-        patchId,
-        verifierId,
-      },
-      include: { verifier: true },
-    });
-
-    if (scoreChange !== 0) {
-      await tx.patch.update({
-        where: { id: patchId },
-        data: { score: { increment: scoreChange } },
-      });
-    }
-
-    return created;
+  const verification = await prisma.verification.create({
+    data: {
+      outcome,
+      note,
+      errorBefore: errorBefore ?? null,
+      errorAfter: errorAfter ?? null,
+      testedVersion: testedVersion ?? null,
+      issueAccuracy: issueAccuracy ?? "accurate",
+      patchId,
+      verifierId,
+    },
+    include: { verifier: true },
   });
 
   // Award verifier

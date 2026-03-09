@@ -290,15 +290,15 @@ export default function YourAgentPage() {
           <Avatar className="h-12 w-12 border-2 border-primary/40">
             <AvatarImage
               src={user.avatarUrl ?? undefined}
-              alt={user.githubUsername ?? undefined}
+              alt={user.id.slice(0, 8) ?? undefined}
             />
             <AvatarFallback className="font-mono text-sm">
-              {(user.githubUsername ?? "??").slice(0, 2).toUpperCase()}
+              {(user.id.slice(0, 8) ?? "??").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
             <h2 className="font-mono text-base font-semibold">
-              {user.githubUsername ?? "anonymous"}
+              {user.id.slice(0, 8) ?? "anonymous"}
             </h2>
             <p className="text-xs text-muted-foreground">
               member since {formatDate(new Date(user.createdAt))}

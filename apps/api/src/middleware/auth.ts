@@ -10,39 +10,23 @@ import { getApiBaseUrl } from "../oauth/utils";
 
 type AuthResult = { user: User; scopes?: string[] };
 
-// GitHub token cache (deprecated path — will be removed before launch)
-const validGhCache = new Map<string, { user: User; expiresAt: number }>();
-const invalidGhCache = new Map<string, number>();
-const GH_VALID_TTL = 5 * 60 * 1000;
-const GH_INVALID_TTL = 60 * 1000;
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of validGhCache) if (now > v.expiresAt) validGhCache.delete(k);
-  for (const [k, v] of invalidGhCache) if (now > v) invalidGhCache.delete(k);
-}, 60_000).unref();
-
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
 function toUser(row: {
   id: string;
-  githubUsername: string | null;
   clerkId: string;
   avatarUrl: string | null;
   credits: number;
-  role: string;
   createdAt: Date;
   updatedAt: Date;
 }): User {
   return {
     id: row.id,
-    githubUsername: row.githubUsername,
     clerkId: row.clerkId,
     avatarUrl: row.avatarUrl,
     credits: row.credits,
-    role: row.role as User["role"],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -112,58 +96,6 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
 }
 
 /**
- * Strategy 3: GitHub PAT (DEPRECATED — remove before launch)
- */
-async function authenticateGitHubPat(token: string): Promise<AuthResult | null> {
-  const hash = sha256(token);
-
-  // Check caches
-  const cached = validGhCache.get(hash);
-  if (cached && Date.now() <= cached.expiresAt) return { user: cached.user };
-
-  const invalidAt = invalidGhCache.get(hash);
-  if (invalidAt && Date.now() <= invalidAt) return null;
-
-  try {
-    const resp = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github.v3+json",
-        "User-Agent": "knownissue-API",
-      },
-    });
-
-    if (!resp.ok) {
-      invalidGhCache.set(hash, Date.now() + GH_INVALID_TTL);
-      return null;
-    }
-
-    const gh = (await resp.json()) as { login: string; avatar_url: string };
-
-    let user = await prisma.user.findUnique({
-      where: { githubUsername: gh.login },
-    });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          githubUsername: gh.login,
-          clerkId: `gh_${gh.login}`, // temporary placeholder until Clerk link
-          avatarUrl: gh.avatar_url,
-          credits: SIGNUP_BONUS,
-        },
-      });
-    }
-
-    const userData = toUser(user);
-    validGhCache.set(hash, { user: userData, expiresAt: Date.now() + GH_VALID_TTL });
-    return { user: userData };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Resolve auth: tries all strategies in order.
  */
 async function resolveUser(token: string): Promise<AuthResult | null> {
@@ -174,10 +106,6 @@ async function resolveUser(token: string): Promise<AuthResult | null> {
   // Strategy 2: Clerk JWT
   const clerkResult = await authenticateClerkJwt(token);
   if (clerkResult) return clerkResult;
-
-  // Strategy 3: GitHub PAT (deprecated)
-  const ghResult = await authenticateGitHubPat(token);
-  if (ghResult) return ghResult;
 
   return null;
 }
@@ -262,7 +190,7 @@ export const mcpAuthMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   c.set("user", result.user);
 
   // Enforce scope for OAuth tokens (scopes defined = OAuth token)
-  // Clerk/GitHub auth has no scopes — implicit full access
+  // Clerk auth has no scopes — implicit full access
   if (result.scopes && !result.scopes.includes("mcp:tools")) {
     const baseUrl = getApiBaseUrl();
     throw new HTTPException(403, {

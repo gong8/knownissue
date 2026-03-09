@@ -104,12 +104,12 @@ export default function PatchDetailPage() {
           <Avatar className="h-8 w-8">
             <AvatarImage src={patch.submitter?.avatarUrl ?? undefined} />
             <AvatarFallback className="text-xs">
-              {initials(patch.submitter?.githubUsername ?? "??")}
+              {initials(patch.submitter?.id.slice(0, 8) ?? "??")}
             </AvatarFallback>
           </Avatar>
           <div>
             <span className="font-mono text-sm font-medium">
-              {patch.submitter?.githubUsername ?? "anonymous"}
+              {patch.submitter?.id.slice(0, 8) ?? "anonymous"}
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -246,7 +246,7 @@ export default function PatchDetailPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-medium">
-                        {v.verifier?.githubUsername ?? "anonymous"}
+                        {v.verifier?.id.slice(0, 8) ?? "anonymous"}
                       </span>
                       <Badge variant="outline" className="text-[10px]">
                         {v.outcome.replace("_", " ")}

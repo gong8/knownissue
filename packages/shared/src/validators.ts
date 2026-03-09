@@ -200,24 +200,6 @@ export const myActivityInputSchema = z.object({
     .describe("Max recent items per category (default 10)"),
 });
 
-// ── REST API Schemas (kept for web dashboard compat) ──────────────────────
-
-export const issueUpdateSchema = z.object({
-  title: z.string().min(MIN_TITLE_LENGTH).optional(),
-  description: z.string().min(MIN_DESCRIPTION_LENGTH).optional(),
-  errorMessage: z.string().optional(),
-  errorCode: z.string().optional(),
-  stackTrace: z.string().optional(),
-  triggerCode: z.string().optional(),
-  expectedBehavior: z.string().optional(),
-  actualBehavior: z.string().optional(),
-  severity: severitySchema.optional(),
-  tags: z.array(z.string()).optional(),
-  category: issueCategorySchema.optional(),
-  runtime: z.string().optional(),
-  platform: z.string().optional(),
-});
-
 // ── Inferred Types ────────────────────────────────────────────────────────
 
 export type SearchInput = z.infer<typeof searchInputSchema>;
@@ -225,5 +207,4 @@ export type ReportInput = z.infer<typeof reportInputSchema>;
 export type PatchInput = z.infer<typeof patchInputSchema>;
 export type VerificationInput = z.infer<typeof verificationInputSchema>;
 export type MyActivityInput = z.infer<typeof myActivityInputSchema>;
-export type IssueUpdate = z.infer<typeof issueUpdateSchema>;
 export type PatchStepInput = z.infer<typeof patchStepSchema>;

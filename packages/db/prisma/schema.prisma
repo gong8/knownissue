@@ -9,11 +9,6 @@ datasource db {
   extensions = [vector]
 }
 
-enum Role {
-  user
-  admin
-}
-
 enum AuditAction {
   create
   update
@@ -102,11 +97,9 @@ enum RelationSource {
 
 model User {
   id             String   @id @default(uuid())
-  githubUsername  String?  @unique
   clerkId        String   @unique
   avatarUrl      String?
   credits        Int      @default(5)
-  role           Role     @default(user)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -190,7 +183,6 @@ model Patch {
   explanation       String  @map("description")
   code              String?
   steps             Json?
-  score             Int     @default(0)
   versionConstraint String?
 
   issueId String @map("bugId")

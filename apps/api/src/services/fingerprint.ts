@@ -54,7 +54,7 @@ export async function findByFingerprint(fingerprint: string) {
           submitter: true,
           verifications: { include: { verifier: true } },
         },
-        orderBy: { score: "desc" },
+        orderBy: { createdAt: "desc" },
       },
     },
   });

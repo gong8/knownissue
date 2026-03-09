@@ -30,7 +30,6 @@ function summarizePatches<
     id: string;
     explanation: string;
     steps: unknown;
-    score: number;
     versionConstraint: string | null;
     submitter: unknown;
     createdAt: Date;
@@ -46,7 +45,6 @@ function summarizePatches<
       id: p.id,
       explanation: p.explanation,
       steps: p.steps,
-      score: p.score,
       versionConstraint: p.versionConstraint,
       submitter: p.submitter,
       createdAt: p.createdAt,

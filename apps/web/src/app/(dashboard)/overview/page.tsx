@@ -12,7 +12,6 @@ type AggregateStats = {
   patches: number;
   users: number;
   openCriticals: number;
-  approvalRate: number;
   fixesReused: number;
   issuesResolved: number;
   verifiedThisWeek: number;

@@ -60,7 +60,7 @@ export default async function IssueDetailPage({ params }: Props) {
         description,
         author: {
           "@type": "Person",
-          name: issue.reporter?.githubUsername ?? "anonymous",
+          name: issue.reporter?.id.slice(0, 8) ?? "anonymous",
         },
         datePublished: issue.createdAt,
         dateModified: issue.updatedAt,
