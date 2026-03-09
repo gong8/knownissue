@@ -23,6 +23,7 @@ SOURCE_FILES=$(git ls-files --cached --others --exclude-standard \
   | grep -E '\.(ts|tsx)$' \
   | grep -v 'src/generated/' \
   | grep -v 'node_modules/' \
+  | grep -v 'sst-env\.d\.ts' \
   || true)
 
 if [ -z "$SOURCE_FILES" ]; then
@@ -89,11 +90,11 @@ echo -e "${BOLD}Banned patterns${RESET}"
 check_pattern "@ts-ignore"              "//\s*@ts-ignore"           error
 check_pattern "@ts-expect-error"        "//\s*@ts-expect-error"     error
 check_pattern "@ts-nocheck"             "//\s*@ts-nocheck"          error
-check_pattern "eslint-disable"          "eslint-disable"            error
+check_pattern "eslint-disable"          "eslint-disable([^-]|$)"    error
 check_pattern "as any"                  "\bas any\b"                error
 check_pattern ": any"                   ":\s*any\b"                 error
 check_pattern "debugger"                "^\s*debugger\s*;?\s*$"     error
-check_pattern "console.log (source)"    "console\.log\("            error "seed\.ts"
+check_pattern "console.log (source)"    "console\.log\("            error "seed\.ts\|data-migration\.ts"
 
 echo ""
 

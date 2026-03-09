@@ -1,9 +1,10 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { getApiBaseUrl } from "./utils.js";
 
 const metadata = new Hono();
 
-const protectedResourceHandler = (c: any) => {
+const protectedResourceHandler = (c: Context) => {
   const baseUrl = getApiBaseUrl();
   return c.json({
     resource: baseUrl,
@@ -13,7 +14,7 @@ const protectedResourceHandler = (c: any) => {
   });
 };
 
-const authServerHandler = (c: any) => {
+const authServerHandler = (c: Context) => {
   const baseUrl = getApiBaseUrl();
   return c.json({
     issuer: baseUrl,

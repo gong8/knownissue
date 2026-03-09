@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { prisma } from "@knownissue/db";
 import {
   hashToken,
@@ -37,7 +38,7 @@ token.post("/", async (c) => {
   );
 });
 
-async function handleAuthorizationCode(c: any, body: any) {
+async function handleAuthorizationCode(c: Context, body: Record<string, unknown>) {
   const code = typeof body.code === "string" ? body.code : String(body.code || "");
   const codeVerifier = typeof body.code_verifier === "string" ? body.code_verifier : String(body.code_verifier || "");
   const redirectUri = typeof body.redirect_uri === "string" ? body.redirect_uri : String(body.redirect_uri || "");
@@ -203,7 +204,7 @@ async function handleAuthorizationCode(c: any, body: any) {
   });
 }
 
-async function handleRefreshToken(c: any, body: any) {
+async function handleRefreshToken(c: Context, body: Record<string, unknown>) {
   const refreshTokenValue = typeof body.refresh_token === "string" ? body.refresh_token : String(body.refresh_token || "");
   const clientId = typeof body.client_id === "string" ? body.client_id : String(body.client_id || "");
 

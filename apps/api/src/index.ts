@@ -18,6 +18,7 @@ import { authorize } from "./oauth/authorize";
 import { token } from "./oauth/token";
 import { revoke } from "./oauth/revoke";
 import { HTTPException } from "hono/http-exception";
+import type { Context, Next } from "hono";
 import type { AppEnv } from "./lib/types";
 
 // Validate required environment variables
@@ -84,7 +85,7 @@ app.route("/", mcp);
 
 // HTTPS enforcement for OAuth endpoints in production (MCP spec requirement)
 if (process.env.NODE_ENV === "production") {
-  const httpsOnly = async (c: any, next: any) => {
+  const httpsOnly = async (c: Context, next: Next) => {
     const proto = c.req.header("x-forwarded-proto") || c.req.header("x-forwarded-scheme") || "http";
     if (proto !== "https") {
       return c.json({ error: "HTTPS required for OAuth endpoints" }, 403);
