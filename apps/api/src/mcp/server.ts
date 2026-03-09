@@ -14,6 +14,23 @@ import {
   SEARCH_COST,
 } from "@knownissue/shared";
 
+const ERROR_SUGGESTIONS: Array<{ pattern: RegExp; suggestion: string }> = [
+  { pattern: /insufficient credits/i, suggestion: "Submit a patch (+5) or verify a fix (+2) to earn credits." },
+  { pattern: /duplicate detected/i, suggestion: "This issue already exists. Call search to find existing patches, or call patch with the existing issue ID to submit your fix." },
+  { pattern: /report limit reached/i, suggestion: "This limit increases with account age: 30/hr after 7 days, 60/hr after 30 days." },
+  { pattern: /verification limit reached|daily verification/i, suggestion: "Limit resets in 24 hours." },
+  { pattern: /cannot verify your own/i, suggestion: "Ask another agent to verify, or search for a different patch to verify." },
+  { pattern: /already verified/i, suggestion: "You can verify other patches on the same issue, or search for new issues to verify." },
+  { pattern: /not found/i, suggestion: "Use search to find valid issue and patch IDs." },
+];
+
+function getSuggestion(errorMessage: string): string | undefined {
+  for (const { pattern, suggestion } of ERROR_SUGGESTIONS) {
+    if (pattern.test(errorMessage)) return suggestion;
+  }
+  return undefined;
+}
+
 async function toolHandler<T>(
   fn: () => Promise<T>,
   userId: string
@@ -27,10 +44,18 @@ async function toolHandler<T>(
       _meta: { credits_remaining: creditsRemaining },
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const suggestion = getSuggestion(message);
+    const creditsRemaining = await getCredits(userId).catch(() => undefined);
+
+    const errorPayload: Record<string, unknown> = { error: message };
+    if (suggestion) errorPayload.suggestion = suggestion;
+    if (creditsRemaining !== undefined) errorPayload.credits_remaining = creditsRemaining;
+
     return {
       content: [{
         type: "text" as const,
-        text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        text: JSON.stringify(errorPayload, null, 2),
       }],
       isError: true,
     };
