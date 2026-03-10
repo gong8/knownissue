@@ -1,4 +1,4 @@
-import { prisma } from "@knownissue/db";
+import { prisma, type IssueStatus } from "@knownissue/db";
 import type { ReportInput, SearchInput } from "@knownissue/shared";
 import {
   reportInputSchema,
@@ -644,7 +644,7 @@ export async function computeDerivedStatus(issueId: string) {
     0
   );
 
-  let derivedStatus: string;
+  let derivedStatus: IssueStatus;
 
   if (fixedCount >= CLOSED_FIXED_COUNT) {
     derivedStatus = "closed";
@@ -665,6 +665,7 @@ export async function computeDerivedStatus(issueId: string) {
       action: "update",
       entityType: "issue",
       entityId: issueId,
+      actorId: "system",
       metadata: { previousStatus: issue.status, newStatus: derivedStatus, trigger: "derived_status" },
     });
   }
