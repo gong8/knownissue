@@ -394,19 +394,14 @@ authorize.post("/oauth/approve", async (c) => {
   });
 
   if (!user) {
+    const displayName = await fetchClerkDisplayName(clerkId) ?? "Unknown";
     user = await prisma.user.create({
       data: {
         clerkId,
+        displayName,
         credits: SIGNUP_BONUS,
       },
     });
-    const displayName = await fetchClerkDisplayName(clerkId);
-    if (displayName) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { displayName },
-      });
-    }
   }
 
   const resolvedScope = scope ?? "mcp:tools";

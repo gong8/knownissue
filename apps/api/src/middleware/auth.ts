@@ -33,7 +33,7 @@ function sha256(input: string): string {
 function toUser(row: {
   id: string;
   clerkId: string;
-  displayName: string | null;
+  displayName: string;
   avatarUrl: string | null;
   credits: number;
   createdAt: Date;
@@ -99,20 +99,14 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
     });
 
     if (!user) {
+      const displayName = await fetchClerkDisplayName(clerkUserId) ?? "Unknown";
       user = await prisma.user.create({
         data: {
           clerkId: clerkUserId,
+          displayName,
           credits: SIGNUP_BONUS,
         },
       });
-      // Best-effort: populate displayName from Clerk
-      const displayName = await fetchClerkDisplayName(clerkUserId);
-      if (displayName) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { displayName },
-        });
-      }
     }
 
     return { user: toUser(user) };

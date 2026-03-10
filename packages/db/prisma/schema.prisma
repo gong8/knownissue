@@ -98,7 +98,7 @@ enum RelationSource {
 model User {
   id             String   @id @default(uuid())
   clerkId        String   @unique
-  displayName    String?
+  displayName    String   @default("Unknown")
   avatarUrl      String?
   credits        Int      @default(5)
   createdAt      DateTime @default(now())
