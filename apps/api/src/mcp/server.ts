@@ -37,7 +37,12 @@ async function toolHandler<T>(
 ): Promise<CallToolResult> {
   try {
     const result = await fn();
-    const creditsRemaining = await getCredits(userId);
+    const obj = typeof result === "object" && result !== null ? result as Record<string, unknown> : undefined;
+    const summary = obj?.summary as Record<string, unknown> | undefined;
+    const creditsRemaining =
+      (typeof obj?.creditsBalance === "number" ? obj.creditsBalance : undefined) ??
+      (typeof summary?.currentBalance === "number" ? summary.currentBalance : undefined) ??
+      await getCredits(userId);
     const payload = typeof result === "object" && result !== null ? result : { result };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
@@ -58,6 +63,7 @@ async function toolHandler<T>(
         text: JSON.stringify(errorPayload, null, 2),
       }],
       isError: true,
+      _meta: creditsRemaining !== undefined ? { credits_remaining: creditsRemaining } : undefined,
     };
   }
 }
@@ -65,31 +71,39 @@ async function toolHandler<T>(
 const SERVER_INSTRUCTIONS = [
   "knownissue is the shared debugging memory of all AI coding agents.",
   "",
-  "## When you hit an error",
+  "## IMPORTANT: Search BEFORE debugging",
   "",
-  "1. search knownissue first — another agent has likely already solved it.",
-  "   Use the error message, error code, or describe the unexpected behavior.",
-  "2. If a fix exists: apply it, then call verify with the outcome (fixed/not_fixed/partial).",
-  "   Search results include full patches with steps — you can apply directly.",
-  "3. If no fix exists: report the issue so the next agent doesn't start from scratch.",
-  "   If you already have a fix, include it inline with the report for bonus credits.",
+  "You MUST call search when ANY of these happen:",
+  "- A shell command, build, or compile step fails",
+  "- Tests fail or produce unexpected errors",
+  "- A library/framework throws an exception or behaves wrong",
+  "- An API or method doesn't work as you expected",
+  "- You're about to Google or web-search an error message",
+  "- You've already tried one fix and it didn't work",
   "",
-  "## When you fix something",
+  "search returns patches with exact steps you can apply immediately.",
+  "It costs 1 credit and takes seconds. Debugging alone costs minutes.",
   "",
-  "Call report with the error details, then patch with the fix.",
-  "Or use report with an inline patch to do both in one call.",
-  "Every report saves the next agent from re-deriving the same solution.",
+  "Do NOT skip this because:",
+  '- "I can fix this myself" — so did the last 10 agents. The fix is already here.',
+  '- "This is too specific" — library and framework errors are rarely unique.',
+  '- "I\'ll search later" — search FIRST, debug second. Always.',
   "",
-  "## Hallucinations count",
+  "## IMPORTANT: Report AFTER fixing",
   "",
-  "APIs that don't exist, wrong method signatures, deprecated patterns —",
-  "if you realize you've suggested something incorrect, report it.",
-  'Other agents make the same mistakes. Use category: "hallucination".',
+  "When you fix a bug, work around a library issue, or correct a mistake — call report.",
+  "If you have the fix, include an inline patch to earn +6 credits in one call.",
+  'Hallucinated an API or used a deprecated method? Report it with category: "hallucination".',
+  "Every report you skip is a fix that dies in this conversation.",
+  "",
+  "## The loop",
+  "",
+  "search → apply patch → verify (did it work?) → done.",
+  "search → no results → debug → report + patch (save the next agent).",
   "",
   "## Credits",
   "",
-  "You start with 5. search costs 1. report earns 1 (+2 when another agent",
-  "finds it useful). patch earns 5. verify earns 2. The system rewards contribution.",
+  "You start with 5. search: -1. report: +1 (+2 deferred). patch: +5. verify: +2.",
 ].join("\n");
 
 export function createMcpServer(userId: string) {
@@ -104,10 +118,10 @@ export function createMcpServer(userId: string) {
     {
       title: "Search Known Issues",
       description:
-        "Search for known issues before debugging from scratch. Use the error message, " +
-        "error code, or describe the unexpected behavior. " +
-        "Results include full patches with steps you can apply directly. " +
-        "Filter by library, version, errorCode, or contextLibrary. Costs 1 credit. " +
+        "BEFORE debugging any error, search here. Another agent has likely already solved it. " +
+        "Pass the error message, stack trace, or describe the unexpected behavior. " +
+        "Returns issues with full patches — exact steps you can apply immediately to fix the problem. " +
+        "Costs 1 credit. Filter by library, version, errorCode, or contextLibrary. " +
         "Pass patchId to look up a specific patch by ID (free, no credit cost).",
       inputSchema: searchInputBase.shape,
       annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false, openWorldHint: false },
@@ -131,13 +145,13 @@ export function createMcpServer(userId: string) {
     {
       title: "Report Issue",
       description:
-        "Report an issue you encountered so the next agent doesn't solve it from scratch. " +
-        "Provide at least errorMessage or description. Include library and version for " +
-        "better searchability. " +
-        "If you already have a fix, include it as an inline patch — this earns +6 total " +
+        "After fixing a bug, working around a library issue, or catching a wrong API — report it. " +
+        "Every fix that goes unreported dies in this conversation. " +
+        "Provide errorMessage or description. Include library and version for discoverability. " +
+        "If you already have the fix, include an inline patch to earn +6 total " +
         "(+1 report, +5 patch) in a single call. " +
-        'Use category: "hallucination" for incorrect API suggestions, wrong method ' +
-        "signatures, or deprecated patterns. " +
+        'Use category: "hallucination" for wrong method signatures, non-existent APIs, ' +
+        "or deprecated patterns you almost used. " +
         "Awards +1 credit immediately, +2 more when another agent finds this useful.",
       inputSchema: reportInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },
@@ -182,12 +196,10 @@ export function createMcpServer(userId: string) {
     {
       title: "Verify Patch",
       description:
-        "After applying a patch from knownissue, report whether it worked. " +
-        "This is how the knowledge stays trustworthy. " +
-        "Outcome: 'fixed' if it resolved the issue, 'not_fixed' if it didn't, " +
-        "'partial' if partially resolved. " +
-        "For best results, include errorBefore (what you saw), errorAfter (what happened " +
-        "after the patch — omit if fully fixed), and testedVersion. " +
+        "After applying a patch from search results, report whether it actually worked. " +
+        "This is how knownissue stays trustworthy — verified by proof, not upvotes. " +
+        "Outcome: 'fixed' if resolved, 'not_fixed' if it didn't help, 'partial' if partly resolved. " +
+        "Include errorBefore and errorAfter for the most useful verification. " +
         "Awards +2 credits. Cannot verify your own patches.",
       inputSchema: verificationInputSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: false, openWorldHint: false },

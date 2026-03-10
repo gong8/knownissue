@@ -121,6 +121,10 @@ beforeEach(() => {
   mockFindByFingerprint.mockResolvedValue(null);
   mockCheckDuplicate.mockResolvedValue({ isDuplicate: false });
   mockGenerateEmbedding.mockResolvedValue(null);
+  // Interactive transaction: pass the same mock prisma as `tx`
+  mockPrisma.$transaction.mockImplementation(
+    async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma)
+  );
 });
 
 // ── A. Credit Constants Validation ─────────────────────────────────────────
@@ -182,13 +186,16 @@ describe("Report Credits Flow", () => {
   it("penalizes DUPLICATE_PENALTY (-2) on duplicate report via fingerprint", async () => {
     const { createIssue } = await vi.importActual<typeof import("../services/issue")>("../services/issue");
 
-    // First call: user lookup in createIssue; second call: penalizeCredits balance read
+    // First call: user lookup in createIssue
+    // Second call: penalizeCredits reads balance before penalty
+    // Third call: penalizeCredits reads balance after penalty
     mockPrisma.user.findUniqueOrThrow
       .mockResolvedValueOnce({
         id: "user-dup",
         createdAt: new Date("2024-01-01"),
         credits: 10,
       })
+      .mockResolvedValueOnce({ credits: 10 }) // before penalty
       .mockResolvedValueOnce({ credits: 8 }); // after penalty
     mockPrisma.issue.count.mockResolvedValue(0);
     mockComputeFingerprint.mockReturnValue("fingerprint-abc");

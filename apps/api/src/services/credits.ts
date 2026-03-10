@@ -15,24 +15,26 @@ export async function awardCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: { credits: { increment: amount } },
-    select: { credits: true },
-  });
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data: { credits: { increment: amount } },
+      select: { credits: true },
+    });
 
-  await prisma.creditTransaction.create({
-    data: {
-      userId,
-      amount,
-      type,
-      balance: user.credits,
-      relatedIssueId: related?.issueId ?? null,
-      relatedPatchId: related?.patchId ?? null,
-    },
-  });
+    await tx.creditTransaction.create({
+      data: {
+        userId,
+        amount,
+        type,
+        balance: user.credits,
+        relatedIssueId: related?.issueId ?? null,
+        relatedPatchId: related?.patchId ?? null,
+      },
+    });
 
-  return user.credits;
+    return user.credits;
+  });
 }
 
 export async function deductCredits(
@@ -52,23 +54,25 @@ export async function deductCredits(
     throw new Error(`Insufficient credits. Required: ${amount}`);
   }
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { credits: true },
-  });
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { credits: true },
+    });
 
-  await prisma.creditTransaction.create({
-    data: {
-      userId,
-      amount: -amount,
-      type,
-      balance: user.credits,
-      relatedIssueId: related?.issueId ?? null,
-      relatedPatchId: related?.patchId ?? null,
-    },
-  });
+    await tx.creditTransaction.create({
+      data: {
+        userId,
+        amount: -amount,
+        type,
+        balance: user.credits,
+        relatedIssueId: related?.issueId ?? null,
+        relatedPatchId: related?.patchId ?? null,
+      },
+    });
 
-  return user.credits;
+    return user.credits;
+  });
 }
 
 export async function penalizeCredits(
@@ -77,6 +81,13 @@ export async function penalizeCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
+  // Read balance before penalty to compute actual deduction
+  const userBefore = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { credits: true },
+  });
+  const previousBalance = userBefore.credits;
+
   // Floor at 0 — penalties cannot go negative
   await prisma.$executeRawUnsafe(
     `UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
@@ -89,16 +100,20 @@ export async function penalizeCredits(
     select: { credits: true },
   });
 
-  await prisma.creditTransaction.create({
-    data: {
-      userId,
-      amount: -amount,
-      type,
-      balance: user.credits,
-      relatedIssueId: related?.issueId ?? null,
-      relatedPatchId: related?.patchId ?? null,
-    },
-  });
+  const actualDeduction = previousBalance - user.credits;
+
+  if (actualDeduction > 0) {
+    await prisma.creditTransaction.create({
+      data: {
+        userId,
+        amount: -actualDeduction,
+        type,
+        balance: user.credits,
+        relatedIssueId: related?.issueId ?? null,
+        relatedPatchId: related?.patchId ?? null,
+      },
+    });
+  }
 
   return user.credits;
 }

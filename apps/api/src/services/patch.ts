@@ -1,4 +1,4 @@
-import { prisma } from "@knownissue/db";
+import { prisma, Prisma } from "@knownissue/db";
 import { PATCH_REWARD } from "@knownissue/shared";
 import type { PatchStep } from "@knownissue/shared";
 import { awardCredits, getCredits } from "./credits";
@@ -33,11 +33,11 @@ export async function submitPatch(
       where: { id: existing.id },
       data: {
         explanation,
-        steps: steps as unknown as import("@knownissue/db").Prisma.InputJsonValue,
+        steps: steps as unknown as Prisma.InputJsonValue,
         versionConstraint: versionConstraint ?? null,
       },
       include: {
-        submitter: true,
+        submitter: { select: { id: true, displayName: true, avatarUrl: true } },
         issue: { select: { title: true } },
       },
     });
@@ -50,29 +50,54 @@ export async function submitPatch(
       metadata: { issueId },
     });
 
+    const _warnings: string[] = [];
+    if (relatedTo) {
+      const created = await createRelation({
+        sourceIssueId: issueId,
+        targetIssueId: relatedTo.issueId,
+        type: relatedTo.type,
+        source: "agent",
+        confidence: 1.0,
+        metadata: relatedTo.note ? { note: relatedTo.note } : undefined,
+        createdById: userId,
+      });
+      if (!created) {
+        _warnings.push("Relation was not created — target issue may not exist or relation already exists");
+      }
+    }
+
     return {
       ...updated,
       creditsAwarded: 0,
       creditsBalance: await getCredits(userId),
       updated: true,
+      ...(_warnings.length > 0 && { _warnings }),
       _next_actions: ["Your patch has been updated — previous verifications still apply"],
     };
   }
 
   // Create new patch
-  const patch = await prisma.patch.create({
-    data: {
-      explanation,
-      steps: steps as unknown as import("@knownissue/db").Prisma.InputJsonValue,
-      versionConstraint: versionConstraint ?? null,
-      issueId,
-      submitterId: userId,
-    },
-    include: {
-      submitter: true,
-      issue: { select: { title: true } },
-    },
-  });
+  let patch;
+  try {
+    patch = await prisma.patch.create({
+      data: {
+        explanation,
+        steps: steps as unknown as Prisma.InputJsonValue,
+        versionConstraint: versionConstraint ?? null,
+        issueId,
+        submitterId: userId,
+      },
+      include: {
+        submitter: { select: { id: true, displayName: true, avatarUrl: true } },
+        issue: { select: { title: true } },
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new Error("You have already submitted a patch for this issue");
+    }
+    throw error;
+  }
 
   const newBalance = await awardCredits(userId, PATCH_REWARD, "patch_submitted", {
     issueId,
@@ -127,10 +152,10 @@ export async function getPatchById(id: string) {
   const patch = await prisma.patch.findUnique({
     where: { id },
     include: {
-      submitter: true,
+      submitter: { select: { id: true, displayName: true, avatarUrl: true } },
       issue: { select: { id: true, title: true, library: true, version: true } },
       verifications: {
-        include: { verifier: true },
+        include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -153,10 +178,10 @@ export async function getPatchForAgent(patchId: string, userId: string) {
   const patch = await prisma.patch.findUnique({
     where: { id: patchId },
     include: {
-      submitter: true,
+      submitter: { select: { id: true, displayName: true, avatarUrl: true } },
       issue: { select: { id: true, title: true, library: true, version: true } },
       verifications: {
-        include: { verifier: true },
+        include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -185,8 +210,11 @@ export async function getPatchForAgent(patchId: string, userId: string) {
 
     // Trigger deferred report reward
     await claimReportReward(patch.issueId, userId);
-  } catch {
-    // Unique constraint violation — access already recorded, do nothing
+  } catch (error) {
+    // Only swallow unique constraint violations (expected for idempotent access tracking)
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+      throw error;
+    }
   }
 
   const relatedMap = await loadRelatedIssues([patch.issueId], {

@@ -122,6 +122,10 @@ beforeEach(() => {
   // Sensible defaults
   mockLoadRelatedIssues.mockResolvedValue(new Map());
   mockInferRelationsForIssue.mockResolvedValue([]);
+  // Interactive transaction: pass the same mock prisma as `tx`
+  mockPrisma.$transaction.mockImplementation(
+    async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma)
+  );
 });
 
 // ── A. Input Validation (Zod boundary tests) ──────────────────────────────

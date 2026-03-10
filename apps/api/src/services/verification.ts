@@ -1,4 +1,4 @@
-import { prisma } from "@knownissue/db";
+import { prisma, Prisma } from "@knownissue/db";
 import type { VerificationOutcome, IssueAccuracy } from "@knownissue/shared";
 import { VERIFY_REWARD, PATCH_VERIFIED_FIXED_REWARD, PATCH_VERIFIED_NOT_FIXED_PENALTY, DAILY_VERIFICATION_CAP } from "@knownissue/shared";
 import { awardCredits, penalizeCredits } from "./credits";
@@ -47,19 +47,27 @@ export async function verify(
     throw new Error("Daily verification limit reached (20/day). Try again tomorrow.");
   }
 
-  const verification = await prisma.verification.create({
-    data: {
-      outcome,
-      note,
-      errorBefore: errorBefore ?? null,
-      errorAfter: errorAfter ?? null,
-      testedVersion: testedVersion ?? null,
-      issueAccuracy: issueAccuracy ?? "accurate",
-      patchId,
-      verifierId,
-    },
-    include: { verifier: true },
-  });
+  let verification;
+  try {
+    verification = await prisma.verification.create({
+      data: {
+        outcome,
+        note,
+        errorBefore: errorBefore ?? null,
+        errorAfter: errorAfter ?? null,
+        testedVersion: testedVersion ?? null,
+        issueAccuracy: issueAccuracy ?? "accurate",
+        patchId,
+        verifierId,
+      },
+      include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new Error("You have already verified this patch");
+    }
+    throw error;
+  }
 
   // Award verifier
   await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
@@ -85,12 +93,32 @@ export async function verify(
   // Recompute derived status
   await computeDerivedStatus(patch.issueId);
 
+  const nextActions: string[] = [];
+  switch (outcome) {
+    case "fixed":
+      nextActions.push(
+        "Verification recorded — this patch is working as intended",
+        "Consider verifying other unverified patches to earn more credits"
+      );
+      break;
+    case "not_fixed":
+      nextActions.push(
+        "Verification recorded — this patch did not resolve the issue",
+        "Search for alternative patches or submit your own fix to earn +5 credits"
+      );
+      break;
+    case "partial":
+      nextActions.push(
+        "Verification recorded — this patch partially addresses the issue",
+        "Consider submitting an improved patch to earn +5 credits"
+      );
+      break;
+  }
+
   return {
     ...verification,
     authorCreditDelta,
     verifierCreditDelta: VERIFY_REWARD,
-    _next_actions: [
-      "Verification recorded — thank you for keeping the knowledge trustworthy",
-    ],
+    _next_actions: nextActions,
   };
 }

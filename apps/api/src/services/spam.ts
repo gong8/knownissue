@@ -4,14 +4,11 @@ import {
   DUPLICATE_REJECT_THRESHOLD,
 } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
-import { findByFingerprint } from "./fingerprint";
 
 export function validateContent(
   title: string | null,
   description: string | null
 ): { valid: boolean; reason?: string } {
-  // At least one of errorMessage or description must be present
-  // (enforced by Zod .refine, but double-check here)
   if (!title && !description) {
     return {
       valid: false,
@@ -24,30 +21,15 @@ export function validateContent(
 
 export async function checkDuplicate(
   text: string,
-  fingerprint?: string | null,
+  _fingerprint?: string | null,
   userId?: string
 ): Promise<{
   isDuplicate: boolean;
   warning?: string;
   similarIssues?: Array<{ id: string; title: string; similarity: number }>;
+  embedding?: number[];
 }> {
-  // Tier 1: fingerprint check (fast, free)
-  if (fingerprint) {
-    const existing = await findByFingerprint(fingerprint);
-    if (existing) {
-      return {
-        isDuplicate: true,
-        warning: "An issue with the same error signature already exists",
-        similarIssues: [{
-          id: existing.id,
-          title: existing.title ?? existing.errorMessage ?? "Untitled",
-          similarity: 1.0,
-        }],
-      };
-    }
-  }
-
-  // Tier 2/3: embedding similarity check
+  // Embedding similarity check (fingerprint is already checked by caller)
   const embedding = await generateEmbedding(text, userId);
 
   if (!embedding) {
@@ -75,6 +57,7 @@ export async function checkDuplicate(
       isDuplicate: true,
       warning: "A very similar issue already exists",
       similarIssues: highSimilarity,
+      embedding,
     };
   }
 
@@ -83,8 +66,9 @@ export async function checkDuplicate(
       isDuplicate: false,
       warning: "Similar issues found — please check if yours is a duplicate",
       similarIssues: highSimilarity,
+      embedding,
     };
   }
 
-  return { isDuplicate: false };
+  return { isDuplicate: false, embedding };
 }
