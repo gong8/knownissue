@@ -170,16 +170,16 @@ export function TerminalDemo() {
         </span>
       </div>
 
-      <div className="relative p-5">
+      <div className="relative overflow-x-auto p-3 sm:p-5">
         {/* Invisible spacer — reserves full height to prevent layout shift */}
-        <pre className="invisible font-mono text-sm leading-relaxed" aria-hidden>
+        <pre className="invisible font-mono text-xs leading-relaxed sm:text-sm" aria-hidden>
           {lines.map((line, i) => (
             <div key={i}>{line.text || "\u00A0"}</div>
           ))}
         </pre>
 
         {/* Visible animation overlaid */}
-        <pre className="absolute inset-0 p-5 font-mono text-sm leading-relaxed">
+        <pre className="absolute inset-0 p-3 font-mono text-xs leading-relaxed sm:p-5 sm:text-sm">
           {lines.slice(0, visibleLines).map((line, i) => (
             <div key={i} className={colorClass(line.color)}>
               {line.text || "\u00A0"}
@@ -199,6 +199,9 @@ export function TerminalDemo() {
             </div>
           )}
         </pre>
+
+        {/* Fade hint for horizontal overflow on mobile */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
       </div>
     </div>
   );
