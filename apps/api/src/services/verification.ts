@@ -80,7 +80,7 @@ export async function verify(
     newBalance = await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
   } catch (err) {
     console.error("Failed to award verifier credits:", err);
-    _warnings.push("Verification recorded but credit award failed — credits will be reconciled");
+    _warnings.push("Verification recorded but credit award failed — contact support if credits are missing");
   }
 
   // Adjust patch author's credits
@@ -95,7 +95,7 @@ export async function verify(
     }
   } catch (err) {
     console.error("Failed to adjust author credits:", err);
-    _warnings.push("Author credit adjustment failed — will be reconciled");
+    _warnings.push("Author credit adjustment failed — may require manual correction");
   }
 
   // Audit + status recompute — best-effort
@@ -136,7 +136,7 @@ export async function verify(
   return {
     ...verification,
     authorCreditDelta,
-    verifierCreditDelta: VERIFY_REWARD,
+    verifierCreditDelta: newBalance !== undefined ? VERIFY_REWARD : 0,
     creditsBalance: newBalance,
     ...(_warnings.length > 0 && { _warnings }),
     _next_actions: nextActions,

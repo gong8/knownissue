@@ -245,7 +245,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     return {
       issues: issuesWithRelations,
       total: countResult[0].count,
-      _meta: { matchTier: 3, searchMode: "vector" as const },
+      _meta: { matchTier: 3, searchMode: "vector" as const, totalIsFilterCount: true },
       _next_actions: issuesWithRelations.length > 0
         ? [
             "Apply a patch from the results, then call verify with the outcome",
@@ -448,8 +448,8 @@ export async function createIssue(input: ReportInput, userId: string) {
   const embeddingText = [...new Set([displayTitle, displayDesc].filter(Boolean))].join(" ");
   const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
-    const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     const topMatch = dupCheck.similarIssues?.[0];
+    const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", topMatch ? { issueId: topMatch.id } : undefined);
     return {
       issue: topMatch ? { id: topMatch.id, title: topMatch.title } : null,
       warning: `Duplicate detected: ${dupCheck.warning}`,
@@ -513,8 +513,12 @@ export async function createIssue(input: ReportInput, userId: string) {
     );
   }
 
-  // Audit + revision
-  await Promise.all([
+  // Award credits for reporting (before side effects to avoid orphaned issues on audit failure)
+  let creditsAwarded = REPORT_IMMEDIATE_REWARD;
+  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
+
+  // Audit + revision (fire-and-forget — issue and credits are already committed)
+  Promise.all([
     createIssueRevision(issue.id, "create", userId),
     logAudit({
       action: "create",
@@ -522,11 +526,7 @@ export async function createIssue(input: ReportInput, userId: string) {
       entityId: issue.id,
       actorId: userId,
     }),
-  ]);
-
-  // Award credits for reporting (immediate portion; deferred +2 on first external interaction)
-  let creditsAwarded = REPORT_IMMEDIATE_REWARD;
-  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
+  ]).catch((err) => console.error("Failed to log audit/revision for issue", issue.id, err));
 
   // Handle inline patch — wrapped in try/catch so a patch failure doesn't
   // orphan the already-created issue (agent would see an error but issue exists).
@@ -573,6 +573,7 @@ export async function createIssue(input: ReportInput, userId: string) {
   return {
     issue,
     warning: dupCheck.warning,
+    ...(dupCheck.similarIssues && dupCheck.similarIssues.length > 0 && { similarIssues: dupCheck.similarIssues }),
     creditsAwarded,
     inlinePatch: inlinePatchResult,
     ...(_warnings.length > 0 && { _warnings }),

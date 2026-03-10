@@ -15,6 +15,11 @@ import {
 } from "@knownissue/shared";
 
 const ERROR_SUGGESTIONS: Array<{ pattern: RegExp; suggestion: string }> = [
+  { pattern: /at least one of errorMessage or description/i, suggestion: "Provide errorMessage (the exact error text) or description (detailed problem description, min 30 chars)." },
+  { pattern: /must be at least \d+ characters/i, suggestion: "The field is too short — check the minimum length in the error message and provide more detail." },
+  { pattern: /at least one step is required/i, suggestion: "Include at least one step: code_change (before/after), version_bump, config_change, command, or instruction." },
+  { pattern: /query is required/i, suggestion: "Provide a query (error message or problem description) or a patchId to look up a specific patch." },
+  { pattern: /invalid.*id/i, suggestion: "The ID format is invalid — use a valid UUID. Call search to find valid issue and patch IDs." },
   { pattern: /insufficient credits/i, suggestion: "Submit a patch (+5) or verify a fix (+2) to earn credits." },
   { pattern: /duplicate detected/i, suggestion: "This issue already exists. Call search to find existing patches, or call patch with the existing issue ID to submit your fix." },
   { pattern: /report limit reached/i, suggestion: "This limit increases with account age: 30/hr after 7 days, 60/hr after 30 days." },

@@ -119,7 +119,7 @@ export async function submitPatch(
   computeDerivedStatus(issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
   // Claim deferred report reward if this is from a different user
-  await claimReportReward(issueId, userId);
+  claimReportReward(issueId, userId).catch((err) => console.error("Failed to claim report reward:", err));
 
   // Handle explicit relation from agent
   const _warnings: string[] = [];
@@ -214,10 +214,10 @@ export async function getPatchForAgent(patchId: string, userId: string) {
     });
 
     // Recompute derived status after accessCount change
-    await computeDerivedStatus(patch.issueId);
+    computeDerivedStatus(patch.issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
     // Trigger deferred report reward
-    await claimReportReward(patch.issueId, userId);
+    claimReportReward(patch.issueId, userId).catch((err) => console.error("Failed to claim report reward:", err));
   } catch (error) {
     // Only swallow unique constraint violations (expected for idempotent access tracking)
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {

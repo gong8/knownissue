@@ -52,7 +52,7 @@ export async function createRelation(params: {
       },
     });
 
-    await logAudit({
+    logAudit({
       action: "create",
       entityType: "issue",
       entityId: sourceIssueId,
@@ -63,7 +63,7 @@ export async function createRelation(params: {
         source: params.source,
         confidence: params.confidence,
       },
-    });
+    }).catch((err) => console.error("Failed to log relation audit:", err));
 
     return true;
   } catch (error) {
