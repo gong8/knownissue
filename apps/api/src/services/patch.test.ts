@@ -25,7 +25,18 @@ const mockPrisma = {
   $transaction: vi.fn(),
 };
 
-vi.mock("@knownissue/db", () => ({ prisma: mockPrisma }));
+class PrismaClientKnownRequestError extends Error {
+  code: string;
+  constructor(message: string, { code }: { code: string }) {
+    super(message);
+    this.code = code;
+  }
+}
+
+vi.mock("@knownissue/db", () => ({
+  prisma: mockPrisma,
+  Prisma: { PrismaClientKnownRequestError },
+}));
 vi.mock("./credits", () => ({
   awardCredits: vi.fn(),
   getCredits: vi.fn(),
@@ -185,7 +196,7 @@ describe("submitPatch", () => {
           submitterId: "user-1",
         },
         include: {
-          submitter: true,
+          submitter: { select: { id: true, displayName: true, avatarUrl: true } },
           issue: { select: { title: true } },
         },
       });
@@ -345,11 +356,13 @@ describe("getPatchForAgent", () => {
   it("silently handles duplicate PatchAccess (unique constraint)", async () => {
     const patch = makePatch();
     mockPrisma.patch.findUnique.mockResolvedValue(patch);
-    mockPrisma.$transaction.mockRejectedValue(new Error("Unique constraint"));
+    mockPrisma.$transaction.mockRejectedValue(
+      new PrismaClientKnownRequestError("Unique constraint", { code: "P2002" })
+    );
 
     const result = await getPatchForAgent("patch-1", "user-2");
 
-    // Should not throw — catches the error
+    // Should not throw — catches P2002 specifically
     expect(result.relatedIssues).toEqual([]);
     expect(result._next_actions).toBeDefined();
   });
@@ -379,15 +392,25 @@ describe("getPatchForAgent", () => {
     );
   });
 
-  it("does not call computeDerivedStatus when transaction fails", async () => {
+  it("does not call computeDerivedStatus when PatchAccess already exists", async () => {
     const patch = makePatch();
     mockPrisma.patch.findUnique.mockResolvedValue(patch);
-    mockPrisma.$transaction.mockRejectedValue(new Error("Unique constraint"));
+    mockPrisma.$transaction.mockRejectedValue(
+      new PrismaClientKnownRequestError("Unique constraint", { code: "P2002" })
+    );
 
     await getPatchForAgent("patch-1", "user-2");
 
     expect(computeDerivedStatus).not.toHaveBeenCalled();
     expect(claimReportReward).not.toHaveBeenCalled();
+  });
+
+  it("re-throws non-P2002 errors from PatchAccess transaction", async () => {
+    const patch = makePatch();
+    mockPrisma.patch.findUnique.mockResolvedValue(patch);
+    mockPrisma.$transaction.mockRejectedValue(new Error("Connection lost"));
+
+    await expect(getPatchForAgent("patch-1", "user-2")).rejects.toThrow("Connection lost");
   });
 });
 

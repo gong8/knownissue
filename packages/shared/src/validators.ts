@@ -84,6 +84,8 @@ const inlinePatchSchema = z.object({
     .describe("What this patch changes and why it fixes the issue"),
   steps: z.array(patchStepSchema).min(1, "At least one step is required")
     .describe("Ordered list of steps to apply the fix"),
+  versionConstraint: z.string().optional()
+    .describe("Version range this patch applies to, e.g. '>=4.17.0 <5.0.0'"),
 });
 
 // ── 5 MCP Tool Schemas ────────────────────────────────────────────────────
@@ -101,6 +103,10 @@ export const searchInputBase = z.object({
     .describe("Exact error code to match, e.g. 'ERR_MODULE_NOT_FOUND', 'E0001'"),
   contextLibrary: z.string().optional()
     .describe("Filter by a library in the issue's context stack, e.g. 'webpack' to find issues involving webpack"),
+  limit: z.number().int().min(1).max(50).default(10).optional()
+    .describe("Max number of results to return (default 10)"),
+  offset: z.number().int().min(0).default(0).optional()
+    .describe("Number of results to skip for pagination (default 0)"),
 });
 
 export const searchInputSchema = searchInputBase.refine(

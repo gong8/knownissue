@@ -1,4 +1,4 @@
-import { prisma } from "@knownissue/db";
+import { prisma, type IssueStatus } from "@knownissue/db";
 import type { ReportInput, SearchInput } from "@knownissue/shared";
 import {
   reportInputSchema,
@@ -67,6 +67,11 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     if (fingerprint) {
       const issue = await findByFingerprint(fingerprint);
       if (issue) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
+          issue.id
+        );
+        if (userId) await claimReportReward(issue.id, userId);
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -90,6 +95,11 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     if (fingerprint) {
       const issue = await findByFingerprint(fingerprint);
       if (issue) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
+          issue.id
+        );
+        if (userId) await claimReportReward(issue.id, userId);
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -126,19 +136,38 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
 
     const conditions: string[] = [];
     const queryParams: unknown[] = [vectorStr, limit, offset];
+    const filterValues: unknown[] = [];
     let paramIndex = 4;
 
     if (version) {
       conditions.push(`"version" = $${paramIndex++}`);
       queryParams.push(version);
+      filterValues.push(version);
+    }
+    if (errorCode) {
+      conditions.push(`"errorCode" = $${paramIndex++}`);
+      queryParams.push(errorCode);
+      filterValues.push(errorCode);
+    }
+    if (contextLibrary) {
+      conditions.push(`$${paramIndex++} = ANY("contextLibraries")`);
+      queryParams.push(contextLibrary);
+      filterValues.push(contextLibrary);
     }
 
     const whereClause = conditions.length > 0
       ? `WHERE ${conditions.join(" AND ")}`
       : "";
 
-    const countConditions = conditions.slice();
-    const countParams = queryParams.slice(3);
+    // Rebuild count conditions with $1-based indices for separate param array
+    const countConditions: string[] = [];
+    let countIdx = 1;
+    if (version) countConditions.push(`"version" = $${countIdx++}`);
+    if (errorCode) countConditions.push(`"errorCode" = $${countIdx++}`);
+    if (contextLibrary) countConditions.push(`$${countIdx++} = ANY("contextLibraries")`);
+    const countWhereClause = countConditions.length > 0
+      ? `WHERE ${countConditions.join(" AND ")}`
+      : "";
 
     const [issues, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
@@ -155,8 +184,8 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
         ...queryParams
       ),
       prisma.$queryRawUnsafe<[{ count: number }]>(
-        `SELECT COUNT(*)::int as count FROM "Bug" ${whereClause ? `WHERE ${countConditions.join(" AND ")}` : ""}`,
-        ...countParams
+        `SELECT COUNT(*)::int as count FROM "Bug" ${countWhereClause}`,
+        ...filterValues
       ),
     ]);
 
@@ -179,8 +208,8 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       ? await prisma.patch.findMany({
           where: { issueId: { in: issueIds } },
           include: {
-            submitter: true,
-            verifications: { include: { verifier: true } },
+            submitter: { select: { id: true, displayName: true, avatarUrl: true } },
+            verifications: { include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } } },
           },
           orderBy: { createdAt: "desc" },
         })
@@ -235,11 +264,11 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
         ],
       },
       include: {
-        reporter: true,
+        reporter: { select: { id: true, displayName: true, avatarUrl: true } },
         patches: {
           include: {
-            submitter: true,
-            verifications: { include: { verifier: true } },
+            submitter: { select: { id: true, displayName: true, avatarUrl: true } },
+            verifications: { include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } } },
           },
           orderBy: { createdAt: "desc" },
         },
@@ -398,7 +427,7 @@ export async function createIssue(input: ReportInput, userId: string) {
   }
 
   // Tier 2/3: embedding duplicate check
-  const embeddingText = [displayTitle, displayDesc].filter(Boolean).join(" ");
+  const embeddingText = [...new Set([displayTitle, displayDesc].filter(Boolean))].join(" ");
   const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
     await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
@@ -420,8 +449,8 @@ export async function createIssue(input: ReportInput, userId: string) {
     };
   }
 
-  // Generate embedding
-  const embedding = await generateEmbedding(embeddingText, userId);
+  // Reuse embedding from duplicate check if available, otherwise generate
+  const embedding = dupCheck.embedding ?? await generateEmbedding(embeddingText, userId);
 
   // Create issue
   const issue = await prisma.issue.create({
@@ -447,7 +476,7 @@ export async function createIssue(input: ReportInput, userId: string) {
       category: parsed.category ?? null,
       reporterId: userId,
     },
-    include: { reporter: true },
+    include: { reporter: { select: { id: true, displayName: true, avatarUrl: true } } },
   });
 
   // Store embedding
@@ -482,7 +511,7 @@ export async function createIssue(input: ReportInput, userId: string) {
       issue.id,
       parsed.patch.explanation,
       parsed.patch.steps,
-      null,
+      parsed.patch.versionConstraint ?? null,
       userId
     );
     creditsAwarded += inlinePatchResult.creditsAwarded;
@@ -615,7 +644,7 @@ export async function computeDerivedStatus(issueId: string) {
     0
   );
 
-  let derivedStatus = issue.status;
+  let derivedStatus: IssueStatus;
 
   if (fixedCount >= CLOSED_FIXED_COUNT) {
     derivedStatus = "closed";
@@ -623,12 +652,21 @@ export async function computeDerivedStatus(issueId: string) {
     derivedStatus = "patched";
   } else if (issue.accessCount >= ACCESS_COUNT_THRESHOLD) {
     derivedStatus = "confirmed";
+  } else {
+    derivedStatus = "open";
   }
 
   if (derivedStatus !== issue.status) {
     await prisma.issue.update({
       where: { id: issueId },
       data: { status: derivedStatus },
+    });
+    await logAudit({
+      action: "update",
+      entityType: "issue",
+      entityId: issueId,
+      actorId: "system",
+      metadata: { previousStatus: issue.status, newStatus: derivedStatus, trigger: "derived_status" },
     });
   }
 }

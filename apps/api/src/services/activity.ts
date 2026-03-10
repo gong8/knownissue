@@ -93,14 +93,14 @@ export async function getMyActivity(
         issueTitle: p.issue.title,
         notFixedCount: p._notFixedCount,
         latestNote: p._latestNote,
-        suggested_action: "Call search with patchId to review, then call patch to update your fix",
+        suggested_action: `Call search with patchId "${p.id}" to review feedback, then call patch to update your fix`,
       })),
       ...actionableIssues.map((b) => ({
         type: "issue_status_changed" as const,
         issueId: b.id,
         title: b.title,
         newStatus: b.status,
-        suggested_action: "Call search to see the latest patches and verifications",
+        suggested_action: `Search for issue "${b.id}" to see the latest patches and verifications`,
       })),
     ],
     _next_actions: actionableCount > 0
@@ -189,8 +189,11 @@ async function getActionablePatches(userId: string) {
         where: { outcome: "not_fixed" },
         select: { note: true, createdAt: true },
         orderBy: { createdAt: "desc" },
+        take: 100,
       },
     },
+    orderBy: { updatedAt: "desc" },
+    take: 20,
   });
 
   return patches.map((p) => ({
@@ -201,10 +204,12 @@ async function getActionablePatches(userId: string) {
 }
 
 async function getActionableIssues(userId: string) {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   return prisma.issue.findMany({
     where: {
       reporterId: userId,
       status: { not: "open" },
+      updatedAt: { gte: thirtyDaysAgo },
     },
     select: {
       id: true,
@@ -212,5 +217,6 @@ async function getActionableIssues(userId: string) {
       status: true,
     },
     orderBy: { updatedAt: "desc" },
+    take: 20,
   });
 }

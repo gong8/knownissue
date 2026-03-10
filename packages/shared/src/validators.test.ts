@@ -292,19 +292,19 @@ describe("searchInputBase", () => {
       errorCode: "ERR_MODULE_NOT_FOUND",
       contextLibrary: "webpack",
     };
-    expect(searchInputBase.parse(input)).toEqual(input);
+    expect(searchInputBase.parse(input)).toEqual({ ...input, limit: 10, offset: 0 });
   });
 
   it("accepts empty object (all fields optional)", () => {
-    expect(searchInputBase.parse({})).toEqual({});
+    expect(searchInputBase.parse({})).toEqual({ limit: 10, offset: 0 });
   });
 
   it("accepts only query", () => {
-    expect(searchInputBase.parse({ query: "test" })).toEqual({ query: "test" });
+    expect(searchInputBase.parse({ query: "test" })).toEqual({ query: "test", limit: 10, offset: 0 });
   });
 
   it("accepts only patchId", () => {
-    expect(searchInputBase.parse({ patchId: VALID_UUID })).toEqual({ patchId: VALID_UUID });
+    expect(searchInputBase.parse({ patchId: VALID_UUID })).toEqual({ patchId: VALID_UUID, limit: 10, offset: 0 });
   });
 
   it("rejects invalid patchId (not a UUID)", () => {

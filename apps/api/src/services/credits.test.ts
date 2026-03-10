@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@knownissue/db", () => ({
-  prisma: {
+const { mockPrismaInner } = vi.hoisted(() => {
+  const mockPrismaInner = {
     user: {
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
@@ -12,7 +12,17 @@ vi.mock("@knownissue/db", () => ({
       count: vi.fn(),
     },
     $executeRawUnsafe: vi.fn(),
-  },
+    $transaction: vi.fn(),
+  };
+  // Interactive transaction passes a `tx` client — reuse the same mock methods
+  mockPrismaInner.$transaction.mockImplementation(
+    async (fn: (tx: typeof mockPrismaInner) => Promise<unknown>) => fn(mockPrismaInner)
+  );
+  return { mockPrismaInner };
+});
+
+vi.mock("@knownissue/db", () => ({
+  prisma: mockPrismaInner,
 }));
 
 import { prisma } from "@knownissue/db";
@@ -39,6 +49,10 @@ const mockTxCount = prisma.creditTransaction.count as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Re-set $transaction after clearAllMocks (v4 clears implementations)
+  mockPrismaInner.$transaction.mockImplementation(
+    async (fn: (tx: typeof mockPrismaInner) => Promise<unknown>) => fn(mockPrismaInner)
+  );
 });
 
 describe("getCredits", () => {
@@ -217,7 +231,9 @@ describe("deductCredits", () => {
 describe("penalizeCredits", () => {
   it("uses GREATEST to floor at 0", async () => {
     mockExecuteRaw.mockResolvedValue(1);
-    mockFindUniqueOrThrow.mockResolvedValue({ credits: 0 });
+    mockFindUniqueOrThrow
+      .mockResolvedValueOnce({ credits: 3 })   // before update
+      .mockResolvedValueOnce({ credits: 0 });   // after update
     mockTxCreate.mockResolvedValue({});
 
     const result = await penalizeCredits("user-1", 10, "duplicate_penalty");
@@ -230,24 +246,40 @@ describe("penalizeCredits", () => {
     );
   });
 
-  it("creates a transaction with negative amount", async () => {
+  it("records actual deduction amount (not raw penalty) in transaction", async () => {
     mockExecuteRaw.mockResolvedValue(1);
-    mockFindUniqueOrThrow.mockResolvedValue({ credits: 3 });
+    mockFindUniqueOrThrow
+      .mockResolvedValueOnce({ credits: 3 })   // before: had 3
+      .mockResolvedValueOnce({ credits: 0 });   // after: floored to 0
     mockTxCreate.mockResolvedValue({});
 
     await penalizeCredits("user-1", 5, "duplicate_penalty");
 
     expect(mockTxCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        amount: -5,
-        balance: 3,
+        amount: -3,   // actual deduction was 3, not 5
+        balance: 0,
       }),
     });
   });
 
+  it("skips transaction when actual deduction is 0", async () => {
+    mockExecuteRaw.mockResolvedValue(1);
+    mockFindUniqueOrThrow
+      .mockResolvedValueOnce({ credits: 0 })   // before: had 0
+      .mockResolvedValueOnce({ credits: 0 });   // after: still 0
+    mockTxCreate.mockResolvedValue({});
+
+    await penalizeCredits("user-1", 5, "duplicate_penalty");
+
+    expect(mockTxCreate).not.toHaveBeenCalled();
+  });
+
   it("records related entities on penalty", async () => {
     mockExecuteRaw.mockResolvedValue(1);
-    mockFindUniqueOrThrow.mockResolvedValue({ credits: 0 });
+    mockFindUniqueOrThrow
+      .mockResolvedValueOnce({ credits: 5 })   // before
+      .mockResolvedValueOnce({ credits: 3 });   // after
     mockTxCreate.mockResolvedValue({});
 
     await penalizeCredits("user-1", 2, "duplicate_penalty", {
@@ -265,7 +297,9 @@ describe("penalizeCredits", () => {
 
   it("does not throw even when penalty exceeds balance (floors at 0)", async () => {
     mockExecuteRaw.mockResolvedValue(1);
-    mockFindUniqueOrThrow.mockResolvedValue({ credits: 0 });
+    mockFindUniqueOrThrow
+      .mockResolvedValueOnce({ credits: 0 })   // before
+      .mockResolvedValueOnce({ credits: 0 });   // after
     mockTxCreate.mockResolvedValue({});
 
     // Should not throw even with large penalty

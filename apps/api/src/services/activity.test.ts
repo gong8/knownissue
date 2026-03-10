@@ -242,7 +242,7 @@ describe("getMyActivity", () => {
       expect(issueAction).toBeDefined();
       expect(issueAction!.issueId).toBe("i1");
       expect(issueAction!.newStatus).toBe("patched");
-      expect(issueAction!.suggested_action).toContain("search");
+      expect(issueAction!.suggested_action).toContain("Search");
     });
   });
 
