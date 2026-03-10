@@ -54,7 +54,12 @@ function summarizePatches<
 }
 
 export async function searchIssues(params: SearchInput & { limit?: number; offset?: number }, userId?: string) {
-  const { query, library, version, errorCode, contextLibrary, limit = 10, offset = 0 } = params;
+  const { query, version, limit = 10, offset = 0 } = params;
+
+  // Normalize case-insensitive fields
+  const library = params.library?.toLowerCase();
+  const errorCode = params.errorCode?.toLowerCase();
+  const contextLibrary = params.contextLibrary?.toLowerCase();
 
   // Tier 1: fingerprint match via errorCode
   if (errorCode && library) {
@@ -123,17 +128,9 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     const queryParams: unknown[] = [vectorStr, limit, offset];
     let paramIndex = 4;
 
-    if (library) {
-      conditions.push(`"library" = $${paramIndex++}`);
-      queryParams.push(library);
-    }
     if (version) {
       conditions.push(`"version" = $${paramIndex++}`);
       queryParams.push(version);
-    }
-    if (contextLibrary) {
-      conditions.push(`$${paramIndex++} = ANY("contextLibraries")`);
-      queryParams.push(contextLibrary);
     }
 
     const whereClause = conditions.length > 0
@@ -225,9 +222,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
 
   // Fallback: text search
   const where: Record<string, unknown> = {};
-  if (library) where.library = library;
   if (version) where.version = version;
-  if (contextLibrary) where.contextLibraries = { has: contextLibrary };
 
   const [issues, total] = await Promise.all([
     prisma.issue.findMany({
@@ -338,6 +333,12 @@ export async function getIssueById(id: string) {
 export async function createIssue(input: ReportInput, userId: string) {
   const parsed = reportInputSchema.parse(input);
 
+  // Normalize case-insensitive fields for consistent storage and matching
+  const library = parsed.library?.toLowerCase();
+  const ecosystem = parsed.ecosystem?.toLowerCase();
+  const errorCode = parsed.errorCode?.toLowerCase();
+  const contextLibraries = parsed.context?.map((c) => c.name.toLowerCase()) ?? [];
+
   // Report throttle — sliding window by account age
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const accountAge = Date.now() - user.createdAt.getTime();
@@ -372,8 +373,8 @@ export async function createIssue(input: ReportInput, userId: string) {
     }
   }
 
-  // Compute fingerprint
-  const fingerprint = computeFingerprint(parsed.library, parsed.errorCode, parsed.errorMessage);
+  // Compute fingerprint (library and errorCode already lowercased)
+  const fingerprint = computeFingerprint(library, errorCode, parsed.errorMessage);
 
   // Tier 1: fingerprint duplicate check (free)
   if (fingerprint) {
@@ -422,21 +423,18 @@ export async function createIssue(input: ReportInput, userId: string) {
   // Generate embedding
   const embedding = await generateEmbedding(embeddingText, userId);
 
-  // Denormalize context libraries
-  const contextLibraries = parsed.context?.map((c) => c.name) ?? [];
-
   // Create issue
   const issue = await prisma.issue.create({
     data: {
       title: parsed.title ?? null,
       description: parsed.description ?? null,
-      library: parsed.library,
+      library,
       version: parsed.version,
-      ecosystem: parsed.ecosystem,
+      ecosystem,
       severity: parsed.severity,
       tags: parsed.tags,
       errorMessage: parsed.errorMessage ?? null,
-      errorCode: parsed.errorCode ?? null,
+      errorCode: errorCode ?? null,
       stackTrace: parsed.stackTrace ?? null,
       fingerprint,
       triggerCode: parsed.triggerCode ?? null,
@@ -538,7 +536,7 @@ export async function listIssues(params: {
   const where: Record<string, unknown> = {};
   if (library) where.library = { contains: library, mode: "insensitive" };
   if (version) where.version = version;
-  if (ecosystem) where.ecosystem = ecosystem;
+  if (ecosystem) where.ecosystem = { equals: ecosystem, mode: "insensitive" };
   if (category) where.category = category;
   if (status && status.length > 0) {
     where.status = status.length === 1 ? status[0] : { in: status };

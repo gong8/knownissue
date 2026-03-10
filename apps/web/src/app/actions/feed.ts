@@ -1,6 +1,6 @@
 "use server";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_URL } from "@/lib/api";
 
 export async function fetchFeed(params: {
   type?: string;
@@ -39,6 +39,18 @@ export async function fetchAggregateStats() {
     fixesReused: number;
     issuesResolved: number;
     verifiedThisWeek: number;
+  }>;
+}
+
+/** Public stats fetch — no auth required, safe for landing page */
+export async function fetchPublicStats() {
+  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: 60 } });
+  if (!res.ok) return null;
+  return res.json() as Promise<{
+    issues: number;
+    patches: number;
+    users: number;
+    issuesResolved: number;
   }>;
 }
 

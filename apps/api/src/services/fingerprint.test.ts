@@ -39,12 +39,12 @@ describe("computeFingerprint", () => {
 
   it("returns sha256(library::errorCode) when errorCode is present", () => {
     const result = computeFingerprint("react", "E001", "some error");
-    expect(result).toBe(sha256("react::E001"));
+    expect(result).toBe(sha256("react::e001"));
   });
 
   it("prefers errorCode over errorMessage when both present", () => {
     const result = computeFingerprint("react", "E001", "Module not found");
-    expect(result).toBe(sha256("react::E001"));
+    expect(result).toBe(sha256("react::e001"));
   });
 
   it("returns sha256(library::normalized(errorMessage)) when errorCode absent", () => {

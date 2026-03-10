@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { fetchPublicStats } from "@/app/actions/feed";
 
 interface Stats {
   issues: number;
@@ -48,8 +47,7 @@ export function StatsBar() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/stats`)
-      .then((r) => (r.ok ? r.json() : null))
+    fetchPublicStats()
       .then((data) => {
         if (data && typeof data.issues === "number") {
           setStats(data);

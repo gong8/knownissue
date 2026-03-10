@@ -311,7 +311,7 @@ describe("SQL Injection Prevention", () => {
     expect(sqlTemplate).not.toContain("DROP TABLE");
   });
 
-  it("searchIssues with SQL injection in library filter uses parameterized query", async () => {
+  it("searchIssues with SQL injection in library filter is safe because library is not a SQL filter", async () => {
     const maliciousLibrary = "'; DELETE FROM \"User\"; --";
 
     mockComputeFingerprint.mockReturnValue(null);
@@ -328,12 +328,10 @@ describe("SQL Injection Prevention", () => {
     const call = mockPrisma.$queryRawUnsafe.mock.calls[0];
     expect(call).toBeDefined();
     const sqlTemplate = call[0] as string;
-    // Library filter should be parameterized, not interpolated
+    // Library is no longer a SQL filter — handled by embeddings instead
+    // so malicious input never reaches the SQL query at all
     expect(sqlTemplate).not.toContain("DELETE FROM");
-    expect(sqlTemplate).toContain("$");
-    // The malicious string should appear only as a parameter value
-    const params = call.slice(1);
-    expect(params).toContain(maliciousLibrary);
+    expect(sqlTemplate).not.toContain(maliciousLibrary);
   });
 
   it("createIssue with SQL injection in errorMessage stores it safely", async () => {
