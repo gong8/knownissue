@@ -7,16 +7,17 @@ export function computeFingerprint(
   errorMessage?: string | null
 ): string | null {
   if (!library) return null;
+  const lib = library.toLowerCase();
 
   // Tier 1: errorCode present — most precise
   if (errorCode) {
-    return sha256(`${library}::${errorCode}`);
+    return sha256(`${lib}::${errorCode.toLowerCase()}`);
   }
 
   // Tier 2: errorMessage present — normalize then hash
   if (errorMessage) {
     const normalized = normalizeErrorMessage(errorMessage);
-    return sha256(`${library}::${normalized}`);
+    return sha256(`${lib}::${normalized}`);
   }
 
   // Tier 3: no error info — use embeddings instead

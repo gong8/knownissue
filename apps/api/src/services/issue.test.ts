@@ -376,31 +376,19 @@ describe("searchIssues", () => {
       expect(claimReportReward).not.toHaveBeenCalled();
     });
 
-    it("adds library and version filters to vector query", async () => {
+    it("adds version filter to vector query but not library or contextLibrary", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue([0.5]);
       mockPrisma.$queryRawUnsafe
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ count: 0 }]);
 
-      await searchIssues({ query: "error", library: "react", version: "18.2.0" });
+      await searchIssues({ query: "error", library: "react", version: "18.2.0", contextLibrary: "webpack" });
 
       const sql = mockPrisma.$queryRawUnsafe.mock.calls[0][0] as string;
-      expect(sql).toContain('"library" = $4');
-      expect(sql).toContain('"version" = $5');
-    });
-
-    it("adds contextLibrary filter to vector query", async () => {
-      computeFingerprint.mockReturnValue(null);
-      generateEmbedding.mockResolvedValue([0.5]);
-      mockPrisma.$queryRawUnsafe
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ count: 0 }]);
-
-      await searchIssues({ query: "error", contextLibrary: "webpack" });
-
-      const sql = mockPrisma.$queryRawUnsafe.mock.calls[0][0] as string;
-      expect(sql).toContain('ANY("contextLibraries")');
+      expect(sql).toContain('"version" = $4');
+      expect(sql).not.toContain('"library" =');
+      expect(sql).not.toContain('ANY("contextLibraries")');
     });
 
     it("loads patches with verification summary for vector results", async () => {
@@ -461,7 +449,7 @@ describe("searchIssues", () => {
       expect(mockPrisma.issue.findMany).toHaveBeenCalled();
     });
 
-    it("applies library and contextLibrary filters in text search", async () => {
+    it("does not apply library or contextLibrary filters in text search", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue(null);
       mockPrisma.issue.findMany.mockResolvedValue([]);
@@ -470,8 +458,8 @@ describe("searchIssues", () => {
       await searchIssues({ query: "error", library: "react", contextLibrary: "webpack" });
 
       const call = mockPrisma.issue.findMany.mock.calls[0][0];
-      expect(call.where.library).toBe("react");
-      expect(call.where.contextLibraries).toEqual({ has: "webpack" });
+      expect(call.where.library).toBeUndefined();
+      expect(call.where.contextLibraries).toBeUndefined();
     });
 
     it("loads related issues for text search results", async () => {
@@ -830,7 +818,7 @@ describe("listIssues", () => {
     const call = mockPrisma.issue.findMany.mock.calls[0][0];
     expect(call.where.library).toEqual({ contains: "react", mode: "insensitive" });
     expect(call.where.version).toBe("18.2.0");
-    expect(call.where.ecosystem).toBe("npm");
+    expect(call.where.ecosystem).toEqual({ equals: "npm", mode: "insensitive" });
     expect(call.where.category).toBe("crash");
     expect(call.where.status).toEqual({ in: ["open", "confirmed"] });
     expect(call.where.severity).toBe("high");
