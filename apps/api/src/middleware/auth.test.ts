@@ -266,10 +266,11 @@ describe("authMiddleware", () => {
 
       expect(res.status).toBe(200);
       expect(prisma.user.create).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           clerkId: "clerk-new-user",
+          displayName: expect.any(String),
           credits: 5, // SIGNUP_BONUS
-        },
+        }),
       });
     });
 

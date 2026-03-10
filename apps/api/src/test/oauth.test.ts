@@ -329,10 +329,11 @@ describe("Clerk JWT", () => {
 
     // Verify user was created with SIGNUP_BONUS
     expect(mockPrisma.user.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         clerkId: "clerk_user_new",
+        displayName: expect.any(String),
         credits: SIGNUP_BONUS,
-      },
+      }),
     });
   });
 
