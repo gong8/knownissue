@@ -51,7 +51,7 @@ export default $config({
       environment: {
         NODE_ENV: "production",
         API_PORT: "3001",
-        CORS_ORIGIN: "https://knownissue.dev",
+        CORS_ORIGIN: "https://knownissue.dev,https://www.knownissue.dev",
         API_BASE_URL: "https://mcp.knownissue.dev", // public URL for OAuth metadata endpoints
         DATABASE_URL: $interpolate`postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.database}`,
         CLERK_SECRET_KEY: clerkSecretKey.value,
