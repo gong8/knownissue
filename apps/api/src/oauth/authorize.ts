@@ -4,6 +4,7 @@ import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
 import { generateAuthCode, hashToken, AUTH_CODE_TTL, getApiBaseUrl } from "./utils.js";
+import { fetchClerkDisplayName } from "../middleware/auth";
 
 const authorize = new Hono();
 
@@ -399,6 +400,13 @@ authorize.post("/oauth/approve", async (c) => {
         credits: SIGNUP_BONUS,
       },
     });
+    const displayName = await fetchClerkDisplayName(clerkId);
+    if (displayName) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { displayName },
+      });
+    }
   }
 
   const resolvedScope = scope ?? "mcp:tools";

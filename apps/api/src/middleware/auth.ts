@@ -10,6 +10,22 @@ import { getApiBaseUrl } from "../oauth/utils";
 
 type AuthResult = { user: User; scopes?: string[] };
 
+export async function fetchClerkDisplayName(clerkId: string): Promise<string | null> {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+  try {
+    const res = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { first_name?: string; last_name?: string };
+    const parts = [data.first_name, data.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(" ") : null;
+  } catch {
+    return null;
+  }
+}
+
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
@@ -89,6 +105,14 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
           credits: SIGNUP_BONUS,
         },
       });
+      // Best-effort: populate displayName from Clerk
+      const displayName = await fetchClerkDisplayName(clerkUserId);
+      if (displayName) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { displayName },
+        });
+      }
     }
 
     return { user: toUser(user) };
