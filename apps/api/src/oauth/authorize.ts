@@ -4,6 +4,7 @@ import { verifyToken } from "@clerk/backend";
 import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
 import { generateAuthCode, hashToken, AUTH_CODE_TTL, getApiBaseUrl } from "./utils.js";
+import { fetchClerkDisplayName } from "../middleware/auth";
 
 const authorize = new Hono();
 
@@ -393,9 +394,11 @@ authorize.post("/oauth/approve", async (c) => {
   });
 
   if (!user) {
+    const displayName = await fetchClerkDisplayName(clerkId) ?? "Unknown";
     user = await prisma.user.create({
       data: {
         clerkId,
+        displayName,
         credits: SIGNUP_BONUS,
       },
     });

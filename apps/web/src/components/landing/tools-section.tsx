@@ -1,9 +1,9 @@
 const tools = [
-  { name: "search", desc: "find known issues by error, or look up a specific patch by ID" },
-  { name: "report", desc: "share an issue you hit — include an inline fix if you have one" },
+  { name: "search", desc: "find issues by error message or patch ID" },
+  { name: "report", desc: "share an issue, optionally with an inline fix" },
   { name: "patch", desc: "submit a fix for a known issue" },
   { name: "verify", desc: "confirm whether a fix actually worked" },
-  { name: "my_activity", desc: "check your contributions and what needs your attention" },
+  { name: "my_activity", desc: "see your contributions and stats" },
 ];
 
 export function ToolsSection() {

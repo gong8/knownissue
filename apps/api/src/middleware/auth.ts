@@ -10,6 +10,22 @@ import { getApiBaseUrl } from "../oauth/utils";
 
 type AuthResult = { user: User; scopes?: string[] };
 
+export async function fetchClerkDisplayName(clerkId: string): Promise<string | null> {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+  try {
+    const res = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { first_name?: string; last_name?: string };
+    const parts = [data.first_name, data.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(" ") : null;
+  } catch {
+    return null;
+  }
+}
+
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
@@ -17,6 +33,7 @@ function sha256(input: string): string {
 function toUser(row: {
   id: string;
   clerkId: string;
+  displayName: string;
   avatarUrl: string | null;
   credits: number;
   createdAt: Date;
@@ -25,6 +42,7 @@ function toUser(row: {
   return {
     id: row.id,
     clerkId: row.clerkId,
+    displayName: row.displayName,
     avatarUrl: row.avatarUrl,
     credits: row.credits,
     createdAt: row.createdAt,
@@ -81,9 +99,11 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
     });
 
     if (!user) {
+      const displayName = await fetchClerkDisplayName(clerkUserId) ?? "Unknown";
       user = await prisma.user.create({
         data: {
           clerkId: clerkUserId,
+          displayName,
           credits: SIGNUP_BONUS,
         },
       });

@@ -12,74 +12,74 @@ interface Line {
 const lines: Line[] = [
   {
     text: '$ claude "the app crashes on next 15.2 with module not found"',
-    typingSpeed: 15,
-    pauseAfter: 600,
+    typingSpeed: 8,
+    pauseAfter: 300,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "\u23f5 searching knownissue...",
     color: "muted",
-    pauseAfter: 800,
+    pauseAfter: 400,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "  found: next@15.2.x \u2014 Module not found: Can't resolve 'private-next-rsc-mod...'",
     color: "primary",
-    pauseAfter: 200,
+    pauseAfter: 100,
   },
   {
     text: "  severity: critical  |  status: patched  |  3 verified fixes",
     color: "default",
-    pauseAfter: 600,
+    pauseAfter: 300,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "\u23f5 getting top patch...",
     color: "muted",
-    pauseAfter: 700,
+    pauseAfter: 350,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "  patch by @cursor-agent-9f2a  (verified 3x, 100% fixed)",
     color: "default",
-    pauseAfter: 200,
+    pauseAfter: 100,
   },
   {
     text: "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     color: "muted",
-    pauseAfter: 200,
+    pauseAfter: 100,
   },
   {
     text: "  pin next to 15.2.3 \u2014 the resolution issue was fixed in canary",
     color: "default",
-    pauseAfter: 100,
+    pauseAfter: 50,
   },
   {
     text: "  but a regression in 15.2.4 stable makes 15.2.3 the safe target.",
     color: "default",
-    pauseAfter: 300,
+    pauseAfter: 150,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "  1. npm install next@15.2.3 --save-exact",
     color: "default",
-    pauseAfter: 100,
+    pauseAfter: 50,
   },
   {
     text: "  2. rm -rf .next node_modules/.cache",
     color: "default",
-    pauseAfter: 100,
+    pauseAfter: 50,
   },
   {
     text: "  3. rebuild",
     color: "default",
-    pauseAfter: 600,
+    pauseAfter: 300,
   },
-  { text: "", pauseAfter: 100 },
+  { text: "", pauseAfter: 50 },
   {
     text: "\u23f5 applied patch. running tests... all passing. \u2713",
     color: "green",
-    pauseAfter: 400,
+    pauseAfter: 200,
   },
   {
     text: "\u23f5 verify \u2192 outcome: fixed \u2713",
@@ -106,7 +106,7 @@ export function TerminalDemo() {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const speed = line.typingSpeed ?? 30;
+      const speed = line.typingSpeed ?? 12;
       const chars = line.text.length;
 
       for (let c = 0; c <= chars; c++) {
@@ -162,7 +162,7 @@ export function TerminalDemo() {
   return (
     <div
       ref={containerRef}
-      className="w-full overflow-hidden rounded-sm border border-border bg-background shadow-[0_0_60px_-15px] shadow-primary/8"
+      className="w-full overflow-hidden rounded-sm border border-white/10 bg-background"
     >
       <div className="flex items-center border-b border-border px-4 py-2">
         <span className="font-mono text-[11px] text-muted-foreground">
@@ -170,8 +170,16 @@ export function TerminalDemo() {
         </span>
       </div>
 
-      <div className="p-5">
-        <pre className="font-mono text-sm leading-relaxed">
+      <div className="relative overflow-x-auto p-3 sm:p-5">
+        {/* Invisible spacer — reserves full height to prevent layout shift */}
+        <pre className="invisible font-mono text-xs leading-relaxed sm:text-sm" aria-hidden>
+          {lines.map((line, i) => (
+            <div key={i}>{line.text || "\u00A0"}</div>
+          ))}
+        </pre>
+
+        {/* Visible animation overlaid */}
+        <pre className="absolute inset-0 p-3 font-mono text-xs leading-relaxed sm:p-5 sm:text-sm">
           {lines.slice(0, visibleLines).map((line, i) => (
             <div key={i} className={colorClass(line.color)}>
               {line.text || "\u00A0"}
@@ -191,6 +199,9 @@ export function TerminalDemo() {
             </div>
           )}
         </pre>
+
+        {/* Fade hint for horizontal overflow on mobile */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
       </div>
     </div>
   );
