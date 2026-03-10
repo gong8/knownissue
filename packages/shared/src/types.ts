@@ -53,6 +53,7 @@ export interface ContextLibrary {
 export interface User {
   id: string;
   clerkId: string;
+  displayName: string | null;
   avatarUrl: string | null;
   credits: number;
   createdAt: Date;

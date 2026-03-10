@@ -17,6 +17,7 @@ function sha256(input: string): string {
 function toUser(row: {
   id: string;
   clerkId: string;
+  displayName: string | null;
   avatarUrl: string | null;
   credits: number;
   createdAt: Date;
@@ -25,6 +26,7 @@ function toUser(row: {
   return {
     id: row.id,
     clerkId: row.clerkId,
+    displayName: row.displayName,
     avatarUrl: row.avatarUrl,
     credits: row.credits,
     createdAt: row.createdAt,
