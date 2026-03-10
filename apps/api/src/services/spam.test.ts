@@ -59,64 +59,22 @@ describe("validateContent", () => {
 });
 
 describe("checkDuplicate", () => {
-  describe("fingerprint match (Tier 1)", () => {
-    it("returns isDuplicate: true when fingerprint matches an existing issue", async () => {
-      const existing = {
-        id: "issue-1",
-        title: "Existing issue",
-        errorMessage: null,
-      };
-      mockFindByFingerprint.mockResolvedValue(existing);
-
-      const result = await checkDuplicate("some text", "fp-123");
-
-      expect(result.isDuplicate).toBe(true);
-      expect(result.warning).toContain("same error signature");
-      expect(result.similarIssues).toEqual([
-        { id: "issue-1", title: "Existing issue", similarity: 1.0 },
-      ]);
-    });
-
-    it("uses errorMessage as title fallback when title is null", async () => {
-      const existing = {
-        id: "issue-2",
-        title: null,
-        errorMessage: "Cannot find module",
-      };
-      mockFindByFingerprint.mockResolvedValue(existing);
-
-      const result = await checkDuplicate("some text", "fp-456");
-
-      expect(result.similarIssues?.[0].title).toBe("Cannot find module");
-    });
-
-    it("uses 'Untitled' when both title and errorMessage are null", async () => {
-      const existing = {
-        id: "issue-3",
-        title: null,
-        errorMessage: null,
-      };
-      mockFindByFingerprint.mockResolvedValue(existing);
-
-      const result = await checkDuplicate("some text", "fp-789");
-
-      expect(result.similarIssues?.[0].title).toBe("Untitled");
-    });
-
-    it("skips fingerprint check when fingerprint is null", async () => {
+  describe("fingerprint parameter (no-op, handled by caller)", () => {
+    it("does not call findByFingerprint (fingerprint check is done by caller)", async () => {
       mockGenerateEmbedding.mockResolvedValue(null);
 
-      await checkDuplicate("some text", null);
+      await checkDuplicate("some text", "fp-123");
 
       expect(mockFindByFingerprint).not.toHaveBeenCalled();
     });
 
-    it("skips fingerprint check when fingerprint is undefined", async () => {
-      mockGenerateEmbedding.mockResolvedValue(null);
+    it("returns embedding when generated", async () => {
+      mockGenerateEmbedding.mockResolvedValue([0.1, 0.2]);
+      mockQueryRaw.mockResolvedValue([]);
 
-      await checkDuplicate("some text", undefined);
+      const result = await checkDuplicate("some text", null);
 
-      expect(mockFindByFingerprint).not.toHaveBeenCalled();
+      expect(result.embedding).toEqual([0.1, 0.2]);
     });
   });
 
@@ -230,14 +188,12 @@ describe("checkDuplicate", () => {
       );
     });
 
-    it("proceeds to embedding check when fingerprint provided but no match", async () => {
-      mockFindByFingerprint.mockResolvedValue(null);
+    it("proceeds to embedding check regardless of fingerprint parameter", async () => {
       mockGenerateEmbedding.mockResolvedValue([0.1]);
       mockQueryRaw.mockResolvedValue([]);
 
       const result = await checkDuplicate("text", "fp-nomatch", "user-1");
 
-      expect(mockFindByFingerprint).toHaveBeenCalledWith("fp-nomatch");
       expect(mockGenerateEmbedding).toHaveBeenCalledWith("text", "user-1");
       expect(result.isDuplicate).toBe(false);
     });

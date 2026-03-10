@@ -376,7 +376,7 @@ describe("searchIssues", () => {
       expect(claimReportReward).not.toHaveBeenCalled();
     });
 
-    it("adds version filter to vector query but not library or contextLibrary", async () => {
+    it("adds version and contextLibrary filters to vector query but not library", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue([0.5]);
       mockPrisma.$queryRawUnsafe
@@ -388,7 +388,7 @@ describe("searchIssues", () => {
       const sql = mockPrisma.$queryRawUnsafe.mock.calls[0][0] as string;
       expect(sql).toContain('"version" = $4');
       expect(sql).not.toContain('"library" =');
-      expect(sql).not.toContain('ANY("contextLibraries")');
+      expect(sql).toContain('ANY("contextLibraries")');
     });
 
     it("loads patches with verification summary for vector results", async () => {

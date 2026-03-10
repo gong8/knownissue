@@ -155,7 +155,7 @@ describe("verify", () => {
           patchId: "patch-1",
           verifierId: "verifier-1",
         },
-        include: { verifier: true },
+        include: { verifier: { select: { id: true, displayName: true, avatarUrl: true } } },
       });
     });
 
@@ -213,7 +213,7 @@ describe("verify", () => {
     it("returns _next_actions with thank you message", async () => {
       const result = await verify("patch-1", "fixed", null, null, null, null, undefined, "verifier-1");
 
-      expect(result._next_actions[0]).toContain("trustworthy");
+      expect(result._next_actions[0]).toContain("working as intended");
     });
   });
 
