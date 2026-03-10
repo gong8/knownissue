@@ -2,17 +2,34 @@ import { prisma } from "@knownissue/db";
 import {
   DUPLICATE_WARN_THRESHOLD,
   DUPLICATE_REJECT_THRESHOLD,
+  MIN_TITLE_LENGTH,
+  MIN_DESCRIPTION_LENGTH,
 } from "@knownissue/shared";
 import { generateEmbedding } from "./embedding";
 
 export function validateContent(
   title: string | null,
-  description: string | null
+  description: string | null,
+  errorMessage?: string | null
 ): { valid: boolean; reason?: string } {
-  if (!title && !description) {
+  if (!title && !description && !errorMessage) {
     return {
       valid: false,
       reason: "At least one of errorMessage or description is required",
+    };
+  }
+
+  if (description && description.length < MIN_DESCRIPTION_LENGTH) {
+    return {
+      valid: false,
+      reason: `Description must be at least ${MIN_DESCRIPTION_LENGTH} characters`,
+    };
+  }
+
+  if (title && title.length < MIN_TITLE_LENGTH) {
+    return {
+      valid: false,
+      reason: `Title must be at least ${MIN_TITLE_LENGTH} characters`,
     };
   }
 

@@ -732,6 +732,27 @@ describe("createIssue", () => {
       expect(result.inlinePatch).toBeDefined();
     });
 
+    it("returns issue with warning when inline patch fails", async () => {
+      patchService.submitPatch.mockRejectedValue(new Error("Patch submission failed"));
+
+      const inputWithPatch = {
+        ...validInput,
+        patch: {
+          explanation: "Fix by updating the dependency",
+          steps: [{ type: "instruction" as const, text: "Update lodash" }],
+        },
+      };
+
+      const result = await createIssue(inputWithPatch, "user-1");
+
+      expect(result.issue).toBeDefined();
+      expect(result.creditsAwarded).toBe(REPORT_IMMEDIATE_REWARD);
+      expect(result.inlinePatch).toEqual({
+        error: "Patch submission failed",
+        creditsAwarded: 0,
+      });
+    });
+
     it("handles relatedTo", async () => {
       createRelation.mockResolvedValue(true);
 

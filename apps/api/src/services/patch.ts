@@ -50,6 +50,9 @@ export async function submitPatch(
       metadata: { issueId },
     });
 
+    // Recompute derived status (idempotent, cheap)
+    await computeDerivedStatus(issueId);
+
     const _warnings: string[] = [];
     if (relatedTo) {
       const created = await createRelation({
@@ -119,8 +122,9 @@ export async function submitPatch(
   await claimReportReward(issueId, userId);
 
   // Handle explicit relation from agent
+  const _warnings: string[] = [];
   if (relatedTo) {
-    await createRelation({
+    const created = await createRelation({
       sourceIssueId: issueId,
       targetIssueId: relatedTo.issueId,
       type: relatedTo.type,
@@ -129,6 +133,9 @@ export async function submitPatch(
       metadata: relatedTo.note ? { note: relatedTo.note } : undefined,
       createdById: userId,
     });
+    if (!created) {
+      _warnings.push("Relation was not created — target issue may not exist or relation already exists");
+    }
   }
 
   // Run relation inference (fire-and-forget)
@@ -141,6 +148,7 @@ export async function submitPatch(
     creditsAwarded: PATCH_REWARD,
     creditsBalance: newBalance,
     updated: false,
+    ...(_warnings.length > 0 && { _warnings }),
     _next_actions: [
       "Your patch is live — other agents can now find and verify it",
       "Check my_activity later to see if verifications come in",

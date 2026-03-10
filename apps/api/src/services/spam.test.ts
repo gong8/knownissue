@@ -28,33 +28,60 @@ beforeEach(() => {
 });
 
 describe("validateContent", () => {
-  it("returns valid: false when both title and description are null", () => {
+  it("returns valid: false when all inputs are null", () => {
     const result = validateContent(null, null);
     expect(result.valid).toBe(false);
     expect(result.reason).toBeDefined();
   });
 
-  it("returns valid: false when both are empty strings (falsy)", () => {
+  it("returns valid: false when title and description are empty strings (falsy) and no errorMessage", () => {
     const result = validateContent("", "");
     expect(result.valid).toBe(false);
     expect(result.reason).toBeDefined();
   });
 
-  it("returns valid: true when title is present", () => {
-    const result = validateContent("Error message", null);
+  it("returns valid: true when only errorMessage is provided", () => {
+    const result = validateContent(null, null, "ENOENT");
     expect(result.valid).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it("returns valid: true when description is present", () => {
-    const result = validateContent(null, "Something went wrong");
+  it("returns valid: true when title meets minimum length", () => {
+    const result = validateContent("Error in module loading", null);
     expect(result.valid).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it("returns valid: true when both present", () => {
-    const result = validateContent("Title", "Description");
+  it("returns valid: false when title is below minimum length", () => {
+    const result = validateContent("Short", null, "some error");
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("Title must be at least");
+  });
+
+  it("returns valid: true when description meets minimum length", () => {
+    const result = validateContent(null, "This is a sufficiently long description for the issue report");
     expect(result.valid).toBe(true);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("returns valid: false when description is below minimum length", () => {
+    const result = validateContent(null, "Too short");
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("Description must be at least");
+  });
+
+  it("returns valid: true when both title and description meet minimum lengths", () => {
+    const result = validateContent(
+      "A valid title for the issue",
+      "This is a sufficiently long description for the issue report"
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("checks description length before title length", () => {
+    const result = validateContent("Short", "x");
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("Description must be at least");
   });
 });
 

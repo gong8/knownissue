@@ -154,6 +154,11 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       queryParams.push(contextLibrary);
       filterValues.push(contextLibrary);
     }
+    if (library) {
+      conditions.push(`LOWER("library") = $${paramIndex++}`);
+      queryParams.push(library);
+      filterValues.push(library);
+    }
 
     const whereClause = conditions.length > 0
       ? `WHERE ${conditions.join(" AND ")}`
@@ -165,6 +170,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     if (version) countConditions.push(`"version" = $${countIdx++}`);
     if (errorCode) countConditions.push(`"errorCode" = $${countIdx++}`);
     if (contextLibrary) countConditions.push(`$${countIdx++} = ANY("contextLibraries")`);
+    if (library) countConditions.push(`LOWER("library") = $${countIdx++}`);
     const countWhereClause = countConditions.length > 0
       ? `WHERE ${countConditions.join(" AND ")}`
       : "";
@@ -252,6 +258,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   // Fallback: text search
   const where: Record<string, unknown> = {};
   if (version) where.version = version;
+  if (library) where.library = { equals: library, mode: "insensitive" };
 
   const [issues, total] = await Promise.all([
     prisma.issue.findMany({
@@ -393,13 +400,17 @@ export async function createIssue(input: ReportInput, userId: string) {
   }
 
   // Content validation — at least errorMessage or description
+  // Pass raw parsed.title/parsed.description so min-length checks only apply
+  // to explicitly provided fields, not errorMessage fallbacks (which can be short).
   const displayTitle = parsed.title ?? parsed.errorMessage ?? null;
   const displayDesc = parsed.description ?? parsed.errorMessage ?? null;
-  if (displayDesc) {
-    const contentCheck = validateContent(displayTitle, displayDesc);
-    if (!contentCheck.valid) {
-      throw new Error(contentCheck.reason);
-    }
+  const contentCheck = validateContent(
+    parsed.title ?? null,
+    parsed.description ?? null,
+    parsed.errorMessage ?? null
+  );
+  if (!contentCheck.valid) {
+    throw new Error(contentCheck.reason);
   }
 
   // Compute fingerprint (library and errorCode already lowercased)
@@ -504,17 +515,25 @@ export async function createIssue(input: ReportInput, userId: string) {
   let creditsAwarded = REPORT_IMMEDIATE_REWARD;
   await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
 
-  // Handle inline patch
-  let inlinePatchResult = undefined;
+  // Handle inline patch — wrapped in try/catch so a patch failure doesn't
+  // orphan the already-created issue (agent would see an error but issue exists).
+  let inlinePatchResult: { creditsAwarded: number; error?: string; [key: string]: unknown } | undefined = undefined;
   if (parsed.patch) {
-    inlinePatchResult = await patchService.submitPatch(
-      issue.id,
-      parsed.patch.explanation,
-      parsed.patch.steps,
-      parsed.patch.versionConstraint ?? null,
-      userId
-    );
-    creditsAwarded += inlinePatchResult.creditsAwarded;
+    try {
+      inlinePatchResult = await patchService.submitPatch(
+        issue.id,
+        parsed.patch.explanation,
+        parsed.patch.steps,
+        parsed.patch.versionConstraint ?? null,
+        userId
+      );
+      creditsAwarded += inlinePatchResult.creditsAwarded;
+    } catch (error) {
+      inlinePatchResult = {
+        error: error instanceof Error ? error.message : "Inline patch failed",
+        creditsAwarded: 0,
+      };
+    }
   }
 
   // Handle explicit relation from agent
@@ -660,13 +679,6 @@ export async function computeDerivedStatus(issueId: string) {
     await prisma.issue.update({
       where: { id: issueId },
       data: { status: derivedStatus },
-    });
-    await logAudit({
-      action: "update",
-      entityType: "issue",
-      entityId: issueId,
-      actorId: "system",
-      metadata: { previousStatus: issue.status, newStatus: derivedStatus, trigger: "derived_status" },
     });
   }
 }

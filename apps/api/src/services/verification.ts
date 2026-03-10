@@ -56,7 +56,7 @@ export async function verify(
         errorBefore: errorBefore ?? null,
         errorAfter: errorAfter ?? null,
         testedVersion: testedVersion ?? null,
-        issueAccuracy: issueAccuracy ?? "accurate",
+        issueAccuracy: issueAccuracy ?? null,
         patchId,
         verifierId,
       },
@@ -70,7 +70,7 @@ export async function verify(
   }
 
   // Award verifier
-  await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
+  const newBalance = await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
 
   // Adjust patch author's credits
   let authorCreditDelta = 0;
@@ -119,6 +119,7 @@ export async function verify(
     ...verification,
     authorCreditDelta,
     verifierCreditDelta: VERIFY_REWARD,
+    creditsBalance: newBalance,
     _next_actions: nextActions,
   };
 }

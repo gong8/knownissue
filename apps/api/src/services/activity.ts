@@ -55,8 +55,8 @@ export async function getMyActivity(
           take: limit,
         })
       : Promise.resolve([]),
-    showPatches ? getActionablePatches(userId) : Promise.resolve([]),
-    showIssues ? getActionableIssues(userId) : Promise.resolve([]),
+    getActionablePatches(userId),
+    getActionableIssues(userId),
   ]);
 
   const actionableCount = actionablePatches.length + actionableIssues.length;
@@ -189,7 +189,7 @@ async function getActionablePatches(userId: string) {
         where: { outcome: "not_fixed" },
         select: { note: true, createdAt: true },
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: 20,
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -208,7 +208,7 @@ async function getActionableIssues(userId: string) {
   return prisma.issue.findMany({
     where: {
       reporterId: userId,
-      status: { not: "open" },
+      status: { in: ["patched", "closed"] },
       updatedAt: { gte: thirtyDaysAgo },
     },
     select: {

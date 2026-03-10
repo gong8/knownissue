@@ -210,7 +210,7 @@ model Verification {
   errorBefore   String?
   errorAfter    String?
   testedVersion String?
-  issueAccuracy IssueAccuracy       @default(accurate) @map("bugAccuracy")
+  issueAccuracy IssueAccuracy?      @map("bugAccuracy")
 
   patchId    String
   patch      Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)

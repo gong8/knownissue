@@ -4,7 +4,7 @@ import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
 import * as verificationService from "../services/verification";
 import * as activityService from "../services/activity";
-import { deductCredits, getCredits } from "../services/credits";
+import { awardCredits, deductCredits, getCredits } from "../services/credits";
 import {
   searchInputBase,
   reportInputSchema,
@@ -163,7 +163,12 @@ export function createMcpServer(userId: string) {
           throw new Error("query is required when patchId is not provided");
         }
         await deductCredits(userId, SEARCH_COST, "search");
-        return issueService.searchIssues({ ...params, query: params.query }, userId);
+        try {
+          return await issueService.searchIssues({ ...params, query: params.query }, userId);
+        } catch (error) {
+          await awardCredits(userId, SEARCH_COST, "search").catch(() => {});
+          throw error;
+        }
       }, userId)
   );
 

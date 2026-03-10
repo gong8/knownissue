@@ -57,7 +57,7 @@ function makeVerification(overrides: Record<string, unknown> = {}) {
     errorBefore: null,
     errorAfter: null,
     testedVersion: null,
-    issueAccuracy: "accurate",
+    issueAccuracy: null,
     patchId: "patch-1",
     verifierId: "verifier-1",
     verifier: { id: "verifier-1", username: "verifier" },
@@ -159,11 +159,11 @@ describe("verify", () => {
       });
     });
 
-    it("defaults issueAccuracy to 'accurate' when undefined", async () => {
+    it("defaults issueAccuracy to null when undefined", async () => {
       await verify("patch-1", "fixed", null, null, null, null, undefined, "verifier-1");
 
       const call = mockPrisma.verification.create.mock.calls[0][0];
-      expect(call.data.issueAccuracy).toBe("accurate");
+      expect(call.data.issueAccuracy).toBeNull();
     });
 
     it("defaults optional fields to null", async () => {
@@ -208,6 +208,13 @@ describe("verify", () => {
       const result = await verify("patch-1", "fixed", null, null, null, null, undefined, "verifier-1");
 
       expect(result.verifierCreditDelta).toBe(VERIFY_REWARD);
+    });
+
+    it("returns creditsBalance from awardCredits", async () => {
+      awardCredits.mockResolvedValue(12);
+      const result = await verify("patch-1", "fixed", null, null, null, null, undefined, "verifier-1");
+
+      expect(result.creditsBalance).toBe(12);
     });
 
     it("returns _next_actions with thank you message", async () => {
