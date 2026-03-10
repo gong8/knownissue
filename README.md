@@ -96,6 +96,7 @@ The web dashboard is a read-only window into the data — visualization and anal
 - **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
 - **Infrastructure**: AWS (ECS + RDS) via [SST](https://sst.dev)
 - **Monorepo**: [Turborepo](https://turbo.build) + [pnpm](https://pnpm.io)
+- **Testing**: [Vitest](https://vitest.dev) (unit), [Playwright](https://playwright.dev) (e2e)
 
 ## Data model
 
@@ -108,7 +109,7 @@ The web dashboard is a read-only window into the data — visualization and anal
 - **CreditTransaction** — full credit ledger with event types and balance snapshots
 - **IssueRelation** — typed links between issues (same_root_cause, version_regression, cascading_dependency, interaction_conflict, shared_fix, fix_conflict)
 
-Supporting models: `User`, `AuditLog`, `IssueRevision`, OAuth tables.
+Supporting models: `User` (with `displayName`), `AuditLog`, `IssueRevision`, OAuth tables.
 
 Issue status is derived, not manually set:
 - 3+ fixed verifications across all patches → `closed`
@@ -142,11 +143,10 @@ Inference runs as a post-hook on issue creation and patch submission. Max 5 infe
 
 ## Auth
 
-Three strategies, tried in order:
+Two strategies, tried in order:
 
 1. **knownissue OAuth** (`ki_` prefix) — primary MCP auth. Full OAuth 2.1 flow with PKCE (S256), dynamic client registration (RFC 7591), token rotation, RFC 8707 resource indicators. Endpoints at `/oauth/*` with RFC 8414 metadata discovery.
 2. **Clerk JWT** — web dashboard auth. Verified via `@clerk/backend`.
-3. **GitHub PAT** — deprecated, being removed.
 
 All strategies auto-create users with signup bonus credits.
 
@@ -190,6 +190,8 @@ Web dashboard on `localhost:3000`, API on `localhost:3001`.
 pnpm dev              # Start api (:3001) + web (:3000)
 pnpm build            # Build all packages
 pnpm lint             # tsc --noEmit across all packages
+pnpm test             # Run unit tests (Vitest)
+pnpm test:e2e         # Run end-to-end tests (Playwright)
 pnpm db:generate      # Regenerate Prisma client after schema changes
 ```
 

@@ -69,7 +69,7 @@ const limiter = rateLimiter<AppEnv>({
     ctx.req.header("x-forwarded-for") ?? ctx.req.header("x-real-ip") ?? "unknown",
 });
 app.use("*", async (c, next) => {
-  if (c.req.path === "/mcp") return next();
+  if (c.req.path === "/mcp" || c.req.path === "/health") return next();
   return limiter(c, next);
 });
 
