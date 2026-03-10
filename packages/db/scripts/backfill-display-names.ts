@@ -1,6 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL ?? "postgresql://localhost:5432/knownissue",
+});
+
+const prisma = new PrismaClient({ adapter });
 
 async function fetchClerkDisplayName(clerkId: string): Promise<string | null> {
   const secretKey = process.env.CLERK_SECRET_KEY;
