@@ -33,3 +33,6 @@ packages/db/src/generated/
 
 # Worktrees
 .worktrees/
+
+# Seed pipeline (private, not open-sourced)
+packages/seed/
