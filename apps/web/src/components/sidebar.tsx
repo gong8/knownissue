@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Activity,
@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
+import { fetchCurrentUser } from "@/app/actions/user";
 
 const navItems = [
   { href: "/overview", label: "overview", icon: LayoutDashboard, shortcut: "G O" },
@@ -28,6 +29,14 @@ interface SidebarProps {
 export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { user: clerkUser } = useUser();
+  const [credits, setCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchCurrentUser()
+      .then((data) => setCredits(data.credits))
+      .catch(() => {});
+  }, []);
 
   return (
     <aside
@@ -108,6 +117,18 @@ export function Sidebar({ onOpenCommandPalette }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-3">
           <UserButton />
+          {!collapsed && clerkUser && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">
+                {clerkUser.fullName ?? clerkUser.username ?? "anonymous"}
+              </p>
+              {credits !== null && (
+                <p className="text-xs text-muted-foreground">
+                  {credits} credits
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </aside>
