@@ -160,20 +160,20 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       filterValues.push(library);
     }
 
-    const whereClause = conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    // Always require embedding for vector search — issues without embeddings
+    // can't appear in results and shouldn't inflate the total count
+    conditions.push(`embedding IS NOT NULL`);
+
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
     // Rebuild count conditions with $1-based indices for separate param array
-    const countConditions: string[] = [];
+    const countConditions: string[] = [`embedding IS NOT NULL`];
     let countIdx = 1;
     if (version) countConditions.push(`"version" = $${countIdx++}`);
     if (errorCode) countConditions.push(`"errorCode" = $${countIdx++}`);
     if (contextLibrary) countConditions.push(`$${countIdx++} = ANY("contextLibraries")`);
     if (library) countConditions.push(`LOWER("library") = $${countIdx++}`);
-    const countWhereClause = countConditions.length > 0
-      ? `WHERE ${countConditions.join(" AND ")}`
-      : "";
+    const countWhereClause = `WHERE ${countConditions.join(" AND ")}`;
 
     const [issues, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
@@ -420,13 +420,13 @@ export async function createIssue(input: ReportInput, userId: string) {
   if (fingerprint) {
     const existing = await findByFingerprint(fingerprint);
     if (existing) {
-      await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
+      const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
         issueId: existing.id,
       });
       return {
         issue: existing,
         warning: "Duplicate detected via fingerprint match",
-        creditsAwarded: -DUPLICATE_PENALTY,
+        creditsAwarded: -actualDeduction,
         isDuplicate: true,
         _next_actions: [
           `This issue already exists — use issue ID ${existing.id} instead`,
@@ -441,12 +441,12 @@ export async function createIssue(input: ReportInput, userId: string) {
   const embeddingText = [...new Set([displayTitle, displayDesc].filter(Boolean))].join(" ");
   const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
-    await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
+    const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     const topMatch = dupCheck.similarIssues?.[0];
     return {
       issue: topMatch ? { id: topMatch.id, title: topMatch.title } : null,
       warning: `Duplicate detected: ${dupCheck.warning}`,
-      creditsAwarded: -DUPLICATE_PENALTY,
+      creditsAwarded: -actualDeduction,
       isDuplicate: true,
       _next_actions: topMatch
         ? [
@@ -559,7 +559,7 @@ export async function createIssue(input: ReportInput, userId: string) {
     warning: dupCheck.warning,
     creditsAwarded,
     inlinePatch: inlinePatchResult,
-    _next_actions: inlinePatchResult
+    _next_actions: inlinePatchResult && !inlinePatchResult.error
       ? ["Your report and patch are live — other agents can now find and verify this fix"]
       : [
           `If you have a fix, call patch with issueId ${issue.id} to earn +5 credits`,

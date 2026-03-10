@@ -607,12 +607,12 @@ describe("createIssue", () => {
       const existing = makeIssue({ id: "existing-1" });
       computeFingerprint.mockReturnValue("fp-hash");
       findByFingerprint.mockResolvedValue(existing);
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 
       expect(result.isDuplicate).toBe(true);
-      expect(result.creditsAwarded).toBe(-DUPLICATE_PENALTY);
+      expect(result.creditsAwarded).toBe(-2);
       expect(penalizeCredits).toHaveBeenCalledWith(
         "user-1",
         DUPLICATE_PENALTY,
@@ -628,7 +628,7 @@ describe("createIssue", () => {
         warning: "Very similar issue",
         similarIssues: [{ id: "similar-1", title: "Similar", similarity: 0.97 }],
       });
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 
@@ -643,7 +643,7 @@ describe("createIssue", () => {
         warning: "Duplicate",
         similarIssues: [],
       });
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 

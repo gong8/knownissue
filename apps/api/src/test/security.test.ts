@@ -53,10 +53,10 @@ vi.mock("../services/spam", () => ({
   validateContent: vi.fn(),
 }));
 vi.mock("../services/audit", () => ({
-  logAudit: vi.fn(),
+  logAudit: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../services/revision", () => ({
-  createIssueRevision: vi.fn(),
+  createIssueRevision: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../services/credits", () => ({
   awardCredits: vi.fn(),
@@ -626,7 +626,7 @@ describe("Negative Credit Floor", () => {
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     const result = await realPenalize("user-1", 100, "duplicate_penalty");
-    expect(result).toBe(0);
+    expect(result).toEqual({ newBalance: 0, actualDeduction: 0 });
   });
 });
 

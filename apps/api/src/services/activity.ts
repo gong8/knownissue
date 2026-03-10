@@ -100,7 +100,7 @@ export async function getMyActivity(
         issueId: b.id,
         title: b.title,
         newStatus: b.status,
-        suggested_action: `Search for issue "${b.id}" to see the latest patches and verifications`,
+        suggested_action: `Search for "${b.title}" to see the latest patches and verifications`,
       })),
     ],
     _next_actions: actionableCount > 0

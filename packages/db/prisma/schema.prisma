@@ -139,7 +139,7 @@ model Issue {
   library          String?
   version          String?
   ecosystem        String?
-  severity         Severity      @default(low)
+  severity         Severity      @default(medium)
   status           IssueStatus   @default(open)
   tags             String[]
   embedding        Unsupported("vector(1536)")?

@@ -43,31 +43,33 @@ export async function deductCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
-  // Atomic: deduct and return new balance in one query
-  const result = await prisma.$queryRawUnsafe<Array<{ credits: number }>>(
-    `UPDATE "User" SET credits = credits - $1, "updatedAt" = NOW() WHERE id = $2 AND credits >= $1 RETURNING credits`,
-    amount,
-    userId
-  );
+  return await prisma.$transaction(async (tx) => {
+    // Atomic: deduct and return new balance in one query
+    const result = await tx.$queryRawUnsafe<Array<{ credits: number }>>(
+      `UPDATE "User" SET credits = credits - $1, "updatedAt" = NOW() WHERE id = $2 AND credits >= $1 RETURNING credits`,
+      amount,
+      userId
+    );
 
-  if (result.length === 0) {
-    throw new Error(`Insufficient credits. Required: ${amount}`);
-  }
+    if (result.length === 0) {
+      throw new Error(`Insufficient credits. Required: ${amount}`);
+    }
 
-  const newBalance = result[0].credits;
+    const newBalance = result[0].credits;
 
-  await prisma.creditTransaction.create({
-    data: {
-      userId,
-      amount: -amount,
-      type,
-      balance: newBalance,
-      relatedIssueId: related?.issueId ?? null,
-      relatedPatchId: related?.patchId ?? null,
-    },
+    await tx.creditTransaction.create({
+      data: {
+        userId,
+        amount: -amount,
+        type,
+        balance: newBalance,
+        relatedIssueId: related?.issueId ?? null,
+        relatedPatchId: related?.patchId ?? null,
+      },
+    });
+
+    return newBalance;
   });
-
-  return newBalance;
 }
 
 export async function penalizeCredits(
@@ -75,7 +77,7 @@ export async function penalizeCredits(
   amount: number,
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
-): Promise<number> {
+): Promise<{ newBalance: number; actualDeduction: number }> {
   // Atomic: penalize (floor at 0) and return both old and new balance
   const result = await prisma.$queryRawUnsafe<
     Array<{ credits: number; previousBalance: number }>
@@ -88,7 +90,7 @@ export async function penalizeCredits(
     userId
   );
 
-  if (result.length === 0) return 0;
+  if (result.length === 0) return { newBalance: 0, actualDeduction: 0 };
 
   const newBalance = result[0].credits;
   const previousBalance = result[0].previousBalance;
@@ -107,7 +109,7 @@ export async function penalizeCredits(
     });
   }
 
-  return newBalance;
+  return { newBalance, actualDeduction };
 }
 
 export async function getUserTransactions(

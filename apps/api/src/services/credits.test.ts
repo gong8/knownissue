@@ -234,7 +234,7 @@ describe("penalizeCredits", () => {
 
     const result = await penalizeCredits("user-1", 10, "duplicate_penalty");
 
-    expect(result).toBe(0);
+    expect(result).toEqual({ newBalance: 0, actualDeduction: 3 });
     expect(mockQueryRaw).toHaveBeenCalledWith(
       `WITH old AS (SELECT credits FROM "User" WHERE id = $2)
      UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
@@ -292,7 +292,7 @@ describe("penalizeCredits", () => {
     // Should not throw even with large penalty
     await expect(
       penalizeCredits("user-1", 999, "duplicate_penalty")
-    ).resolves.toBe(0);
+    ).resolves.toEqual({ newBalance: 0, actualDeduction: 0 });
   });
 
   it("returns 0 when user not found (empty result)", async () => {
@@ -300,7 +300,7 @@ describe("penalizeCredits", () => {
 
     const result = await penalizeCredits("user-1", 5, "duplicate_penalty");
 
-    expect(result).toBe(0);
+    expect(result).toEqual({ newBalance: 0, actualDeduction: 0 });
     expect(mockTxCreate).not.toHaveBeenCalled();
   });
 });

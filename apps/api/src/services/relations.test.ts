@@ -13,7 +13,10 @@ const mockPrisma = {
   },
 };
 
-vi.mock("@knownissue/db", () => ({ prisma: mockPrisma }));
+vi.mock("@knownissue/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@knownissue/db")>();
+  return { prisma: mockPrisma, Prisma: actual.Prisma };
+});
 vi.mock("./audit", () => ({ logAudit: vi.fn() }));
 
 // Import after mocks
@@ -173,8 +176,9 @@ describe("createRelation", () => {
 
   describe("idempotency", () => {
     it("returns false on unique constraint violation", async () => {
+      const { Prisma } = await import("@knownissue/db");
       mockPrisma.issueRelation.create.mockRejectedValue(
-        new Error("Unique constraint failed")
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "6.0.0" })
       );
 
       const result = await createRelation({

@@ -247,7 +247,7 @@ describe("verify", () => {
 
     it("penalizes author PATCH_VERIFIED_NOT_FIXED_PENALTY on 'not_fixed'", async () => {
       mockPrisma.verification.create.mockResolvedValue(makeVerification({ outcome: "not_fixed" }));
-      penalizeCredits.mockResolvedValue(4);
+      penalizeCredits.mockResolvedValue({ newBalance: 4, actualDeduction: PATCH_VERIFIED_NOT_FIXED_PENALTY });
 
       const result = await verify("patch-1", "not_fixed", null, null, null, null, undefined, "verifier-1");
 

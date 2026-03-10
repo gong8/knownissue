@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@knownissue/db";
+import { prisma, Prisma } from "@knownissue/db";
 import type { IssueRelationType } from "@knownissue/shared";
 import { logAudit } from "./audit";
 
@@ -66,9 +66,15 @@ export async function createRelation(params: {
     });
 
     return true;
-  } catch {
-    // Unique constraint violation — relation already exists
-    return false;
+  } catch (error) {
+    // Unique constraint violation or FK violation — relation already exists or target not found
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P2002" || error.code === "P2003")
+    ) {
+      return false;
+    }
+    throw error;
   }
 }
 
