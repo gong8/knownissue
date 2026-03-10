@@ -42,16 +42,16 @@ export async function submitPatch(
       },
     });
 
-    await logAudit({
+    logAudit({
       action: "update",
       entityType: "patch",
       entityId: updated.id,
       actorId: userId,
       metadata: { issueId },
-    });
+    }).catch((err) => console.error("Failed to log patch audit:", err));
 
     // Recompute derived status (idempotent, cheap)
-    await computeDerivedStatus(issueId);
+    computeDerivedStatus(issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
     const _warnings: string[] = [];
     if (relatedTo) {
@@ -107,16 +107,16 @@ export async function submitPatch(
     patchId: patch.id,
   });
 
-  await logAudit({
+  logAudit({
     action: "create",
     entityType: "patch",
     entityId: patch.id,
     actorId: userId,
     metadata: { issueId },
-  });
+  }).catch((err) => console.error("Failed to log patch audit:", err));
 
   // Recompute derived status after new patch
-  await computeDerivedStatus(issueId);
+  computeDerivedStatus(issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
   // Claim deferred report reward if this is from a different user
   await claimReportReward(issueId, userId);

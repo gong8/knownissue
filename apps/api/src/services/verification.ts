@@ -95,6 +95,7 @@ export async function verify(
     }
   } catch (err) {
     console.error("Failed to adjust author credits:", err);
+    _warnings.push("Author credit adjustment failed — will be reconciled");
   }
 
   // Audit + status recompute — best-effort

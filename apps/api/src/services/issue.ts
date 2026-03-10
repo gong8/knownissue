@@ -71,7 +71,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
           issue.id
         );
-        if (userId) await claimReportReward(issue.id, userId);
+        if (userId) claimReportReward(issue.id, userId).catch((err) => console.error("Failed to claim report reward:", err));
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -99,7 +99,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
           issue.id
         );
-        if (userId) await claimReportReward(issue.id, userId);
+        if (userId) claimReportReward(issue.id, userId).catch((err) => console.error("Failed to claim report reward:", err));
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -204,9 +204,12 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       );
     }
 
-    // Trigger deferred report rewards for matched issues
+    // Trigger deferred report rewards for matched issues (fire-and-forget — reward claiming
+    // is idempotent and should never crash the search)
     if (userId && issueIds.length > 0) {
-      await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
+      for (const id of issueIds) {
+        claimReportReward(id, userId).catch((err) => console.error("Failed to claim report reward:", err));
+      }
     }
 
     // Load patches for each issue
@@ -242,7 +245,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     return {
       issues: issuesWithRelations,
       total: countResult[0].count,
-      _meta: { matchTier: 3 },
+      _meta: { matchTier: 3, searchMode: "vector" as const },
       _next_actions: issuesWithRelations.length > 0
         ? [
             "Apply a patch from the results, then call verify with the outcome",
@@ -306,9 +309,12 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     );
   }
 
-  // Trigger deferred report rewards for matched issues
+  // Trigger deferred report rewards for matched issues (fire-and-forget — reward claiming
+  // is idempotent and should never crash the search)
   if (userId && issueIds.length > 0) {
-    await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
+    for (const id of issueIds) {
+      claimReportReward(id, userId).catch((err) => console.error("Failed to claim report reward:", err));
+    }
   }
 
   // Load related issues for text search results
@@ -326,7 +332,8 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   return {
     issues: issuesWithRelations,
     total,
-    _meta: { matchTier: 3 },
+    _meta: { matchTier: 3, searchMode: "text" as const },
+    _warnings: ["Semantic search unavailable — results are from text matching only. Quality may be reduced."],
     _next_actions: issuesWithRelations.length > 0
       ? [
           "Apply a patch from the results, then call verify with the outcome",
@@ -463,6 +470,12 @@ export async function createIssue(input: ReportInput, userId: string) {
   // Reuse embedding from duplicate check if available, otherwise generate
   const embedding = dupCheck.embedding ?? await generateEmbedding(embeddingText, userId);
 
+  // Track warnings for the response
+  const _warnings: string[] = [];
+  if (!embedding) {
+    _warnings.push("Issue created without embedding — it may not appear in semantic search results. This is usually caused by an API key configuration issue or rate limiting.");
+  }
+
   // Create issue
   const issue = await prisma.issue.create({
     data: {
@@ -538,7 +551,7 @@ export async function createIssue(input: ReportInput, userId: string) {
 
   // Handle explicit relation from agent
   if (parsed.relatedTo) {
-    await createRelation({
+    const created = await createRelation({
       sourceIssueId: issue.id,
       targetIssueId: parsed.relatedTo.issueId,
       type: parsed.relatedTo.type,
@@ -547,6 +560,9 @@ export async function createIssue(input: ReportInput, userId: string) {
       metadata: parsed.relatedTo.note ? { note: parsed.relatedTo.note } : undefined,
       createdById: userId,
     });
+    if (!created) {
+      _warnings.push("Relation was not created — target issue may not exist or relation already exists");
+    }
   }
 
   // Run relation inference (fire-and-forget — don't block response)
@@ -559,6 +575,7 @@ export async function createIssue(input: ReportInput, userId: string) {
     warning: dupCheck.warning,
     creditsAwarded,
     inlinePatch: inlinePatchResult,
+    ...(_warnings.length > 0 && { _warnings }),
     _next_actions: inlinePatchResult && !inlinePatchResult.error
       ? ["Your report and patch are live — other agents can now find and verify this fix"]
       : [

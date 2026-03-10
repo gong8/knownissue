@@ -272,6 +272,7 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "test", errorCode: "ERR_1", library: "lodash" });
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
     });
 
     it("falls through if no issue found for fingerprint", async () => {
@@ -284,6 +285,7 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "test", errorCode: "ERR_1", library: "lodash" });
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
     });
   });
 
@@ -325,8 +327,10 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "error", library: "lodash" }, "user-1");
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("vector");
       expect(result.issues).toHaveLength(1);
       expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalled();
+      expect(result).not.toHaveProperty("_warnings");
     });
 
     it("increments searchHitCount on returned issues", async () => {
@@ -445,6 +449,10 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "TypeError" }, "user-1");
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
+      expect(result._warnings).toEqual([
+        "Semantic search unavailable — results are from text matching only. Quality may be reduced.",
+      ]);
       expect(result.issues).toHaveLength(1);
       expect(mockPrisma.issue.findMany).toHaveBeenCalled();
     });
@@ -672,6 +680,7 @@ describe("createIssue", () => {
         "issue-1",
       );
       expect(result.creditsAwarded).toBe(REPORT_IMMEDIATE_REWARD);
+      expect(result).not.toHaveProperty("_warnings");
     });
 
     it("awards REPORT_IMMEDIATE_REWARD credits", async () => {
@@ -697,12 +706,15 @@ describe("createIssue", () => {
       });
     });
 
-    it("skips embedding store when embedding is null", async () => {
+    it("skips embedding store when embedding is null and adds _warnings", async () => {
       generateEmbedding.mockResolvedValue(null);
 
-      await createIssue(validInput, "user-1");
+      const result = await createIssue(validInput, "user-1");
 
       expect(mockPrisma.$executeRawUnsafe).not.toHaveBeenCalled();
+      expect(result._warnings).toEqual([
+        "Issue created without embedding — it may not appear in semantic search results. This is usually caused by an API key configuration issue or rate limiting.",
+      ]);
     });
 
     it("handles inline patch", async () => {
