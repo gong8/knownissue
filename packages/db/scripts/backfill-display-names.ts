@@ -28,7 +28,7 @@ async function main() {
     select: { id: true, clerkId: true },
   });
 
-  console.log(`Found ${users.length} users without displayName`);
+  console.info(`Found ${users.length} users without displayName`);
 
   let updated = 0;
   let failed = 0;
@@ -40,7 +40,7 @@ async function main() {
         where: { id: user.id },
         data: { displayName: name },
       });
-      console.log(`  Updated ${user.clerkId} -> "${name}"`);
+      console.info(`  Updated ${user.clerkId} -> "${name}"`);
       updated++;
     } else {
       console.warn(`  Skipped ${user.clerkId} (no name found)`);
@@ -48,7 +48,7 @@ async function main() {
     }
   }
 
-  console.log(`\nDone. Updated: ${updated}, Skipped: ${failed}`);
+  console.info(`\nDone. Updated: ${updated}, Skipped: ${failed}`);
 }
 
 main()
