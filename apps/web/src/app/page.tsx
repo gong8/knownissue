@@ -6,21 +6,17 @@ import { ToolsSection } from "@/components/landing/tools-section";
 import { ConfigTabs } from "@/components/landing/config-tabs";
 import { FinalCta } from "@/components/landing/final-cta";
 import { FooterSection } from "@/components/landing/footer-section";
-import { HeroCta } from "@/components/landing/hero-cta";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      {/* Hero — terminal dominates */}
-      <section className="mx-auto w-full max-w-[1200px] px-6 pt-24 pb-6 lg:px-10">
+      {/* Hero */}
+      <section className="mx-auto w-full max-w-[1200px] px-6 pt-28 pb-6 lg:px-10">
         <HeroSection />
-        <div className="mt-8 w-full">
+        <div className="mt-12 w-full">
           <TerminalDemo />
-        </div>
-        <div className="mt-8">
-          <HeroCta />
         </div>
       </section>
 

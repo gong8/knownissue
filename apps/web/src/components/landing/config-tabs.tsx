@@ -76,8 +76,8 @@ export function ConfigTabs() {
             className="inline-block animate-gradient bg-clip-text text-transparent"
             style={{
               backgroundImage:
-                "linear-gradient(to right, #6348ff, #a78bfa, #6348ff)",
-              backgroundSize: "200% 100%",
+                "linear-gradient(90deg, #6348ff, #a78bfa, #38bdf8, #4ade80, #a78bfa, #6348ff)",
+              backgroundSize: "300% 100%",
             }}
           >
             connect your agent in 30 seconds.

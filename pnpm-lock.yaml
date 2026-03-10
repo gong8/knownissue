@@ -206,6 +206,9 @@ importers:
 
   packages/seed:
     dependencies:
+      '@hono/node-server':
+        specifier: ^1.19.11
+        version: 1.19.11(hono@4.12.5)
       '@knownissue/db':
         specifier: workspace:*
         version: link:../db

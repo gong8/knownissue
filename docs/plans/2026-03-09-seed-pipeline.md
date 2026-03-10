@@ -1539,8 +1539,10 @@ while (running):
 | Service | Limit | Window | Detection |
 |---------|-------|--------|-----------|
 | GitHub API | 5,000 req/hr (authenticated) | Rolling 1hr | `X-RateLimit-Remaining` + `X-RateLimit-Reset` headers |
-| Claude Max | ~50 concurrent | Per-minute | Track active spawns + timeout count (back off on consecutive timeouts) |
-| OpenAI Embeddings | 100/user/hr (knownissue limit) | Rolling 1hr | Count calls, respect 429 responses |
+
+OpenAI embeddings: the seed bot calls OpenAI directly, and the per-user embedding rate limit is our own API's logic — just bypass it for the `seed-bot-internal` user (or don't apply it since seed doesn't go through the API).
+
+Claude CLI: no known rate limit. Intermittent timeouts are a CLI startup bug, handled by retry.
 
 **Rate limiter module (`rate-limiter.ts`):**
 
@@ -1591,8 +1593,6 @@ export class SeedCoordinator {
   private running = false;
   private rateLimiters: {
     github: RateLimiter;
-    claude: RateLimiter;
-    openai: RateLimiter;
   };
 
   constructor(private config: CoordinatorConfig) {}
@@ -1612,11 +1612,7 @@ export class SeedCoordinator {
 
 1. **GitHub rate limit tracking:** Parse `X-RateLimit-Remaining` and `X-RateLimit-Reset` from GitHub API responses. When remaining < 10, pause until reset time. On 403, read reset header and pause.
 
-2. **Claude CLI backoff:** Track consecutive timeouts. If 3+ timeouts in a row, pause Claude spawning for 2 minutes (exponential backoff). Reset counter on success.
-
-3. **OpenAI backoff:** On 429 response, read `Retry-After` header and pause. Otherwise sliding window counter.
-
-4. **Repo rotation:** Cycle through repos round-robin. Track `lastScrapedPage` per repo in SQLite so scraping resumes where it left off across restarts.
+2. **Repo rotation:** Cycle through repos round-robin. Track `lastScrapedPage` per repo in SQLite so scraping resumes where it left off across restarts.
 
 5. **Graceful shutdown:** On SIGINT/SIGTERM, finish current items (don't strand in triaging/formatting), then exit.
 
@@ -1628,8 +1624,6 @@ interface CoordinatorStatus {
   currentPhase: "scraping" | "triaging" | "formatting" | "paused" | "idle";
   rateLimits: {
     github: { remaining: number; resetIn: number; paused: boolean };
-    claude: { remaining: number; resetIn: number; paused: boolean };
-    openai: { remaining: number; resetIn: number; paused: boolean };
   };
   queue: Record<string, number>;  // status counts
   repos: { repo: string; lastPage: number; totalScraped: number }[];
@@ -1665,3 +1659,119 @@ The dashboard (Hono on port 3002) adds:
 **Step 5:** Add `run` command to CLI
 **Step 6:** Wire up dashboard endpoints (depends on Task 13)
 **Step 7:** Test with 3-repo rotation, verify rate limit pausing works
+
+---
+
+## Phase 5: Production Seeding
+
+### Task 16: Seed production database via SST tunnel
+
+**Goal:** Connect the local seed pipeline to the production RDS database (private VPC on AWS) and populate it with real data.
+
+**Context:**
+
+The production infrastructure is SST v3 on AWS:
+- **VPC:** `sst.aws.Vpc` with EC2-based NAT
+- **RDS:** PostgreSQL 18.3 on `t4g.micro`, 20GB, private subnet (no public endpoint)
+- **ECS:** 2-10 Fargate replicas behind ALB, running `apps/api`
+- **Secrets:** Managed via `sst secret set` (ClerkSecretKey, ClerkPublishableKey, OpenaiApiKey)
+- **Deploy:** Push to `main` → GitHub Actions → `sst deploy --stage production`
+- **Config:** `/sst.config.ts` defines all infrastructure
+
+The seed pipeline bypasses the knownissue API entirely — it calls OpenAI directly for embeddings and writes to the DB via Prisma. So the API's per-user rate limits don't apply. The only thing needed is network access to the private RDS instance + the production `DATABASE_URL`.
+
+**Approach: `sst tunnel`**
+
+SST v3's `sst tunnel` creates a VPN-like tunnel that gives your local machine network access to the VPC. This lets the seed pipeline connect to the private RDS instance as if it were local.
+
+**Step 1: Get the production DATABASE_URL**
+
+```bash
+cd /Users/gong/Programming/Projects/knownissue
+npx sst shell --stage production -- printenv DATABASE_URL
+```
+
+This prints the auto-generated RDS connection string. Save it — you'll need it for the seed `.env.local`.
+
+**Step 2: Start the SST tunnel**
+
+```bash
+# Terminal 1 — keep this running
+npx sst tunnel --stage production
+```
+
+This establishes a VPN tunnel to the production VPC. The tunnel must stay open in a dedicated terminal while seeding.
+
+**Step 3: Configure seed pipeline for production**
+
+Create or update `packages/seed/.env.production`:
+
+```bash
+# Production RDS (only works with sst tunnel running)
+DATABASE_URL=<production-url-from-step-1>
+OPENAI_API_KEY=<your-openai-key>
+GITHUB_TOKEN=<your-github-pat>
+```
+
+Update the seed script in `packages/seed/package.json` to support a `--env-file` flag or add a production script:
+
+```json
+{
+  "scripts": {
+    "seed": "tsx --env-file=.env.local src/cli.ts",
+    "seed:prod": "tsx --env-file=.env.production src/cli.ts"
+  }
+}
+```
+
+**Step 4: Run Prisma migrations on production (if needed)**
+
+If the production DB schema is behind (e.g., missing nullable columns from `db push`):
+
+```bash
+cd packages/db
+DATABASE_URL=<production-url> npx prisma migrate deploy
+```
+
+This runs pending migrations without generating new ones. Safe for production.
+
+**Step 5: Seed production**
+
+```bash
+# Terminal 1: sst tunnel running
+# Terminal 2:
+cd /Users/gong/Programming/Projects/knownissue/packages/seed
+
+# Scrape
+pnpm seed:prod scrape --repo vercel/next.js --limit 50
+pnpm seed:prod scrape --repo facebook/react --limit 50
+
+# Triage
+pnpm seed:prod triage --workers 3
+
+# Format + insert
+pnpm seed:prod format --workers 3
+
+# Verify
+pnpm seed:prod status
+```
+
+**Step 6: Verify production data**
+
+```bash
+# Check issue count in production DB
+DATABASE_URL=<production-url> npx prisma studio
+```
+
+Or hit the production API:
+```bash
+curl https://mcp.knownissue.dev/health
+```
+
+**Important notes:**
+- Always keep `sst tunnel` running in a dedicated terminal while seeding
+- The tunnel requires AWS credentials configured locally (same ones used for `sst deploy`)
+- Production stage has `protect: true` — infrastructure can't be accidentally deleted
+- The seed pipeline creates a `seed-bot-internal` user in the DB — this user will exist in production too
+- Start with small batches (50 issues) to verify everything works before scaling up
+- The SQLite queue is local — production seeding uses a separate queue from dev seeding
