@@ -376,7 +376,7 @@ describe("searchIssues", () => {
       expect(claimReportReward).not.toHaveBeenCalled();
     });
 
-    it("adds version and contextLibrary filters to vector query but not library", async () => {
+    it("adds version, contextLibrary, and library filters to vector query", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue([0.5]);
       mockPrisma.$queryRawUnsafe
@@ -387,8 +387,8 @@ describe("searchIssues", () => {
 
       const sql = mockPrisma.$queryRawUnsafe.mock.calls[0][0] as string;
       expect(sql).toContain('"version" = $4');
-      expect(sql).not.toContain('"library" =');
       expect(sql).toContain('ANY("contextLibraries")');
+      expect(sql).toContain('LOWER("library")');
     });
 
     it("loads patches with verification summary for vector results", async () => {
@@ -449,7 +449,7 @@ describe("searchIssues", () => {
       expect(mockPrisma.issue.findMany).toHaveBeenCalled();
     });
 
-    it("does not apply library or contextLibrary filters in text search", async () => {
+    it("applies library filter but not contextLibrary in text search", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue(null);
       mockPrisma.issue.findMany.mockResolvedValue([]);
@@ -458,7 +458,7 @@ describe("searchIssues", () => {
       await searchIssues({ query: "error", library: "react", contextLibrary: "webpack" });
 
       const call = mockPrisma.issue.findMany.mock.calls[0][0];
-      expect(call.where.library).toBeUndefined();
+      expect(call.where.library).toEqual({ equals: "react", mode: "insensitive" });
       expect(call.where.contextLibraries).toBeUndefined();
     });
 

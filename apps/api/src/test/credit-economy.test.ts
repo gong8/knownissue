@@ -186,25 +186,21 @@ describe("Report Credits Flow", () => {
   it("penalizes DUPLICATE_PENALTY (-2) on duplicate report via fingerprint", async () => {
     const { createIssue } = await vi.importActual<typeof import("../services/issue")>("../services/issue");
 
-    // First call: user lookup in createIssue
-    // Second call: penalizeCredits reads balance before penalty
-    // Third call: penalizeCredits reads balance after penalty
-    mockPrisma.user.findUniqueOrThrow
-      .mockResolvedValueOnce({
-        id: "user-dup",
-        createdAt: new Date("2024-01-01"),
-        credits: 10,
-      })
-      .mockResolvedValueOnce({ credits: 10 }) // before penalty
-      .mockResolvedValueOnce({ credits: 8 }); // after penalty
+    // createIssue calls findUniqueOrThrow once for the throttle check.
+    // penalizeCredits uses $queryRawUnsafe (not findUniqueOrThrow).
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      id: "user-dup",
+      createdAt: new Date("2024-01-01"),
+      credits: 10,
+    });
     mockPrisma.issue.count.mockResolvedValue(0);
     mockComputeFingerprint.mockReturnValue("fingerprint-abc");
     mockFindByFingerprint.mockResolvedValue({
       id: "issue-existing",
       title: "Existing issue",
     });
-    // penalizeCredits uses $executeRawUnsafe
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
+    // penalizeCredits uses $queryRawUnsafe with CTE RETURNING
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 8, previousBalance: 10 }]);
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     const result = await createIssue(
@@ -339,7 +335,16 @@ describe("Patch Credits Flow", () => {
   it("awards 0 credits on patch update (not another +5)", async () => {
     const { submitPatch } = await vi.importActual<typeof import("../services/patch")>("../services/patch");
 
-    mockPrisma.issue.findUnique.mockResolvedValue({ id: "issue-1" });
+    // First call: submitPatch checks issue exists
+    // Second call: computeDerivedStatus loads issue with patches
+    mockPrisma.issue.findUnique
+      .mockResolvedValueOnce({ id: "issue-1" })
+      .mockResolvedValueOnce({
+        id: "issue-1",
+        status: "open",
+        accessCount: 0,
+        patches: [],
+      });
     // Existing patch found
     mockPrisma.patch.findUnique.mockResolvedValue({
       id: "patch-existing",
@@ -397,7 +402,7 @@ describe("Verification Credit Distribution", () => {
     // awardCredits / penalizeCredits
     mockPrisma.user.update.mockResolvedValue({ credits: 10 });
     mockPrisma.creditTransaction.create.mockResolvedValue({});
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 9, previousBalance: 10 }]);
     mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ credits: 10 });
     // computeDerivedStatus
     mockPrisma.issue.findUnique.mockResolvedValue({
@@ -450,8 +455,8 @@ describe("Verification Credit Distribution", () => {
         data: { credits: { increment: VERIFY_REWARD } },
       })
     );
-    // Author penalized via $executeRawUnsafe (GREATEST)
-    expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledWith(
+    // Author penalized via $queryRawUnsafe (GREATEST with RETURNING)
+    expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining("GREATEST"),
       PATCH_VERIFIED_NOT_FIXED_PENALTY,
       "user-author"
@@ -475,8 +480,8 @@ describe("Insufficient Credits Block", () => {
   it("search fails with 0 credits", async () => {
     const { deductCredits } = await vi.importActual<typeof import("../services/credits")>("../services/credits");
 
-    // Atomic deduction returns 0 rows (insufficient)
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(0);
+    // Atomic deduction returns empty array (insufficient)
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
 
     await expect(
       deductCredits("user-broke", SEARCH_COST, "search_performed")
@@ -581,14 +586,13 @@ describe("Duplicate Penalty via Embedding", () => {
   it("penalizes DUPLICATE_PENALTY (-2) when embedding detects duplicate", async () => {
     const { createIssue } = await vi.importActual<typeof import("../services/issue")>("../services/issue");
 
-    // First call: createIssue user lookup; second call: penalizeCredits balance read
-    mockPrisma.user.findUniqueOrThrow
-      .mockResolvedValueOnce({
-        id: "user-dup",
-        createdAt: new Date("2024-01-01"),
-        credits: 10,
-      })
-      .mockResolvedValueOnce({ credits: 8 }); // after penalty
+    // createIssue calls findUniqueOrThrow once for the throttle check.
+    // penalizeCredits uses $queryRawUnsafe (not findUniqueOrThrow).
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      id: "user-dup",
+      createdAt: new Date("2024-01-01"),
+      credits: 10,
+    });
     mockPrisma.issue.count.mockResolvedValue(0);
     mockComputeFingerprint.mockReturnValue(null);
     // No fingerprint match, but embedding finds duplicate
@@ -597,8 +601,8 @@ describe("Duplicate Penalty via Embedding", () => {
       warning: "A very similar issue already exists",
       similarIssues: [{ id: "issue-existing", title: "Existing", similarity: 0.97 }],
     });
-    // penalizeCredits
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
+    // penalizeCredits uses $queryRawUnsafe with CTE RETURNING
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 8, previousBalance: 10 }]);
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     const result = await createIssue(
@@ -609,7 +613,7 @@ describe("Duplicate Penalty via Embedding", () => {
     expect(result.isDuplicate).toBe(true);
     expect(result.creditsAwarded).toBe(-DUPLICATE_PENALTY);
     // penalizeCredits uses GREATEST to floor at 0
-    expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledWith(
+    expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining("GREATEST"),
       DUPLICATE_PENALTY,
       "user-dup"

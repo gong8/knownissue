@@ -444,11 +444,10 @@ describe("Duplicate Verification Prevention", () => {
 
 describe("Credit Race Condition Defense", () => {
   it("throws Insufficient credits when atomic UPDATE returns 0 rows", async () => {
-    // The actual deductCredits function does the atomic check
     const { deductCredits: realDeductCredits } = await vi.importActual<typeof import("../services/credits")>("../services/credits");
 
-    // Mock $executeRawUnsafe to return 0 (no rows updated = insufficient credits)
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(0);
+    // Mock $queryRawUnsafe to return empty array (no rows updated = insufficient credits)
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
 
     await expect(
       realDeductCredits("user-1", 10, "search_performed")
@@ -458,8 +457,7 @@ describe("Credit Race Condition Defense", () => {
   it("succeeds when atomic UPDATE returns 1 row", async () => {
     const { deductCredits: realDeductCredits } = await vi.importActual<typeof import("../services/credits")>("../services/credits");
 
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
-    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ credits: 4 });
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 4 }]);
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     const balance = await realDeductCredits("user-1", 1, "search_performed");
@@ -609,13 +607,12 @@ describe("Negative Credit Floor", () => {
   it("penalizeCredits uses GREATEST(credits - amount, 0) in raw SQL", async () => {
     const { penalizeCredits: realPenalize } = await vi.importActual<typeof import("../services/credits")>("../services/credits");
 
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
-    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ credits: 0 });
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 0, previousBalance: 5 }]);
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     await realPenalize("user-1", 999, "duplicate_penalty");
 
-    expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledWith(
+    expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledWith(
       expect.stringContaining("GREATEST(credits - $1, 0)"),
       999,
       "user-1"
@@ -625,8 +622,7 @@ describe("Negative Credit Floor", () => {
   it("penalizeCredits never results in negative balance", async () => {
     const { penalizeCredits: realPenalize } = await vi.importActual<typeof import("../services/credits")>("../services/credits");
 
-    mockPrisma.$executeRawUnsafe.mockResolvedValue(1);
-    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ credits: 0 });
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ credits: 0, previousBalance: 0 }]);
     mockPrisma.creditTransaction.create.mockResolvedValue({});
 
     const result = await realPenalize("user-1", 100, "duplicate_penalty");

@@ -166,7 +166,7 @@ export function createMcpServer(userId: string) {
         try {
           return await issueService.searchIssues({ ...params, query: params.query }, userId);
         } catch (error) {
-          await awardCredits(userId, SEARCH_COST, "search").catch(() => {});
+          try { await awardCredits(userId, SEARCH_COST, "search"); } catch {}
           throw error;
         }
       }, userId)
