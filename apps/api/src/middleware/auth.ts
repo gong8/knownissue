@@ -7,22 +7,31 @@ import { SIGNUP_BONUS } from "@knownissue/shared";
 import type { User } from "@knownissue/shared";
 import type { AppEnv } from "../lib/types";
 import { getApiBaseUrl } from "../oauth/utils";
+import { triggerWelcomeEmail } from "../email/triggers";
 
 type AuthResult = { user: User; scopes?: string[] };
 
-export async function fetchClerkDisplayName(clerkId: string): Promise<string | null> {
+export async function fetchClerkUserInfo(clerkId: string): Promise<{ displayName: string | null; email: string | null }> {
   const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) return null;
+  if (!secretKey) return { displayName: null, email: null };
   try {
     const res = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
       headers: { Authorization: `Bearer ${secretKey}` },
     });
-    if (!res.ok) return null;
-    const data = await res.json() as { first_name?: string; last_name?: string };
+    if (!res.ok) return { displayName: null, email: null };
+    const data = await res.json() as {
+      first_name?: string;
+      last_name?: string;
+      email_addresses?: Array<{ email_address: string; id: string }>;
+      primary_email_address_id?: string;
+    };
     const parts = [data.first_name, data.last_name].filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : null;
+    const displayName = parts.length > 0 ? parts.join(" ") : null;
+    const primaryEmail = data.email_addresses?.find(e => e.id === data.primary_email_address_id);
+    const email = primaryEmail?.email_address ?? data.email_addresses?.[0]?.email_address ?? null;
+    return { displayName, email };
   } catch {
-    return null;
+    return { displayName: null, email: null };
   }
 }
 
@@ -99,14 +108,26 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
     });
 
     if (!user) {
-      const displayName = await fetchClerkDisplayName(clerkUserId) ?? "Unknown";
+      const info = await fetchClerkUserInfo(clerkUserId);
       user = await prisma.user.create({
         data: {
           clerkId: clerkUserId,
-          displayName,
+          displayName: info.displayName ?? "Unknown",
+          email: info.email,
           credits: SIGNUP_BONUS,
         },
       });
+      // Fire-and-forget welcome email
+      triggerWelcomeEmail(user.id, user.displayName).catch(() => {});
+    } else if (!user.email) {
+      // Backfill email for existing users
+      const info = await fetchClerkUserInfo(clerkUserId);
+      if (info.email) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { email: info.email },
+        });
+      }
     }
 
     return { user: toUser(user) };
