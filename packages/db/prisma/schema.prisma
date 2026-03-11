@@ -103,6 +103,7 @@ model User {
   avatarUrl      String?
   email              String?
   emailUnsubscribed  Boolean  @default(false)
+  sentMilestones     String[] @default([])
   credits        Int      @default(5)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

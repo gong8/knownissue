@@ -5,6 +5,7 @@ import { prisma } from "@knownissue/db";
 import { SIGNUP_BONUS } from "@knownissue/shared";
 import { generateAuthCode, hashToken, AUTH_CODE_TTL, getApiBaseUrl } from "./utils.js";
 import { fetchClerkUserInfo } from "../middleware/auth";
+import { triggerWelcomeEmail } from "../email/triggers";
 
 const authorize = new Hono();
 
@@ -403,6 +404,15 @@ authorize.post("/oauth/approve", async (c) => {
         credits: SIGNUP_BONUS,
       },
     });
+    triggerWelcomeEmail(user.id, user.displayName).catch(() => {});
+  } else if (!user.email) {
+    const info = await fetchClerkUserInfo(clerkId);
+    if (info.email) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { email: info.email },
+      });
+    }
   }
 
   const resolvedScope = scope ?? "mcp:tools";

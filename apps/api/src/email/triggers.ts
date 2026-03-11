@@ -51,14 +51,6 @@ const MILESTONES: MilestoneConfig[] = [
   },
 ];
 
-// ---- Sent milestone tracking (in-memory per-process) ----
-
-const sentMilestones = new Set<string>();
-
-function milestoneKey(userId: string, type: string): string {
-  return `${userId}:${type}`;
-}
-
 // ---- Trigger functions ----
 
 export async function triggerWelcomeEmail(userId: string, displayName: string): Promise<void> {
@@ -80,23 +72,30 @@ export async function triggerFirstImpactEmail(userId: string, issueId: string): 
 
 /**
  * Check and send any newly-crossed milestones for a user.
+ * Persists sent milestones in the User.sentMilestones array to survive restarts.
  * Call this after credit-affecting events.
  */
 export async function checkMilestones(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { displayName: true },
+    select: { displayName: true, sentMilestones: true },
   });
   if (!user) return;
 
+  const alreadySent = new Set(user.sentMilestones);
+
   for (const milestone of MILESTONES) {
-    const key = milestoneKey(userId, milestone.type);
-    if (sentMilestones.has(key)) continue;
+    if (alreadySent.has(milestone.type)) continue;
 
     const count = await milestone.check(userId);
     if (count === null) continue;
 
-    sentMilestones.add(key);
+    // Atomically add to sentMilestones to prevent duplicates across instances
+    await prisma.user.update({
+      where: { id: userId },
+      data: { sentMilestones: { push: milestone.type } },
+    });
+
     sendEmail(userId, EmailType.MILESTONE, {
       displayName: user.displayName,
       milestoneType: milestone.type,
