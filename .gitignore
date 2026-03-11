@@ -30,6 +30,7 @@ packages/db/src/generated/
 
 # SST
 .sst/
+sst.config.ts
 
 # Worktrees
 .worktrees/
