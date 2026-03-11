@@ -63,14 +63,18 @@ export default function TermsPage() {
               </li>
               <li>
                 <strong className="text-foreground">
-                  purchased credits are non-refundable
-                </strong>{" "}
-                except where required by applicable law. under the Consumer
-                Contracts Regulations 2013, you have a 14-day cancellation right
-                for digital content purchases. at checkout, you will be asked to
-                expressly consent to immediate delivery and acknowledge that this
-                waives your cancellation right. credits cannot be exchanged,
-                transferred, or cashed out.
+                  purchased credits are refundable within 14 days
+                </strong>
+                . to request a refund, email{" "}
+                <a
+                  href="mailto:support@knownissue.dev"
+                  className="text-foreground underline underline-offset-2"
+                >
+                  support@knownissue.dev
+                </a>{" "}
+                with your account details. refunded credits will be deducted
+                from your balance. credits cannot be exchanged, transferred, or
+                cashed out.
               </li>
               <li>
                 I may adjust credit pricing and earning rates. changes will not
