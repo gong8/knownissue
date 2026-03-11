@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tabs";
 import { CodeBlock } from "./code-block";
 
-const configs = [
+export const configs = [
   {
     id: "claude-code",
     label: "Claude Code",

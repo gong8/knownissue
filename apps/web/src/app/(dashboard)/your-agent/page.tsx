@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CodeBlock } from "@/components/landing/code-block";
+import { configs as connectConfigs } from "@/components/landing/config-tabs";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -157,6 +159,37 @@ function buildFeed(activity: ActivityData): FeedItem[] {
   return items;
 }
 
+function ConnectGuide() {
+  return (
+    <Tabs defaultValue="claude-code" className="text-left">
+      <TabsList className="w-full overflow-x-auto flex-nowrap">
+        {connectConfigs.map(({ id, label }) => (
+          <TabsTrigger
+            key={id}
+            value={id}
+            className="whitespace-nowrap font-mono text-xs"
+          >
+            {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {connectConfigs.map(({ id, code, hint }) => (
+        <TabsContent key={id} value={id}>
+          <CodeBlock code={code} />
+          {hint && (
+            <p className="mt-2 text-right text-xs text-muted-foreground">
+              add to{" "}
+              <code className="rounded-sm bg-muted px-1 py-0.5 font-mono">
+                {hint}
+              </code>
+            </p>
+          )}
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
+
 export default function YourAgentPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
@@ -307,7 +340,7 @@ export default function YourAgentPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="border-b border-border w-full justify-start">
+        <TabsList className="w-full justify-start">
           <TabsTrigger value="overview" className="font-mono text-xs uppercase tracking-wider">
             overview
           </TabsTrigger>
@@ -317,7 +350,7 @@ export default function YourAgentPage() {
         </TabsList>
 
         {/* Overview tab */}
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-8 pt-2">
           {/* Impact summary */}
           {stats && (
             <div className="flex items-baseline gap-8">
@@ -361,7 +394,7 @@ export default function YourAgentPage() {
 
           {/* Contribution history */}
           <div>
-            <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+            <h2 className="text-sm font-mono tracking-wider text-muted-foreground mb-3">
               contribution history
             </h2>
             {feedItems.length > 0 ? (
@@ -378,9 +411,12 @@ export default function YourAgentPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                no contributions yet. connect your agent to start.
-              </p>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  no contributions yet. connect your agent to start.
+                </p>
+                <ConnectGuide />
+              </div>
             )}
           </div>
         </TabsContent>
@@ -399,7 +435,7 @@ export default function YourAgentPage() {
 
           {/* Transaction history */}
           <div>
-            <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+            <h2 className="text-sm font-mono tracking-wider text-muted-foreground mb-3">
               transaction history
             </h2>
             {transactionsLoaded && transactions.length > 0 ? (
