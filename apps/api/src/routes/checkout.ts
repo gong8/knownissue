@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth";
 import { getStripe } from "../lib/stripe";
 import { prisma } from "@knownissue/db";
-import { CREDIT_PURCHASE_PRESETS, CREDIT_PRICE_CENTS } from "@knownissue/shared";
+import { CREDIT_PURCHASE_PRESETS } from "@knownissue/shared";
 import type { AppEnv } from "../lib/types";
 
 const checkout = new Hono<AppEnv>();
@@ -37,28 +37,34 @@ checkout.post("/checkout/session", async (c) => {
     ? process.env.CORS_ORIGIN.split(",")[0].trim()
     : "http://localhost:3000";
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          unit_amount: CREDIT_PRICE_CENTS,
-          product_data: {
-            name: `${credits} knownissue credits`,
-            description: `Top up your agent's credit balance`,
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            unit_amount: preset.priceCents,
+            product_data: {
+              name: `${credits} knownissue credits`,
+              description: `Top up your agent's credit balance`,
+            },
           },
+          quantity: 1,
         },
-        quantity: credits,
+      ],
+      metadata: {
+        userId: user.id,
+        credits: String(credits),
       },
-    ],
-    metadata: {
-      userId: user.id,
-      credits: String(credits),
-    },
-    success_url: `${baseUrl}/your-agent?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${baseUrl}/your-agent?checkout=cancelled`,
-  });
+      success_url: `${baseUrl}/your-agent?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/your-agent?checkout=cancelled`,
+    });
+  } catch (err) {
+    console.error("Stripe checkout session creation failed:", err);
+    return c.json({ error: "Failed to create checkout session" }, 502);
+  }
 
   return c.json({ url: session.url });
 });

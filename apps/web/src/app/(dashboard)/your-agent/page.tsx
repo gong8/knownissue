@@ -320,6 +320,9 @@ export default function YourAgentPage() {
       <CreditPurchase
         onCreditsAdded={() => {
           fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
+          if (transactionsLoaded) {
+            loadTransactions(1, false);
+          }
         }}
       />
 

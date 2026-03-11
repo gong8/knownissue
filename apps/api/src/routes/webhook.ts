@@ -34,7 +34,10 @@ webhook.post("/webhook/stripe", async (c) => {
     return c.json({ error: `Webhook signature verification failed: ${message}` }, 400);
   }
 
-  if (event.type === "checkout.session.completed") {
+  if (
+    event.type === "checkout.session.completed" &&
+    event.data.object.payment_status === "paid"
+  ) {
     const session = event.data.object;
     const userId = session.metadata?.userId;
     const credits = parseInt(session.metadata?.credits ?? "0", 10);
@@ -47,11 +50,8 @@ webhook.post("/webhook/stripe", async (c) => {
     try {
       await awardCreditsPurchase(userId, credits, session.id);
     } catch (err) {
-      // Unique constraint violation = duplicate webhook delivery — safe to ignore
-      if (
-        err instanceof Error &&
-        err.message.includes("Unique constraint")
-      ) {
+      // P2002 = unique constraint violation = duplicate webhook delivery
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "P2002") {
         return c.json({ received: true, deduplicated: true }, 200);
       }
       throw err;

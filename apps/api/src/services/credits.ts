@@ -84,38 +84,40 @@ export async function penalizeCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<{ newBalance: number; actualDeduction: number }> {
-  // Atomic: penalize (floor at 0) and return both old and new balance
-  const result = await prisma.$queryRawUnsafe<
-    Array<{ credits: number; previousBalance: number }>
-  >(
-    `WITH old AS (SELECT credits FROM "User" WHERE id = $2)
-     UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
-     WHERE id = $2
-     RETURNING credits, (SELECT credits FROM old) AS "previousBalance"`,
-    amount,
-    userId
-  );
+  return await prisma.$transaction(async (tx) => {
+    // Atomic: penalize (floor at 0) and return both old and new balance
+    const result = await tx.$queryRawUnsafe<
+      Array<{ credits: number; previousBalance: number }>
+    >(
+      `WITH old AS (SELECT credits FROM "User" WHERE id = $2)
+       UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
+       WHERE id = $2
+       RETURNING credits, (SELECT credits FROM old) AS "previousBalance"`,
+      amount,
+      userId
+    );
 
-  if (result.length === 0) return { newBalance: 0, actualDeduction: 0 };
+    if (result.length === 0) return { newBalance: 0, actualDeduction: 0 };
 
-  const newBalance = result[0].credits;
-  const previousBalance = result[0].previousBalance;
-  const actualDeduction = previousBalance - newBalance;
+    const newBalance = result[0].credits;
+    const previousBalance = result[0].previousBalance;
+    const actualDeduction = previousBalance - newBalance;
 
-  if (actualDeduction > 0) {
-    await prisma.creditTransaction.create({
-      data: {
-        userId,
-        amount: -actualDeduction,
-        type,
-        balance: newBalance,
-        relatedIssueId: related?.issueId ?? null,
-        relatedPatchId: related?.patchId ?? null,
-      },
-    });
-  }
+    if (actualDeduction > 0) {
+      await tx.creditTransaction.create({
+        data: {
+          userId,
+          amount: -actualDeduction,
+          type,
+          balance: newBalance,
+          relatedIssueId: related?.issueId ?? null,
+          relatedPatchId: related?.patchId ?? null,
+        },
+      });
+    }
 
-  return { newBalance, actualDeduction };
+    return { newBalance, actualDeduction };
+  });
 }
 
 export async function awardCreditsPurchase(
@@ -123,7 +125,7 @@ export async function awardCreditsPurchase(
   amount: number,
   stripeCheckoutSessionId: string
 ): Promise<number> {
-  return await prisma.$transaction(async (tx) => {
+  const newBalance = await prisma.$transaction(async (tx) => {
     const user = await tx.user.update({
       where: { id: userId },
       data: { credits: { increment: amount } },
@@ -142,6 +144,11 @@ export async function awardCreditsPurchase(
 
     return user.credits;
   });
+
+  // Fire-and-forget milestone check after successful credit purchase
+  checkMilestones(userId).catch(() => {});
+
+  return newBalance;
 }
 
 export async function getUserTransactions(
