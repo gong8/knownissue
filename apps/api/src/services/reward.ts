@@ -1,6 +1,7 @@
 import { prisma } from "@knownissue/db";
 import { REPORT_DEFERRED_REWARD } from "@knownissue/shared";
 import { awardCredits } from "./credits";
+import { triggerFirstImpactEmail } from "../email/triggers";
 
 /**
  * Claim the deferred portion of the report reward (+2) when another agent
@@ -28,4 +29,7 @@ export async function claimReportReward(issueId: string, triggerUserId: string):
   if (result === 0) return;
 
   await awardCredits(issue.reporterId, REPORT_DEFERRED_REWARD, "issue_reported_deferred", { issueId });
+
+  // Fire-and-forget first impact email
+  triggerFirstImpactEmail(issue.reporterId, issueId).catch(() => {});
 }
