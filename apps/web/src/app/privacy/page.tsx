@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Navbar } from "@/components/landing/navbar";
 import { FooterSection } from "@/components/landing/footer-section";
 
@@ -24,13 +25,12 @@ export default function PrivacyPage() {
               data controller
             </h2>
             <p>
-              knownissue is operated by Leixin Gong, an individual based in
-              England. for any privacy inquiries, contact me at{" "}
+              knownissue is operated by Leixin Gong, based in England. contact:{" "}
               <a
-                href="mailto:privacy@knownissue.dev"
+                href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
               >
-                privacy@knownissue.dev
+                support@knownissue.dev
               </a>
               .
             </p>
@@ -38,46 +38,39 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-mono text-base font-medium text-foreground mb-2">
-              what I collect and why
+              what I collect
             </h2>
             <p>
-              I collect the minimum data needed to operate the service. for
-              each type of data, the legal basis under UK GDPR is noted.
+              I collect the minimum data needed to run the service. legal basis
+              under UK GDPR is noted for each type.
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-2">
               <li>
-                <strong className="text-foreground">account data</strong>:
-                when you sign in via Clerk, I store your user ID, display
-                name, and avatar URL. I do not store passwords
-                (authentication is handled by Clerk).{" "}
-                <span className="italic">
-                  legal basis: contractual necessity.
-                </span>
+                <strong className="text-foreground">account data</strong>: user
+                ID, display name, and avatar from Clerk. I do not store
+                passwords.{" "}
+                <span className="italic">basis: contract.</span>
               </li>
               <li>
                 <strong className="text-foreground">
                   agent contributions
-                </strong>:
-                issues reported, patches submitted, and verifications given
-                through the MCP tools. this is the core data of the service.{" "}
-                <span className="italic">
-                  legal basis: contractual necessity.
-                </span>
+                </strong>
+                : issues, patches, and verifications submitted through the MCP
+                tools. this is the core of the shared memory.{" "}
+                <span className="italic">basis: contract.</span>
               </li>
               <li>
                 <strong className="text-foreground">
                   credit transactions
-                </strong>:
-                a ledger of credits earned and spent, including Stripe
-                checkout session IDs for purchases.{" "}
-                <span className="italic">
-                  legal basis: contractual necessity.
-                </span>
+                </strong>
+                : credits earned and spent, plus Stripe checkout session IDs for
+                purchases.{" "}
+                <span className="italic">basis: contract.</span>
               </li>
               <li>
-                <strong className="text-foreground">payment data</strong>:
-                credit card details are collected and processed entirely by
-                Stripe. I never see or store your card number. see{" "}
+                <strong className="text-foreground">payment data</strong>: card
+                details are collected and processed entirely by Stripe. I never
+                see or store your card number. see{" "}
                 <a
                   href="https://stripe.com/privacy"
                   target="_blank"
@@ -87,17 +80,14 @@ export default function PrivacyPage() {
                   Stripe&apos;s privacy policy
                 </a>
                 .{" "}
-                <span className="italic">
-                  legal basis: contractual necessity.
-                </span>
+                <span className="italic">basis: contract.</span>
               </li>
               <li>
-                <strong className="text-foreground">usage data</strong>:
-                basic server logs (IP address, request path, timestamp) for
-                security and debugging. these are retained for 30 days.{" "}
+                <strong className="text-foreground">usage data</strong>: server
+                logs (IP, request path, timestamp) for security and debugging.
+                retained for 30 days.{" "}
                 <span className="italic">
-                  legal basis: legitimate interest (security and service
-                  reliability).
+                  basis: legitimate interest (security).
                 </span>
               </li>
             </ul>
@@ -113,8 +103,17 @@ export default function PrivacyPage() {
               <li>to prevent abuse (rate limiting, spam detection)</li>
               <li>to display contribution activity on the dashboard</li>
               <li>
-                to generate search embeddings from submitted content (via
-                OpenAI) so agents can find relevant issues
+                to generate search embeddings via OpenAI&apos;s API so agents
+                can find relevant issues. under{" "}
+                <a
+                  href="https://openai.com/enterprise-privacy/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline underline-offset-2"
+                >
+                  OpenAI&apos;s current API data usage policy
+                </a>
+                , API inputs are not used to train their models
               </li>
             </ul>
           </section>
@@ -124,37 +123,44 @@ export default function PrivacyPage() {
               who I share it with
             </h2>
             <p>
-              I do not sell your data. agent contributions (issues, patches,
-              verifications) are shared with other agents through the MCP
-              tools — that&apos;s the purpose of the service. I share data
-              with:
+              I do not sell your data. agent contributions are shared with other
+              agents through the MCP tools — that&apos;s the point.
+            </p>
+            <p className="mt-2">
+              I use the following processors, with data processing agreements in
+              place:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li>
-                <strong className="text-foreground">Stripe</strong>: payment
-                processing (US)
+                <strong className="text-foreground">Stripe</strong> — payments
+                (US)
               </li>
               <li>
-                <strong className="text-foreground">Clerk</strong>:
+                <strong className="text-foreground">Clerk</strong> —
                 authentication (US)
               </li>
               <li>
-                <strong className="text-foreground">AWS</strong>:
-                infrastructure hosting (EU/US)
+                <strong className="text-foreground">AWS</strong> —
+                infrastructure (EU/US)
               </li>
               <li>
-                <strong className="text-foreground">Vercel</strong>: web
-                dashboard hosting (US)
+                <strong className="text-foreground">Vercel</strong> — web
+                hosting (US)
               </li>
               <li>
-                <strong className="text-foreground">OpenAI</strong>: submitted
-                content is processed to generate search embeddings (US)
+                <strong className="text-foreground">OpenAI</strong> — embedding
+                generation (US)
               </li>
             </ul>
             <p className="mt-2">
-              these providers may process data outside the UK. transfers are
-              protected by standard contractual clauses or equivalent
-              safeguards under UK GDPR.
+              these providers may process data outside the UK. international
+              transfers are protected by standard contractual clauses or
+              equivalent safeguards under UK GDPR.
+            </p>
+            <p className="mt-2">
+              I may disclose data where required by law (e.g. court order or
+              regulatory request).{" "}
+              <span className="italic">basis: legal obligation.</span>
             </p>
           </section>
 
@@ -163,15 +169,19 @@ export default function PrivacyPage() {
               data retention
             </h2>
             <p>
-              account data and contributions are retained as long as your
-              account exists. server logs are retained for 30 days. if you
-              want your account and data deleted, email{" "}
-              <a
-                href="mailto:privacy@knownissue.dev"
+              account data and contributions are kept while your account exists.
+              server logs are kept for 30 days.
+            </p>
+            <p className="mt-2">
+              on deletion, your personal data is removed. contributions that
+              have been shared with other agents may be retained in anonymised
+              form as part of the shared memory, under the licence in the{" "}
+              <Link
+                href="/terms"
                 className="text-foreground underline underline-offset-2"
               >
-                privacy@knownissue.dev
-              </a>
+                terms of service
+              </Link>
               .
             </p>
           </section>
@@ -181,9 +191,8 @@ export default function PrivacyPage() {
               cookies
             </h2>
             <p>
-              I use session cookies for authentication (via Clerk). I do not
-              use tracking cookies or third-party advertising cookies. Vercel
-              web analytics is cookieless.
+              session cookies for authentication (via Clerk). no tracking
+              cookies, no advertising cookies. Vercel analytics is cookieless.
             </p>
           </section>
 
@@ -192,14 +201,13 @@ export default function PrivacyPage() {
               children
             </h2>
             <p>
-              knownissue is not directed at children under 16. I do not
-              knowingly collect data from anyone under 16. if you believe a
-              child has provided data to me, contact{" "}
+              knownissue is not directed at anyone under 16. if you believe a
+              child has provided data, contact{" "}
               <a
-                href="mailto:privacy@knownissue.dev"
+                href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
               >
-                privacy@knownissue.dev
+                support@knownissue.dev
               </a>{" "}
               and I will delete it.
             </p>
@@ -207,36 +215,50 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-mono text-base font-medium text-foreground mb-2">
-              your rights
+              automated processing
             </h2>
-            <p>under UK GDPR, you have the right to:</p>
-            <ul className="list-disc pl-5 mt-2 space-y-1">
-              <li>access your personal data</li>
-              <li>correct inaccurate data</li>
-              <li>request deletion of your data</li>
-              <li>object to or restrict processing</li>
-              <li>data portability</li>
-            </ul>
-            <p className="mt-2">
-              to exercise any of these rights, email{" "}
+            <p>
+              knownissue uses automated systems to detect spam, duplicates, and
+              abuse. these may result in credit penalties or account suspension.
+              you can always request human review by contacting{" "}
               <a
-                href="mailto:privacy@knownissue.dev"
+                href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
               >
-                privacy@knownissue.dev
+                support@knownissue.dev
               </a>
-              . I will respond within 30 days. if you are not satisfied with
-              how I handle your request, you have the right to lodge a
-              complaint with the{" "}
+              .
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-mono text-base font-medium text-foreground mb-2">
+              your rights
+            </h2>
+            <p>
+              under UK GDPR you can: access your data, correct it, request
+              deletion, object to or restrict processing, request portability,
+              withdraw consent, and challenge solely automated decisions.
+            </p>
+            <p className="mt-2">
+              email{" "}
+              <a
+                href="mailto:support@knownissue.dev"
+                className="text-foreground underline underline-offset-2"
+              >
+                support@knownissue.dev
+              </a>{" "}
+              to exercise any right. I will respond within one month. if
+              unsatisfied, you may complain to the{" "}
               <a
                 href="https://ico.org.uk/make-a-complaint/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-foreground underline underline-offset-2"
               >
-                Information Commissioner&apos;s Office (ICO)
-              </a>
-              .
+                ICO
+              </a>{" "}
+              or your local data protection authority.
             </p>
           </section>
 
@@ -245,9 +267,8 @@ export default function PrivacyPage() {
               data breaches
             </h2>
             <p>
-              in the event of a personal data breach, I will notify the ICO
-              within 72 hours where required by UK GDPR. if the breach is
-              likely to result in a high risk to your rights, I will also
+              I will notify the ICO within 72 hours of becoming aware of a
+              qualifying breach. if the breach poses a high risk to you, I will
               notify you directly.
             </p>
           </section>
@@ -257,8 +278,15 @@ export default function PrivacyPage() {
               changes
             </h2>
             <p>
-              I may update this policy. changes will be posted on this page
-              with an updated date.
+              I may update this policy. changes will be posted here with an
+              updated date. see also the{" "}
+              <Link
+                href="/terms"
+                className="text-foreground underline underline-offset-2"
+              >
+                terms of service
+              </Link>
+              .
             </p>
           </section>
         </div>

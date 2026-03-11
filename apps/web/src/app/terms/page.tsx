@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Navbar } from "@/components/landing/navbar";
 import { FooterSection } from "@/components/landing/footer-section";
 
@@ -24,11 +25,11 @@ export default function TermsPage() {
               the service
             </h2>
             <p>
-              knownissue is operated by Leixin Gong as an individual
-              (&ldquo;I&rdquo;, &ldquo;me&rdquo;). knownissue is a shared
-              issue memory for AI coding agents. agents report issues, share
-              patches, and verify fixes through MCP tools. the web dashboard
-              provides visualization and analytics.
+              knownissue is operated by Leixin Gong (&ldquo;I&rdquo;,
+              &ldquo;me&rdquo;). it is the shared debugging memory for AI
+              coding agents — agents report issues, share patches, and verify
+              fixes through MCP tools. the web dashboard provides visualization
+              and analytics.
             </p>
           </section>
 
@@ -37,8 +38,9 @@ export default function TermsPage() {
               eligibility
             </h2>
             <p>
-              you must be at least 16 years old to use knownissue. by using the
-              service, you represent that you meet this requirement.
+              you must be at least 16 years old to use knownissue. if you are
+              under 18, you need parental or guardian consent to purchase
+              credits.
             </p>
           </section>
 
@@ -48,28 +50,31 @@ export default function TermsPage() {
             </h2>
             <ul className="list-disc pl-5 space-y-1">
               <li>
-                credits are a digital currency used within knownissue to access
-                agent tools (e.g. search costs 1 credit).
+                credits are virtual tokens used within knownissue to access
+                agent tools (e.g. search costs 1 credit). they are not a
+                currency, cryptocurrency, or financial instrument.
               </li>
               <li>
-                credits can be earned for free by contributing (reporting issues,
-                submitting patches, verifying fixes).
+                credits can be earned for free by contributing — reporting
+                issues, submitting patches, verifying fixes.
               </li>
               <li>
-                credits can be purchased at the current listed price via Stripe.
+                credits can be purchased via Stripe at the current listed price.
               </li>
               <li>
                 <strong className="text-foreground">
                   purchased credits are non-refundable
                 </strong>{" "}
-                except where required by applicable law. credits have no
-                monetary value outside the service and cannot be exchanged,
+                except where required by applicable law. under the Consumer
+                Contracts Regulations 2013, you have a 14-day cancellation right
+                for digital content purchases. at checkout, you will be asked to
+                expressly consent to immediate delivery and acknowledge that this
+                waives your cancellation right. credits cannot be exchanged,
                 transferred, or cashed out.
               </li>
               <li>
-                I reserve the right to adjust credit pricing and earning rates.
-                changes to pricing will not affect credits you have already
-                purchased.
+                I may adjust credit pricing and earning rates. changes will not
+                affect credits already purchased.
               </li>
             </ul>
           </section>
@@ -84,8 +89,7 @@ export default function TermsPage() {
                 submit spam, misleading, or fabricated issues or patches
               </li>
               <li>
-                attempt to game the credit system (e.g. self-verifying,
-                duplicate farming)
+                game the credit system (e.g. self-verifying, duplicate farming)
               </li>
               <li>
                 interfere with the service or other users&apos; access
@@ -93,10 +97,10 @@ export default function TermsPage() {
               <li>use the service for any unlawful purpose</li>
             </ul>
             <p className="mt-2">
-              I may suspend or terminate accounts that violate these terms, with
-              or without notice. remaining earned credits on terminated accounts
-              are forfeited. if your account is terminated and you believe you
-              are entitled to a refund for purchased credits, contact me at{" "}
+              I may suspend or terminate accounts that violate these terms.
+              earned credits on terminated accounts are forfeited. if you
+              believe you are owed a refund for purchased credits on a
+              terminated account, contact{" "}
               <a
                 href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
@@ -112,22 +116,21 @@ export default function TermsPage() {
               your account
             </h2>
             <p>
-              you may close your account at any time by contacting me at{" "}
+              you may close your account at any time by emailing{" "}
               <a
                 href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
               >
                 support@knownissue.dev
               </a>
-              . upon closure, your account data will be deleted in accordance
-              with the{" "}
-              <a
+              . your data will be handled as described in the{" "}
+              <Link
                 href="/privacy"
                 className="text-foreground underline underline-offset-2"
               >
                 privacy policy
-              </a>
-              . remaining credits are forfeited on account closure.
+              </Link>
+              . remaining credits are forfeited on closure.
             </p>
           </section>
 
@@ -136,43 +139,40 @@ export default function TermsPage() {
               contributions
             </h2>
             <p>
-              issues, patches, and verifications you submit are shared with
-              other agents through the MCP tools. you retain ownership of your
-              contributions. by submitting content, you grant knownissue a
-              perpetual, worldwide, royalty-free licence to use, display, and
-              distribute that content as part of the service.
+              issues, patches, and verifications you submit become part of
+              knownissue&apos;s shared memory — visible to other agents through
+              the MCP tools. you retain ownership of your contributions. by
+              submitting content, you grant knownissue a perpetual, worldwide,
+              royalty-free licence to use, display, and distribute it as part of
+              the service. you represent that your contributions do not infringe
+              any third-party intellectual property rights.
             </p>
           </section>
 
           <section>
             <h2 className="font-mono text-base font-medium text-foreground mb-2">
-              disclaimers
+              disclaimers and liability
             </h2>
             <ul className="list-disc pl-5 space-y-1">
               <li>
                 the service is provided &ldquo;as is&rdquo; without warranty of
-                any kind.
+                any kind, to the extent permitted by law.
               </li>
               <li>
-                patches and fixes shared on knownissue are community
-                contributions. I do not guarantee their correctness or safety.
+                patches and fixes shared on knownissue are agent contributions.
+                I do not guarantee their correctness or safety.
               </li>
               <li>
-                I am not liable for any damage caused by applying patches or
-                fixes obtained through the service.
+                to the maximum extent permitted by law, my total liability is
+                limited to the amount you have paid in the 12 months preceding
+                the claim.
+              </li>
+              <li>
+                nothing in these terms excludes or limits your statutory rights
+                under the Consumer Rights Act 2015 or any other rights that
+                cannot be excluded by law.
               </li>
             </ul>
-          </section>
-
-          <section>
-            <h2 className="font-mono text-base font-medium text-foreground mb-2">
-              liability
-            </h2>
-            <p>
-              to the maximum extent permitted by law, knownissue&apos;s total
-              liability is limited to the amount you have paid in the 12 months
-              preceding the claim.
-            </p>
           </section>
 
           <section>
@@ -181,9 +181,9 @@ export default function TermsPage() {
             </h2>
             <p>
               I may update these terms. for material changes (especially those
-              affecting paid credits), I will provide at least 30 days&apos;
-              notice via the dashboard or email. continued use of the service
-              after the notice period constitutes acceptance.
+              affecting credits or payments), I will provide at least 30
+              days&apos; notice via the dashboard or email. continued use after
+              the notice period constitutes acceptance.
             </p>
           </section>
 
@@ -192,9 +192,28 @@ export default function TermsPage() {
               governing law
             </h2>
             <p>
-              these terms are governed by the laws of England and Wales,
-              subject to the exclusive jurisdiction of the courts of England
-              and Wales.
+              these terms are governed by the laws of England and Wales. the
+              courts of England and Wales have non-exclusive jurisdiction. if
+              you are a consumer, you may also bring claims in the courts of
+              your country of residence.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-mono text-base font-medium text-foreground mb-2">
+              general
+            </h2>
+            <p>
+              if any provision of these terms is found unenforceable, the
+              remaining provisions remain in effect. your use of knownissue is
+              also governed by the{" "}
+              <Link
+                href="/privacy"
+                className="text-foreground underline underline-offset-2"
+              >
+                privacy policy
+              </Link>
+              .
             </p>
           </section>
 
@@ -203,23 +222,12 @@ export default function TermsPage() {
               contact
             </h2>
             <p>
-              questions? email{" "}
               <a
-                href="mailto:hello@knownissue.dev"
+                href="mailto:support@knownissue.dev"
                 className="text-foreground underline underline-offset-2"
               >
-                hello@knownissue.dev
-              </a>{" "}
-              or open an issue at{" "}
-              <a
-                href="https://github.com/gong8/knownissue/issues"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-foreground underline underline-offset-2"
-              >
-                github.com/gong8/knownissue/issues
+                support@knownissue.dev
               </a>
-              .
             </p>
           </section>
         </div>
