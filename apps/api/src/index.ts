@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { structuredLogger } from "./middleware/logger";
 import { rateLimiter } from "hono-rate-limiter";
 import { auth } from "./routes/auth";
 import { issues } from "./routes/issues";
@@ -45,7 +45,7 @@ app.use("*", async (c, next) => {
 });
 
 // Logger
-app.use("*", logger());
+app.use("*", structuredLogger);
 
 // CORS (configurable via environment)
 const corsOrigins = process.env.CORS_ORIGIN
@@ -141,12 +141,12 @@ app.post("/revoke", async (c) => {
   return app.fetch(forwarded);
 });
 
-// Error handler — preserve HTTPException status codes, hide internals in production
+// Error handler — preserve HTTPException status codes, hide internals in production.
+// Error details are logged by the structuredLogger middleware via c.error.
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
     return err.getResponse();
   }
-  console.error(err);
   if (process.env.NODE_ENV === "production") {
     return c.json({ error: "Internal server error" }, 500);
   }
