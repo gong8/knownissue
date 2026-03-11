@@ -34,6 +34,28 @@ webhook.post("/webhook/stripe", async (c) => {
     return c.json({ error: `Webhook signature verification failed: ${message}` }, 400);
   }
 
+  // Handle PaymentIntent completion (new embedded Elements flow)
+  if (event.type === "payment_intent.succeeded") {
+    const pi = event.data.object;
+    const userId = pi.metadata?.userId;
+    const credits = parseInt(pi.metadata?.credits ?? "0", 10);
+
+    if (!userId || !credits) {
+      console.error("Stripe webhook: missing metadata", { paymentIntentId: pi.id });
+      return c.json({ received: true }, 200);
+    }
+
+    try {
+      await awardCreditsPurchase(userId, credits, pi.id);
+    } catch (err) {
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "P2002") {
+        return c.json({ received: true, deduplicated: true }, 200);
+      }
+      throw err;
+    }
+  }
+
+  // Handle Checkout Session completion (legacy redirect flow)
   if (
     event.type === "checkout.session.completed" &&
     event.data.object.payment_status === "paid"
@@ -50,7 +72,6 @@ webhook.post("/webhook/stripe", async (c) => {
     try {
       await awardCreditsPurchase(userId, credits, session.id);
     } catch (err) {
-      // P2002 = unique constraint violation = duplicate webhook delivery
       if (err instanceof Error && "code" in err && (err as { code: string }).code === "P2002") {
         return c.json({ received: true, deduplicated: true }, 200);
       }

@@ -3,6 +3,7 @@ export const EmailType = {
   FIRST_IMPACT: "first_impact",
   MILESTONE: "milestone",
   CHANGELOG: "changelog",
+  PURCHASE_RECEIPT: "purchase_receipt",
 } as const;
 
 export type EmailType = (typeof EmailType)[keyof typeof EmailType];
@@ -28,9 +29,18 @@ export interface ChangelogData {
   body: string;
 }
 
+export interface PurchaseReceiptData {
+  displayName: string;
+  credits: number;
+  amountCents: number;
+  newBalance: number;
+  date: string;
+}
+
 export type EmailData = {
   welcome: WelcomeData;
   first_impact: FirstImpactData;
   milestone: MilestoneData;
   changelog: ChangelogData;
+  purchase_receipt: PurchaseReceiptData;
 };
