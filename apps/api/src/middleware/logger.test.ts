@@ -80,18 +80,11 @@ describe("structuredLogger middleware", () => {
     app.get("/boom", () => {
       throw new Error("something broke");
     });
-    // Re-throw from onError so the error propagates through
-    // Hono's compose chain back to the middleware's catch block.
-    app.onError((err) => {
-      throw err;
-    });
+    // No custom onError — Hono handles the error, sets c.error, and responds 500.
+    // The middleware reads c.error after next() resolves.
 
-    // The middleware re-throws after logging, so app.request() rejects.
-    try {
-      await app.request("/boom");
-    } catch {
-      // expected
-    }
+    const res = await app.request("/boom");
+    expect(res.status).toBe(500);
 
     const entry = parseLogEntry();
     expect(entry.status).toBe(500);

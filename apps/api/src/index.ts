@@ -141,26 +141,12 @@ app.post("/revoke", async (c) => {
   return app.fetch(forwarded);
 });
 
-// Error handler — preserve HTTPException status codes, hide internals in production
+// Error handler — preserve HTTPException status codes, hide internals in production.
+// Error details are logged by the structuredLogger middleware via c.error.
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
     return err.getResponse();
   }
-
-  // Structured error log to stderr
-  const errorEntry: Record<string, unknown> = {
-    timestamp: new Date().toISOString(),
-    level: "error",
-    method: c.req.method,
-    path: c.req.path,
-    error: err.message,
-    errorType: err.constructor.name,
-  };
-  if (process.env.NODE_ENV !== "production") {
-    errorEntry.stack = err.stack;
-  }
-  process.stderr.write(JSON.stringify(errorEntry) + "\n");
-
   if (process.env.NODE_ENV === "production") {
     return c.json({ error: "Internal server error" }, 500);
   }
