@@ -43,35 +43,32 @@ export async function deductCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
-  // Atomic: only decrements if credits >= amount
-  const result = await prisma.$executeRawUnsafe(
-    `UPDATE "User" SET credits = credits - $1, "updatedAt" = NOW() WHERE id = $2 AND credits >= $1`,
-    amount,
-    userId
-  );
-
-  if (result === 0) {
-    throw new Error(`Insufficient credits. Required: ${amount}`);
-  }
-
   return await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { credits: true },
-    });
+    // Atomic: deduct and return new balance in one query
+    const result = await tx.$queryRawUnsafe<Array<{ credits: number }>>(
+      `UPDATE "User" SET credits = credits - $1, "updatedAt" = NOW() WHERE id = $2 AND credits >= $1 RETURNING credits`,
+      amount,
+      userId
+    );
+
+    if (result.length === 0) {
+      throw new Error(`Insufficient credits. Required: ${amount}`);
+    }
+
+    const newBalance = result[0].credits;
 
     await tx.creditTransaction.create({
       data: {
         userId,
         amount: -amount,
         type,
-        balance: user.credits,
+        balance: newBalance,
         relatedIssueId: related?.issueId ?? null,
         relatedPatchId: related?.patchId ?? null,
       },
     });
 
-    return user.credits;
+    return newBalance;
   });
 }
 
@@ -80,27 +77,24 @@ export async function penalizeCredits(
   amount: number,
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
-): Promise<number> {
-  // Read balance before penalty to compute actual deduction
-  const userBefore = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { credits: true },
-  });
-  const previousBalance = userBefore.credits;
-
-  // Floor at 0 — penalties cannot go negative
-  await prisma.$executeRawUnsafe(
-    `UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW() WHERE id = $2`,
+): Promise<{ newBalance: number; actualDeduction: number }> {
+  // Atomic: penalize (floor at 0) and return both old and new balance
+  const result = await prisma.$queryRawUnsafe<
+    Array<{ credits: number; previousBalance: number }>
+  >(
+    `WITH old AS (SELECT credits FROM "User" WHERE id = $2)
+     UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
+     WHERE id = $2
+     RETURNING credits, (SELECT credits FROM old) AS "previousBalance"`,
     amount,
     userId
   );
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { credits: true },
-  });
+  if (result.length === 0) return { newBalance: 0, actualDeduction: 0 };
 
-  const actualDeduction = previousBalance - user.credits;
+  const newBalance = result[0].credits;
+  const previousBalance = result[0].previousBalance;
+  const actualDeduction = previousBalance - newBalance;
 
   if (actualDeduction > 0) {
     await prisma.creditTransaction.create({
@@ -108,14 +102,14 @@ export async function penalizeCredits(
         userId,
         amount: -actualDeduction,
         type,
-        balance: user.credits,
+        balance: newBalance,
         relatedIssueId: related?.issueId ?? null,
         relatedPatchId: related?.patchId ?? null,
       },
     });
   }
 
-  return user.credits;
+  return { newBalance, actualDeduction };
 }
 
 export async function getUserTransactions(

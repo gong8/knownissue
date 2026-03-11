@@ -272,6 +272,7 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "test", errorCode: "ERR_1", library: "lodash" });
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
     });
 
     it("falls through if no issue found for fingerprint", async () => {
@@ -284,6 +285,7 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "test", errorCode: "ERR_1", library: "lodash" });
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
     });
   });
 
@@ -325,8 +327,10 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "error", library: "lodash" }, "user-1");
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("vector");
       expect(result.issues).toHaveLength(1);
       expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalled();
+      expect(result).not.toHaveProperty("_warnings");
     });
 
     it("increments searchHitCount on returned issues", async () => {
@@ -376,7 +380,7 @@ describe("searchIssues", () => {
       expect(claimReportReward).not.toHaveBeenCalled();
     });
 
-    it("adds version and contextLibrary filters to vector query but not library", async () => {
+    it("adds version, contextLibrary, and library filters to vector query", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue([0.5]);
       mockPrisma.$queryRawUnsafe
@@ -387,8 +391,8 @@ describe("searchIssues", () => {
 
       const sql = mockPrisma.$queryRawUnsafe.mock.calls[0][0] as string;
       expect(sql).toContain('"version" = $4');
-      expect(sql).not.toContain('"library" =');
       expect(sql).toContain('ANY("contextLibraries")');
+      expect(sql).toContain('LOWER("library")');
     });
 
     it("loads patches with verification summary for vector results", async () => {
@@ -445,11 +449,15 @@ describe("searchIssues", () => {
       const result = await searchIssues({ query: "TypeError" }, "user-1");
 
       expect(result._meta.matchTier).toBe(3);
+      expect(result._meta.searchMode).toBe("text");
+      expect(result._warnings).toEqual([
+        "Semantic search unavailable — results are from text matching only. Quality may be reduced.",
+      ]);
       expect(result.issues).toHaveLength(1);
       expect(mockPrisma.issue.findMany).toHaveBeenCalled();
     });
 
-    it("does not apply library or contextLibrary filters in text search", async () => {
+    it("applies library filter but not contextLibrary in text search", async () => {
       computeFingerprint.mockReturnValue(null);
       generateEmbedding.mockResolvedValue(null);
       mockPrisma.issue.findMany.mockResolvedValue([]);
@@ -458,7 +466,7 @@ describe("searchIssues", () => {
       await searchIssues({ query: "error", library: "react", contextLibrary: "webpack" });
 
       const call = mockPrisma.issue.findMany.mock.calls[0][0];
-      expect(call.where.library).toBeUndefined();
+      expect(call.where.library).toEqual({ equals: "react", mode: "insensitive" });
       expect(call.where.contextLibraries).toBeUndefined();
     });
 
@@ -607,12 +615,12 @@ describe("createIssue", () => {
       const existing = makeIssue({ id: "existing-1" });
       computeFingerprint.mockReturnValue("fp-hash");
       findByFingerprint.mockResolvedValue(existing);
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 
       expect(result.isDuplicate).toBe(true);
-      expect(result.creditsAwarded).toBe(-DUPLICATE_PENALTY);
+      expect(result.creditsAwarded).toBe(-2);
       expect(penalizeCredits).toHaveBeenCalledWith(
         "user-1",
         DUPLICATE_PENALTY,
@@ -628,7 +636,7 @@ describe("createIssue", () => {
         warning: "Very similar issue",
         similarIssues: [{ id: "similar-1", title: "Similar", similarity: 0.97 }],
       });
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 
@@ -643,7 +651,7 @@ describe("createIssue", () => {
         warning: "Duplicate",
         similarIssues: [],
       });
-      penalizeCredits.mockResolvedValue(0);
+      penalizeCredits.mockResolvedValue({ newBalance: 0, actualDeduction: 2 });
 
       const result = await createIssue(validInput, "user-1");
 
@@ -672,6 +680,7 @@ describe("createIssue", () => {
         "issue-1",
       );
       expect(result.creditsAwarded).toBe(REPORT_IMMEDIATE_REWARD);
+      expect(result).not.toHaveProperty("_warnings");
     });
 
     it("awards REPORT_IMMEDIATE_REWARD credits", async () => {
@@ -697,12 +706,15 @@ describe("createIssue", () => {
       });
     });
 
-    it("skips embedding store when embedding is null", async () => {
+    it("skips embedding store when embedding is null and adds _warnings", async () => {
       generateEmbedding.mockResolvedValue(null);
 
-      await createIssue(validInput, "user-1");
+      const result = await createIssue(validInput, "user-1");
 
       expect(mockPrisma.$executeRawUnsafe).not.toHaveBeenCalled();
+      expect(result._warnings).toEqual([
+        "Issue created without embedding — it may not appear in semantic search results. This is usually caused by an API key configuration issue or rate limiting.",
+      ]);
     });
 
     it("handles inline patch", async () => {
@@ -730,6 +742,27 @@ describe("createIssue", () => {
       );
       expect(result.creditsAwarded).toBe(REPORT_IMMEDIATE_REWARD + 5);
       expect(result.inlinePatch).toBeDefined();
+    });
+
+    it("returns issue with warning when inline patch fails", async () => {
+      patchService.submitPatch.mockRejectedValue(new Error("Patch submission failed"));
+
+      const inputWithPatch = {
+        ...validInput,
+        patch: {
+          explanation: "Fix by updating the dependency",
+          steps: [{ type: "instruction" as const, text: "Update lodash" }],
+        },
+      };
+
+      const result = await createIssue(inputWithPatch, "user-1");
+
+      expect(result.issue).toBeDefined();
+      expect(result.creditsAwarded).toBe(REPORT_IMMEDIATE_REWARD);
+      expect(result.inlinePatch).toEqual({
+        error: "Patch submission failed",
+        creditsAwarded: 0,
+      });
     });
 
     it("handles relatedTo", async () => {

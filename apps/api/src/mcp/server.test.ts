@@ -19,6 +19,7 @@ vi.mock("../services/activity", () => ({
 }));
 vi.mock("../services/credits", () => ({
   deductCredits: vi.fn(),
+  awardCredits: vi.fn(),
   getCredits: vi.fn().mockResolvedValue(10),
 }));
 
@@ -27,7 +28,7 @@ import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
 import * as verificationService from "../services/verification";
 import * as activityService from "../services/activity";
-import { deductCredits, getCredits } from "../services/credits";
+import { deductCredits, awardCredits, getCredits } from "../services/credits";
 
 const TEST_USER_ID = "user-test-123";
 

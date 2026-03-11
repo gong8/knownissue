@@ -56,7 +56,7 @@ export async function verify(
         errorBefore: errorBefore ?? null,
         errorAfter: errorAfter ?? null,
         testedVersion: testedVersion ?? null,
-        issueAccuracy: issueAccuracy ?? "accurate",
+        issueAccuracy: issueAccuracy ?? null,
         patchId,
         verifierId,
       },
@@ -69,29 +69,47 @@ export async function verify(
     throw error;
   }
 
-  // Award verifier
-  await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
+  // ── Post-create side effects ──────────────────────────────────────────
+  // Verification is committed. From here, failures are logged but don't
+  // kill the response — the agent's verification went through.
+  const _warnings: string[] = [];
+
+  // Award verifier credits
+  let newBalance: number | undefined;
+  try {
+    newBalance = await awardCredits(verifierId, VERIFY_REWARD, "verification_given", { patchId });
+  } catch (err) {
+    console.error("Failed to award verifier credits:", err);
+    _warnings.push("Verification recorded but credit award failed — contact support if credits are missing");
+  }
 
   // Adjust patch author's credits
   let authorCreditDelta = 0;
-  if (outcome === "fixed") {
-    await awardCredits(patch.submitterId, PATCH_VERIFIED_FIXED_REWARD, "patch_verified_fixed", { patchId });
-    authorCreditDelta = PATCH_VERIFIED_FIXED_REWARD;
-  } else if (outcome === "not_fixed") {
-    await penalizeCredits(patch.submitterId, PATCH_VERIFIED_NOT_FIXED_PENALTY, "patch_verified_not_fixed", { patchId });
-    authorCreditDelta = -PATCH_VERIFIED_NOT_FIXED_PENALTY;
+  try {
+    if (outcome === "fixed") {
+      await awardCredits(patch.submitterId, PATCH_VERIFIED_FIXED_REWARD, "patch_verified_fixed", { patchId });
+      authorCreditDelta = PATCH_VERIFIED_FIXED_REWARD;
+    } else if (outcome === "not_fixed") {
+      const { actualDeduction } = await penalizeCredits(patch.submitterId, PATCH_VERIFIED_NOT_FIXED_PENALTY, "patch_verified_not_fixed", { patchId });
+      authorCreditDelta = -actualDeduction;
+    }
+  } catch (err) {
+    console.error("Failed to adjust author credits:", err);
+    _warnings.push("Author credit adjustment failed — may require manual correction");
   }
 
-  await logAudit({
+  // Audit + status recompute — best-effort
+  logAudit({
     action: "create",
     entityType: "verification",
     entityId: verification.id,
     actorId: verifierId,
     metadata: { patchId, outcome },
-  });
+  }).catch((err) => console.error("Failed to log verification audit:", err));
 
-  // Recompute derived status
-  await computeDerivedStatus(patch.issueId);
+  computeDerivedStatus(patch.issueId).catch((err) =>
+    console.error("Failed to recompute derived status:", err)
+  );
 
   const nextActions: string[] = [];
   switch (outcome) {
@@ -118,7 +136,9 @@ export async function verify(
   return {
     ...verification,
     authorCreditDelta,
-    verifierCreditDelta: VERIFY_REWARD,
+    verifierCreditDelta: newBalance !== undefined ? VERIFY_REWARD : 0,
+    creditsBalance: newBalance,
+    ...(_warnings.length > 0 && { _warnings }),
     _next_actions: nextActions,
   };
 }

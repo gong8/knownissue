@@ -71,7 +71,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
           issue.id
         );
-        if (userId) await claimReportReward(issue.id, userId);
+        if (userId) claimReportReward(issue.id, userId).catch((err) => console.error("Failed to claim report reward:", err));
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -99,7 +99,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
           `UPDATE "Bug" SET "searchHitCount" = "searchHitCount" + 1 WHERE id = $1`,
           issue.id
         );
-        if (userId) await claimReportReward(issue.id, userId);
+        if (userId) claimReportReward(issue.id, userId).catch((err) => console.error("Failed to claim report reward:", err));
         const relatedMap = await loadRelatedIssues([issue.id], {
           minConfidence: RELATION_DISPLAY_CONFIDENCE_MIN,
           maxPerIssue: RELATION_MAX_DISPLAYED_PER_ISSUE,
@@ -154,20 +154,26 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       queryParams.push(contextLibrary);
       filterValues.push(contextLibrary);
     }
+    if (library) {
+      conditions.push(`LOWER("library") = $${paramIndex++}`);
+      queryParams.push(library);
+      filterValues.push(library);
+    }
 
-    const whereClause = conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    // Always require embedding for vector search — issues without embeddings
+    // can't appear in results and shouldn't inflate the total count
+    conditions.push(`embedding IS NOT NULL`);
+
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
     // Rebuild count conditions with $1-based indices for separate param array
-    const countConditions: string[] = [];
+    const countConditions: string[] = [`embedding IS NOT NULL`];
     let countIdx = 1;
     if (version) countConditions.push(`"version" = $${countIdx++}`);
     if (errorCode) countConditions.push(`"errorCode" = $${countIdx++}`);
     if (contextLibrary) countConditions.push(`$${countIdx++} = ANY("contextLibraries")`);
-    const countWhereClause = countConditions.length > 0
-      ? `WHERE ${countConditions.join(" AND ")}`
-      : "";
+    if (library) countConditions.push(`LOWER("library") = $${countIdx++}`);
+    const countWhereClause = `WHERE ${countConditions.join(" AND ")}`;
 
     const [issues, countResult] = await Promise.all([
       prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
@@ -198,9 +204,12 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
       );
     }
 
-    // Trigger deferred report rewards for matched issues
+    // Trigger deferred report rewards for matched issues (fire-and-forget — reward claiming
+    // is idempotent and should never crash the search)
     if (userId && issueIds.length > 0) {
-      await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
+      for (const id of issueIds) {
+        claimReportReward(id, userId).catch((err) => console.error("Failed to claim report reward:", err));
+      }
     }
 
     // Load patches for each issue
@@ -236,7 +245,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     return {
       issues: issuesWithRelations,
       total: countResult[0].count,
-      _meta: { matchTier: 3 },
+      _meta: { matchTier: 3, searchMode: "vector" as const, totalIsFilterCount: true },
       _next_actions: issuesWithRelations.length > 0
         ? [
             "Apply a patch from the results, then call verify with the outcome",
@@ -252,6 +261,7 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   // Fallback: text search
   const where: Record<string, unknown> = {};
   if (version) where.version = version;
+  if (library) where.library = { equals: library, mode: "insensitive" };
 
   const [issues, total] = await Promise.all([
     prisma.issue.findMany({
@@ -299,9 +309,12 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
     );
   }
 
-  // Trigger deferred report rewards for matched issues
+  // Trigger deferred report rewards for matched issues (fire-and-forget — reward claiming
+  // is idempotent and should never crash the search)
   if (userId && issueIds.length > 0) {
-    await Promise.all(issueIds.map((id) => claimReportReward(id, userId)));
+    for (const id of issueIds) {
+      claimReportReward(id, userId).catch((err) => console.error("Failed to claim report reward:", err));
+    }
   }
 
   // Load related issues for text search results
@@ -319,7 +332,8 @@ export async function searchIssues(params: SearchInput & { limit?: number; offse
   return {
     issues: issuesWithRelations,
     total,
-    _meta: { matchTier: 3 },
+    _meta: { matchTier: 3, searchMode: "text" as const },
+    _warnings: ["Semantic search unavailable — results are from text matching only. Quality may be reduced."],
     _next_actions: issuesWithRelations.length > 0
       ? [
           "Apply a patch from the results, then call verify with the outcome",
@@ -393,13 +407,17 @@ export async function createIssue(input: ReportInput, userId: string) {
   }
 
   // Content validation — at least errorMessage or description
+  // Pass raw parsed.title/parsed.description so min-length checks only apply
+  // to explicitly provided fields, not errorMessage fallbacks (which can be short).
   const displayTitle = parsed.title ?? parsed.errorMessage ?? null;
   const displayDesc = parsed.description ?? parsed.errorMessage ?? null;
-  if (displayDesc) {
-    const contentCheck = validateContent(displayTitle, displayDesc);
-    if (!contentCheck.valid) {
-      throw new Error(contentCheck.reason);
-    }
+  const contentCheck = validateContent(
+    parsed.title ?? null,
+    parsed.description ?? null,
+    parsed.errorMessage ?? null
+  );
+  if (!contentCheck.valid) {
+    throw new Error(contentCheck.reason);
   }
 
   // Compute fingerprint (library and errorCode already lowercased)
@@ -409,13 +427,13 @@ export async function createIssue(input: ReportInput, userId: string) {
   if (fingerprint) {
     const existing = await findByFingerprint(fingerprint);
     if (existing) {
-      await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
+      const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", {
         issueId: existing.id,
       });
       return {
         issue: existing,
         warning: "Duplicate detected via fingerprint match",
-        creditsAwarded: -DUPLICATE_PENALTY,
+        creditsAwarded: -actualDeduction,
         isDuplicate: true,
         _next_actions: [
           `This issue already exists — use issue ID ${existing.id} instead`,
@@ -430,12 +448,12 @@ export async function createIssue(input: ReportInput, userId: string) {
   const embeddingText = [...new Set([displayTitle, displayDesc].filter(Boolean))].join(" ");
   const dupCheck = await checkDuplicate(embeddingText, fingerprint, userId);
   if (dupCheck.isDuplicate) {
-    await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty");
     const topMatch = dupCheck.similarIssues?.[0];
+    const { actualDeduction } = await penalizeCredits(userId, DUPLICATE_PENALTY, "duplicate_penalty", topMatch ? { issueId: topMatch.id } : undefined);
     return {
       issue: topMatch ? { id: topMatch.id, title: topMatch.title } : null,
       warning: `Duplicate detected: ${dupCheck.warning}`,
-      creditsAwarded: -DUPLICATE_PENALTY,
+      creditsAwarded: -actualDeduction,
       isDuplicate: true,
       _next_actions: topMatch
         ? [
@@ -451,6 +469,12 @@ export async function createIssue(input: ReportInput, userId: string) {
 
   // Reuse embedding from duplicate check if available, otherwise generate
   const embedding = dupCheck.embedding ?? await generateEmbedding(embeddingText, userId);
+
+  // Track warnings for the response
+  const _warnings: string[] = [];
+  if (!embedding) {
+    _warnings.push("Issue created without embedding — it may not appear in semantic search results. This is usually caused by an API key configuration issue or rate limiting.");
+  }
 
   // Create issue
   const issue = await prisma.issue.create({
@@ -489,8 +513,12 @@ export async function createIssue(input: ReportInput, userId: string) {
     );
   }
 
-  // Audit + revision
-  await Promise.all([
+  // Award credits for reporting (before side effects to avoid orphaned issues on audit failure)
+  let creditsAwarded = REPORT_IMMEDIATE_REWARD;
+  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
+
+  // Audit + revision (fire-and-forget — issue and credits are already committed)
+  Promise.all([
     createIssueRevision(issue.id, "create", userId),
     logAudit({
       action: "create",
@@ -498,28 +526,32 @@ export async function createIssue(input: ReportInput, userId: string) {
       entityId: issue.id,
       actorId: userId,
     }),
-  ]);
+  ]).catch((err) => console.error("Failed to log audit/revision for issue", issue.id, err));
 
-  // Award credits for reporting (immediate portion; deferred +2 on first external interaction)
-  let creditsAwarded = REPORT_IMMEDIATE_REWARD;
-  await awardCredits(userId, REPORT_IMMEDIATE_REWARD, "issue_reported", { issueId: issue.id });
-
-  // Handle inline patch
-  let inlinePatchResult = undefined;
+  // Handle inline patch — wrapped in try/catch so a patch failure doesn't
+  // orphan the already-created issue (agent would see an error but issue exists).
+  let inlinePatchResult: { creditsAwarded: number; error?: string; [key: string]: unknown } | undefined = undefined;
   if (parsed.patch) {
-    inlinePatchResult = await patchService.submitPatch(
-      issue.id,
-      parsed.patch.explanation,
-      parsed.patch.steps,
-      parsed.patch.versionConstraint ?? null,
-      userId
-    );
-    creditsAwarded += inlinePatchResult.creditsAwarded;
+    try {
+      inlinePatchResult = await patchService.submitPatch(
+        issue.id,
+        parsed.patch.explanation,
+        parsed.patch.steps,
+        parsed.patch.versionConstraint ?? null,
+        userId
+      );
+      creditsAwarded += inlinePatchResult.creditsAwarded;
+    } catch (error) {
+      inlinePatchResult = {
+        error: error instanceof Error ? error.message : "Inline patch failed",
+        creditsAwarded: 0,
+      };
+    }
   }
 
   // Handle explicit relation from agent
   if (parsed.relatedTo) {
-    await createRelation({
+    const created = await createRelation({
       sourceIssueId: issue.id,
       targetIssueId: parsed.relatedTo.issueId,
       type: parsed.relatedTo.type,
@@ -528,6 +560,9 @@ export async function createIssue(input: ReportInput, userId: string) {
       metadata: parsed.relatedTo.note ? { note: parsed.relatedTo.note } : undefined,
       createdById: userId,
     });
+    if (!created) {
+      _warnings.push("Relation was not created — target issue may not exist or relation already exists");
+    }
   }
 
   // Run relation inference (fire-and-forget — don't block response)
@@ -538,9 +573,11 @@ export async function createIssue(input: ReportInput, userId: string) {
   return {
     issue,
     warning: dupCheck.warning,
+    ...(dupCheck.similarIssues && dupCheck.similarIssues.length > 0 && { similarIssues: dupCheck.similarIssues }),
     creditsAwarded,
     inlinePatch: inlinePatchResult,
-    _next_actions: inlinePatchResult
+    ...(_warnings.length > 0 && { _warnings }),
+    _next_actions: inlinePatchResult && !inlinePatchResult.error
       ? ["Your report and patch are live — other agents can now find and verify this fix"]
       : [
           `If you have a fix, call patch with issueId ${issue.id} to earn +5 credits`,
@@ -660,13 +697,6 @@ export async function computeDerivedStatus(issueId: string) {
     await prisma.issue.update({
       where: { id: issueId },
       data: { status: derivedStatus },
-    });
-    await logAudit({
-      action: "update",
-      entityType: "issue",
-      entityId: issueId,
-      actorId: "system",
-      metadata: { previousStatus: issue.status, newStatus: derivedStatus, trigger: "derived_status" },
     });
   }
 }

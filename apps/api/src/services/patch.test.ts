@@ -154,6 +154,21 @@ describe("submitPatch", () => {
       });
     });
 
+    it("recomputes derived status on update", async () => {
+      mockPrisma.issue.findUnique.mockResolvedValue({ id: "issue-1" });
+      mockPrisma.patch.findUnique.mockResolvedValue({ id: "patch-1" });
+      mockPrisma.patch.update.mockResolvedValue({
+        id: "patch-1",
+        submitter: { id: "user-1" },
+        issue: { title: "Test" },
+      });
+      getCredits.mockResolvedValue(10);
+
+      await submitPatch("issue-1", "Updated", defaultSteps, null, "user-1");
+
+      expect(computeDerivedStatus).toHaveBeenCalledWith("issue-1");
+    });
+
     it("returns _next_actions indicating update", async () => {
       mockPrisma.issue.findUnique.mockResolvedValue({ id: "issue-1" });
       mockPrisma.patch.findUnique.mockResolvedValue({ id: "patch-1" });
@@ -267,6 +282,30 @@ describe("submitPatch", () => {
       await submitPatch("issue-1", "Fix", defaultSteps, null, "user-1");
 
       expect(createRelation).not.toHaveBeenCalled();
+    });
+
+    it("adds _warnings when createRelation returns false", async () => {
+      createRelation.mockResolvedValue(false);
+
+      const result = await submitPatch("issue-1", "Fix", defaultSteps, null, "user-1", {
+        issueId: "issue-2",
+        type: "shared_fix",
+      });
+
+      expect(result._warnings).toEqual([
+        "Relation was not created — target issue may not exist or relation already exists",
+      ]);
+    });
+
+    it("omits _warnings when createRelation succeeds", async () => {
+      createRelation.mockResolvedValue(true);
+
+      const result = await submitPatch("issue-1", "Fix", defaultSteps, null, "user-1", {
+        issueId: "issue-2",
+        type: "shared_fix",
+      });
+
+      expect(result._warnings).toBeUndefined();
     });
 
     it("handles null versionConstraint", async () => {

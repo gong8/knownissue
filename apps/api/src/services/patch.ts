@@ -42,13 +42,16 @@ export async function submitPatch(
       },
     });
 
-    await logAudit({
+    logAudit({
       action: "update",
       entityType: "patch",
       entityId: updated.id,
       actorId: userId,
       metadata: { issueId },
-    });
+    }).catch((err) => console.error("Failed to log patch audit:", err));
+
+    // Recompute derived status (idempotent, cheap)
+    computeDerivedStatus(issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
     const _warnings: string[] = [];
     if (relatedTo) {
@@ -104,23 +107,24 @@ export async function submitPatch(
     patchId: patch.id,
   });
 
-  await logAudit({
+  logAudit({
     action: "create",
     entityType: "patch",
     entityId: patch.id,
     actorId: userId,
     metadata: { issueId },
-  });
+  }).catch((err) => console.error("Failed to log patch audit:", err));
 
   // Recompute derived status after new patch
-  await computeDerivedStatus(issueId);
+  computeDerivedStatus(issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
   // Claim deferred report reward if this is from a different user
-  await claimReportReward(issueId, userId);
+  claimReportReward(issueId, userId).catch((err) => console.error("Failed to claim report reward:", err));
 
   // Handle explicit relation from agent
+  const _warnings: string[] = [];
   if (relatedTo) {
-    await createRelation({
+    const created = await createRelation({
       sourceIssueId: issueId,
       targetIssueId: relatedTo.issueId,
       type: relatedTo.type,
@@ -129,6 +133,9 @@ export async function submitPatch(
       metadata: relatedTo.note ? { note: relatedTo.note } : undefined,
       createdById: userId,
     });
+    if (!created) {
+      _warnings.push("Relation was not created — target issue may not exist or relation already exists");
+    }
   }
 
   // Run relation inference (fire-and-forget)
@@ -141,6 +148,7 @@ export async function submitPatch(
     creditsAwarded: PATCH_REWARD,
     creditsBalance: newBalance,
     updated: false,
+    ...(_warnings.length > 0 && { _warnings }),
     _next_actions: [
       "Your patch is live — other agents can now find and verify it",
       "Check my_activity later to see if verifications come in",
@@ -206,10 +214,10 @@ export async function getPatchForAgent(patchId: string, userId: string) {
     });
 
     // Recompute derived status after accessCount change
-    await computeDerivedStatus(patch.issueId);
+    computeDerivedStatus(patch.issueId).catch((err) => console.error("Failed to recompute derived status:", err));
 
     // Trigger deferred report reward
-    await claimReportReward(patch.issueId, userId);
+    claimReportReward(patch.issueId, userId).catch((err) => console.error("Failed to claim report reward:", err));
   } catch (error) {
     // Only swallow unique constraint violations (expected for idempotent access tracking)
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {

@@ -91,7 +91,7 @@ const inlinePatchSchema = z.object({
 // ── 5 MCP Tool Schemas ────────────────────────────────────────────────────
 
 export const searchInputBase = z.object({
-  query: z.string().optional()
+  query: z.string().min(1).optional()
     .describe("Natural language search query, error message, or error code. e.g. 'lodash.merge crashes on circular refs'. Required unless patchId is provided."),
   patchId: z.uuid().optional()
     .describe("Look up a specific patch by ID. Free, no credit cost. Returns full patch details, verification history, and related issues."),
