@@ -147,9 +147,6 @@ app.onError((err, c) => {
     return err.getResponse();
   }
 
-  // Attach error to context so the structured logger can pick it up
-  c.set("_error" as never, err as never);
-
   // Structured error log to stderr
   const errorEntry: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
