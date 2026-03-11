@@ -237,9 +237,9 @@ describe("penalizeCredits", () => {
     expect(result).toEqual({ newBalance: 0, actualDeduction: 3 });
     expect(mockQueryRaw).toHaveBeenCalledWith(
       `WITH old AS (SELECT credits FROM "User" WHERE id = $2)
-     UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
-     WHERE id = $2
-     RETURNING credits, (SELECT credits FROM old) AS "previousBalance"`,
+       UPDATE "User" SET credits = GREATEST(credits - $1, 0), "updatedAt" = NOW()
+       WHERE id = $2
+       RETURNING credits, (SELECT credits FROM old) AS "previousBalance"`,
       10,
       "user-1"
     );
