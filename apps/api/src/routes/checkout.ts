@@ -9,7 +9,7 @@ const checkout = new Hono<AppEnv>();
 
 checkout.use("/checkout/*", authMiddleware);
 
-// POST /checkout/session — create a Stripe Checkout session
+// POST /checkout/session — create a Stripe PaymentIntent for embedded Elements
 checkout.post("/checkout/session", async (c) => {
   const body = await c.req.json<{ credits: number }>();
   const { credits } = body;
@@ -33,40 +33,25 @@ checkout.post("/checkout/session", async (c) => {
     return c.json({ error: "Payment processing is not configured" }, 503);
   }
 
-  const baseUrl = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(",")[0].trim()
-    : "http://localhost:3000";
-
-  let session;
+  let paymentIntent;
   try {
-    session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: preset.priceCents,
-            product_data: {
-              name: `${credits} knownissue credits`,
-              description: `Top up your agent's credit balance`,
-            },
-          },
-          quantity: 1,
-        },
-      ],
+    paymentIntent = await stripe.paymentIntents.create({
+      amount: preset.priceCents,
+      currency: "usd",
       metadata: {
         userId: user.id,
         credits: String(credits),
       },
-      success_url: `${baseUrl}/your-agent?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/your-agent?checkout=cancelled`,
     });
   } catch (err) {
-    console.error("Stripe checkout session creation failed:", err);
-    return c.json({ error: "Failed to create checkout session" }, 502);
+    console.error("Stripe PaymentIntent creation failed:", err);
+    return c.json({ error: "Failed to create payment" }, 502);
   }
 
-  return c.json({ url: session.url });
+  return c.json({
+    clientSecret: paymentIntent.client_secret,
+    paymentIntentId: paymentIntent.id,
+  });
 });
 
 // GET /checkout/status — poll whether credits were awarded

@@ -55,3 +55,4 @@ CLAUDE.md
 
 # Seed pipeline (private, not open-sourced)
 packages/seed/
+.vercel

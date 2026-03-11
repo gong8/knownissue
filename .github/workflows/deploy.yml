@@ -112,3 +112,46 @@ jobs:
 
       - name: Deploy with SST
         run: npx sst deploy --stage production
+
+      - name: Verify ECS deployment health
+        env:
+          ECS_CLUSTER: knownissue-production-ClusterCluster-xtadnfcs
+          ECS_SERVICE: Api
+        run: |
+          MAX_WAIT=300
+          INTERVAL=15
+          elapsed=0
+
+          echo "Waiting for ECS deployment to stabilize..."
+
+          while [ $elapsed -lt $MAX_WAIT ]; do
+            STATUS=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].rolloutState | [0]' --output text)
+
+            echo "  rolloutState: $STATUS (${elapsed}s)"
+
+            if [ "$STATUS" = "COMPLETED" ]; then
+              echo "Deployment healthy — new containers running."
+              exit 0
+            fi
+
+            if [ "$STATUS" = "FAILED" ]; then
+              echo "::error::ECS deployment failed — circuit breaker rolled back to old containers."
+              REASON=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+                --query 'services[0].deployments[?status==`PRIMARY`].rolloutStateReason | [0]' --output text)
+              echo "Reason: $REASON"
+              STOPPED=$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" --desired-status STOPPED --query 'taskArns[0:2]' --output text)
+              if [ -n "$STOPPED" ] && [ "$STOPPED" != "None" ]; then
+                echo "Recent stopped tasks:"
+                aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks $STOPPED \
+                  --query 'tasks[*].{reason:stoppedReason}' --output table
+              fi
+              exit 1
+            fi
+
+            sleep $INTERVAL
+            elapsed=$((elapsed + INTERVAL))
+          done
+
+          echo "::error::Deployment did not stabilize within ${MAX_WAIT}s"
+          exit 1

@@ -2,16 +2,24 @@
 
 import { apiFetch } from "@/lib/api";
 
-export async function createCheckoutSession(credits: number): Promise<{ url: string }> {
-  const res = await apiFetch("/checkout/session", {
-    method: "POST",
-    body: JSON.stringify({ credits }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Failed to create checkout session" }));
-    throw new Error(err.error || "Failed to create checkout session");
+type CheckoutResult =
+  | { clientSecret: string; paymentIntentId: string; error?: never }
+  | { clientSecret?: never; paymentIntentId?: never; error: string };
+
+export async function createCheckoutSession(credits: number): Promise<CheckoutResult> {
+  try {
+    const res = await apiFetch("/checkout/session", {
+      method: "POST",
+      body: JSON.stringify({ credits }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to create checkout session" }));
+      return { error: err.error || "Failed to create checkout session" };
+    }
+    return res.json();
+  } catch {
+    return { error: "Failed to create checkout session" };
   }
-  return res.json();
 }
 
 export async function checkCheckoutStatus(
