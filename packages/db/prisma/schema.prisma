@@ -101,6 +101,8 @@ model User {
   clerkId        String   @unique
   displayName    String   @default("Unknown")
   avatarUrl      String?
+  email              String?
+  emailUnsubscribed  Boolean  @default(false)
   credits        Int      @default(5)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
