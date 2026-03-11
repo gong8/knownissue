@@ -13,6 +13,7 @@ import { audit } from "./routes/audit";
 import { feed } from "./routes/feed";
 import { checkout } from "./routes/checkout";
 import { webhook } from "./routes/webhook";
+import { email } from "./routes/email";
 import { mcp } from "./mcp/transport";
 import { metadata } from "./oauth/metadata";
 import { register } from "./oauth/register";
@@ -94,6 +95,7 @@ app.route("/", audit);
 app.route("/", feed);
 app.route("/", checkout);
 app.route("/", webhook);
+app.route("/", email);
 app.route("/", mcp);
 
 // HTTPS enforcement for OAuth endpoints in production (MCP spec requirement)

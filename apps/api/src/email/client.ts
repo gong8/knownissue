@@ -36,8 +36,11 @@ export async function sendEmail<T extends EmailType>(
 
     if (!user?.email || user.emailUnsubscribed) return;
 
-    const html = await renderTemplate(type, data);
+    const rawHtml = await renderTemplate(type, data);
     const subject = subjectFor(type, data);
+
+    const unsubscribeUrl = `https://mcp.knownissue.dev/unsubscribe?uid=${userId}`;
+    const html = rawHtml.replace(/https:\/\/knownissue\.dev\/unsubscribe/g, unsubscribeUrl);
 
     await getResend().emails.send({
       from: FROM,
