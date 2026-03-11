@@ -190,6 +190,25 @@ function ConnectGuide() {
   );
 }
 
+function ConnectGuideToggle() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {open ? "hide" : "connect another agent"}
+      </button>
+      {open && (
+        <div className="mt-3">
+          <ConnectGuide />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function YourAgentPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
@@ -398,18 +417,21 @@ export default function YourAgentPage() {
               contribution history
             </h2>
             {feedItems.length > 0 ? (
-              <div className="rounded-lg border border-border">
-                {feedItems.map((item) => (
-                  <Link key={`${item.type}-${item.id}`} href={item.href}>
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-hover transition-colors">
-                      <span className="flex-1 text-sm">{item.text}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {relativeTime(new Date(item.createdAt))}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              <>
+                <div className="rounded-lg border border-border">
+                  {feedItems.map((item) => (
+                    <Link key={`${item.type}-${item.id}`} href={item.href}>
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-hover transition-colors">
+                        <span className="flex-1 text-sm">{item.text}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {relativeTime(new Date(item.createdAt))}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <ConnectGuideToggle />
+              </>
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
