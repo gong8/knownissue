@@ -100,5 +100,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Restore sst.config.ts
+        env:
+          SST_CONFIG_B64: ${{ secrets.SST_CONFIG }}
+        run: echo "$SST_CONFIG_B64" | base64 -d > sst.config.ts
+
       - name: Deploy with SST
         run: npx sst deploy --stage production

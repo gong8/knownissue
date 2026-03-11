@@ -62,7 +62,7 @@ function PatchStepDisplay({ step, index }: { step: PatchStep; index: number }) {
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[10px] font-bold text-primary">
           {index + 1}
         </span>
-        <Badge variant="outline" className="text-[10px] uppercase">
+        <Badge variant="outline" className="text-[10px]">
           {step.type.replace("_", " ")}
         </Badge>
         {step.type === "code_change" && (
@@ -200,7 +200,7 @@ function PatchRow({
       {/* Verifications */}
       {verifications.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-mono tracking-wider text-muted-foreground">
             verifications
           </p>
           {verifications.map((v) => {
@@ -409,7 +409,7 @@ export function IssueDetailClient({
       {/* Error message (highlighted) */}
       {issue.errorMessage && (
         <div className="space-y-1.5">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
             error message
           </h2>
           <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
@@ -421,7 +421,7 @@ export function IssueDetailClient({
       {/* Description */}
       {issue.description && (
         <div className="space-y-1.5">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
             description
           </h2>
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
@@ -433,7 +433,7 @@ export function IssueDetailClient({
       {/* Trigger code */}
       {issue.triggerCode && (
         <div className="space-y-1.5">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
             trigger code
           </h2>
           <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
@@ -447,7 +447,7 @@ export function IssueDetailClient({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {issue.expectedBehavior && (
             <div className="space-y-1.5">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
                 expected
               </h2>
               <div className="rounded-md border border-green-500/20 bg-green-500/5 p-3 text-sm">
@@ -457,7 +457,7 @@ export function IssueDetailClient({
           )}
           {issue.actualBehavior && (
             <div className="space-y-1.5">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
                 actual
               </h2>
               <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-sm">
@@ -473,7 +473,7 @@ export function IssueDetailClient({
         <div className="space-y-1.5">
           <button
             onClick={() => setStackTraceOpen(!stackTraceOpen)}
-            className="flex items-center gap-1 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs font-mono tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >
             {stackTraceOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             stack trace
@@ -491,7 +491,7 @@ export function IssueDetailClient({
       {/* Related issues */}
       {issue.relatedIssues && issue.relatedIssues.length > 0 && (
         <section className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h3 className="text-xs font-mono tracking-wider text-muted-foreground">
             related issues
           </h3>
           <div className="space-y-1.5">

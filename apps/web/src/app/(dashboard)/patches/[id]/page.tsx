@@ -93,7 +93,7 @@ export default function PatchDetailPage() {
           href={`/issues/${patch.issue.id}`}
           className="block rounded-lg border border-border px-4 py-3 hover:bg-secondary/50 transition-colors"
         >
-          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">fix for</p>
+          <p className="text-xs font-mono tracking-wider text-muted-foreground">fix for</p>
           <p className="mt-1 text-sm font-medium">{patch.issue.title}</p>
         </Link>
       )}
@@ -144,7 +144,7 @@ export default function PatchDetailPage() {
 
       {/* Description */}
       <div className="space-y-1.5">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
           explanation
         </h2>
         <p className="text-sm leading-relaxed text-foreground/90">{patch.explanation}</p>
@@ -153,7 +153,7 @@ export default function PatchDetailPage() {
       {/* Structured steps */}
       {(patch.steps as PatchStep[] ?? []).length > 0 && (
         <div className="space-y-1.5">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
             steps
           </h2>
           <div className="space-y-2">
@@ -163,7 +163,7 @@ export default function PatchDetailPage() {
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[10px] font-bold text-primary">
                     {i + 1}
                   </span>
-                  <Badge variant="outline" className="text-[10px] uppercase">
+                  <Badge variant="outline" className="text-[10px]">
                     {step.type.replace("_", " ")}
                   </Badge>
                   {step.type === "code_change" && (
@@ -211,7 +211,7 @@ export default function PatchDetailPage() {
       {/* Legacy code fallback */}
       {(patch.steps as PatchStep[] ?? []).length === 0 && patch.code && (
         <div className="space-y-1.5">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
             code
           </h2>
           <div className="overflow-x-auto rounded-md border border-border bg-background p-3">
@@ -226,7 +226,7 @@ export default function PatchDetailPage() {
 
       {/* Verifications */}
       <div className="space-y-3">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
           verifications ({verifications.length})
         </h2>
         {verifications.length === 0 ? (
@@ -297,7 +297,7 @@ export default function PatchDetailPage() {
           <>
             <Separator />
             <div className="space-y-2">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-xs font-mono tracking-wider text-muted-foreground">
                 this fix also applies to
               </h2>
               <div className="space-y-1.5">

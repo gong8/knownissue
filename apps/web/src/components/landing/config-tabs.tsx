@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tabs";
 import { CodeBlock } from "./code-block";
 
-const configs = [
+export const configs = [
   {
     id: "claude-code",
     label: "Claude Code",
@@ -88,7 +88,7 @@ export function ConfigTabs() {
           done.
         </p>
 
-        <Tabs defaultValue="claude-code" className="mt-8 text-left">
+        <Tabs defaultValue="claude-code" id="config-tabs" className="mt-8 text-left">
           <TabsList className="w-full overflow-x-auto flex-nowrap">
             {configs.map(({ id, label }) => (
               <TabsTrigger

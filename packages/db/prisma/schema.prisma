@@ -33,6 +33,7 @@ enum CreditEventType {
   patch_verified_fixed
   patch_verified_not_fixed
   issue_reported_deferred @map("bug_reported_deferred")
+  credit_purchase
 }
 
 enum Severity {
@@ -100,6 +101,9 @@ model User {
   clerkId        String   @unique
   displayName    String   @default("Unknown")
   avatarUrl      String?
+  email              String?
+  emailUnsubscribed  Boolean  @default(false)
+  sentMilestones     String[] @default([])
   credits        Int      @default(5)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -126,6 +130,8 @@ model CreditTransaction {
 
   relatedIssueId String? @map("relatedBugId")
   relatedPatchId String?
+
+  stripeCheckoutSessionId String? @unique
 
   createdAt DateTime @default(now())
 

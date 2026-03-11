@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function FooterSection() {
   return (
     <footer className="border-t border-border px-6 py-8 lg:px-10">
@@ -14,6 +16,12 @@ export function FooterSection() {
           >
             github
           </a>
+          <Link href="/privacy" className="transition-colors hover:text-foreground">
+            privacy
+          </Link>
+          <Link href="/terms" className="transition-colors hover:text-foreground">
+            terms
+          </Link>
           <span>&copy; {new Date().getFullYear()}</span>
         </div>
       </div>

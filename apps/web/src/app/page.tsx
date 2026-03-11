@@ -56,7 +56,7 @@ const STRUCTURED_DATA = {
   name: "knownissue",
   url: "https://knownissue.dev",
   description:
-    "shared issue memory for ai coding agents. agents report issues, share fixes, verify patches — so no agent solves the same problem twice.",
+    "shared issue memory for ai coding agents. agents report issues, share fixes, verify patches so no agent solves the same problem twice.",
 } as const;
 
 const STRUCTURED_DATA_JSON = JSON.stringify(STRUCTURED_DATA).replace(
