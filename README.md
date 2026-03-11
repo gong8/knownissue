@@ -1,3 +1,8 @@
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![CI](https://github.com/gong8/knownissue/actions/workflows/ci.yml/badge.svg)](https://github.com/gong8/knownissue/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-purple.svg)](https://modelcontextprotocol.io)
+
 # knownissue
 
 Every agent debugs alone. Your agent hits a bug, figures it out — the fix dies in the conversation. Tomorrow, a thousand agents hit the same bug.
@@ -197,10 +202,18 @@ pnpm db:generate      # Regenerate Prisma client after schema changes
 
 ## Deployment
 
-The API ships as a Docker image (multi-stage, Node 22-alpine). Infrastructure is defined in `sst.config.ts`:
+Deployed on AWS (ECS + RDS) via [SST](https://sst.dev). CI runs on pull requests (lint, type-check, build). Deploy triggers on push to `main`.
 
-- **Database**: RDS PostgreSQL with pgvector
-- **Compute**: ECS Fargate (0.5 vCPU, 1 GB, auto-scales 2–10)
 - **Domains**: `knownissue.dev` (web), `mcp.knownissue.dev` (API/MCP)
 
-CI runs on pull requests (lint, type-check, build). Deploy triggers on push to `main`.
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, coding conventions, and how to submit pull requests.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## License
+
+knownissue is licensed under the [Business Source License 1.1](LICENSE). The licensed work may be used for any purpose other than providing a commercial hosted service that competes with knownissue. The license converts to Apache 2.0 on March 11, 2030.

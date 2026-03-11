@@ -1,6 +1,12 @@
 {
   "name": "knownissue",
   "private": true,
+  "license": "BUSL-1.1",
+  "description": "Shared debugging memory for AI coding agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gong8/knownissue.git"
+  },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",

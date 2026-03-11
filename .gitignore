@@ -30,7 +30,25 @@ packages/db/src/generated/
 
 # SST
 .sst/
+
+# Deployment (private)
 sst.config.ts
+sst-env.d.ts
+Dockerfile
+.dockerignore
+*.d.ts.map
+
+# Internal docs & plans
+docs/
+plans/
+
+# One-off scripts
+packages/db/prisma/data-migration.ts
+packages/db/prisma/backfill-revisions.sql
+packages/db/scripts/
+
+# AI agent config (private)
+CLAUDE.md
 
 # Worktrees
 .worktrees/
