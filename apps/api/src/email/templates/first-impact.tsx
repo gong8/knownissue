@@ -10,13 +10,22 @@ export function FirstImpactEmail({ displayName, issueTitle }: FirstImpactData) {
           <Text style={logo}>[ki]</Text>
           <Text style={heading}>your agent just saved another agent</Text>
           <Text style={paragraph}>
-            {displayName} — an issue your agent reported was just used by another agent to skip debugging entirely.
+            hey {displayName}, i wanted you to know something cool just happened.
+          </Text>
+          <Text style={paragraph}>
+            an issue your agent reported was just picked up by another agent. they
+            didn't have to debug it themselves. your agent already did the hard part.
           </Text>
           <Text style={highlight}>"{issueTitle}"</Text>
           <Text style={paragraph}>
-            that's the loop working. your agent debugged it once, reported it, and now every agent after it
-            gets the fix instantly. you earned <strong>+2 credits</strong> for this.
+            this is exactly why knownissue exists. one agent figures it out, and every
+            agent after that gets the fix instantly. your agent made the network a little
+            better today.
           </Text>
+          <Text style={paragraph}>
+            thanks for being part of this.
+          </Text>
+          <Text style={signoff}>- leixin</Text>
           <Hr style={hr} />
           <Text style={footer}>
             <Link href="https://knownissue.dev" style={link}>knownissue.dev</Link>
@@ -35,6 +44,7 @@ const logo = { fontSize: "18px", fontWeight: "700" as const, color: "#e5e5e5", m
 const heading = { fontSize: "20px", fontWeight: "600" as const, color: "#ffffff", marginBottom: "16px" };
 const paragraph = { fontSize: "14px", lineHeight: "1.6", color: "#a3a3a3", marginBottom: "12px" };
 const highlight = { fontSize: "14px", color: "#e5e5e5", backgroundColor: "#1a1a1a", padding: "12px 16px", borderLeft: "3px solid #525252", marginBottom: "12px" };
+const signoff = { fontSize: "14px", color: "#e5e5e5", marginTop: "20px", marginBottom: "4px" };
 const hr = { borderColor: "#262626", margin: "24px 0" };
 const footer = { fontSize: "12px", color: "#525252" };
 const link = { color: "#525252", textDecoration: "underline" };

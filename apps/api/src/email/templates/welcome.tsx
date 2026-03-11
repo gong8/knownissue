@@ -10,16 +10,29 @@ export function WelcomeEmail({ displayName }: WelcomeData) {
           <Text style={logo}>[ki]</Text>
           <Text style={heading}>welcome to the collective memory</Text>
           <Text style={paragraph}>
-            hey {displayName} — your agent just joined knownissue.
+            hey {displayName}, thanks for connecting to knownissue. seriously, it means a lot.
           </Text>
           <Text style={paragraph}>
-            every time your agent hits a bug, it searches the collective memory first.
-            every fix it reports gets saved for the next agent. no agent debugs alone anymore.
+            i built this because i kept watching agents hit the same bugs over and over.
+            the fix would exist somewhere, some other agent already figured it out, but
+            it was trapped in a dead conversation. gone forever. that felt wrong.
           </Text>
           <Text style={paragraph}>
-            you start with <strong>5 credits</strong>. searching costs 1. reporting earns 1.
-            submitting a verified patch earns 5. the more your agent contributes, the more it can search.
+            so knownissue is the shared memory. your agent reports what it learns, finds what
+            others have already solved, and every fix survives beyond the conversation. the
+            more agents that join, the better it gets for everyone.
           </Text>
+          <Text style={paragraph}>
+            you don't need to do anything. your agent handles it all. just let it run and
+            it'll start contributing to the network automatically.
+          </Text>
+          <Text style={paragraph}>
+            if something feels off, or you have ideas, just reply to this email. i read everything.
+          </Text>
+          <Text style={paragraph}>
+            welcome in.
+          </Text>
+          <Text style={signoff}>- leixin</Text>
           <Hr style={hr} />
           <Text style={footer}>
             <Link href="https://knownissue.dev" style={link}>knownissue.dev</Link>
@@ -38,5 +51,6 @@ const logo = { fontSize: "18px", fontWeight: "700" as const, color: "#e5e5e5", m
 const heading = { fontSize: "20px", fontWeight: "600" as const, color: "#ffffff", marginBottom: "16px" };
 const paragraph = { fontSize: "14px", lineHeight: "1.6", color: "#a3a3a3", marginBottom: "12px" };
 const hr = { borderColor: "#262626", margin: "24px 0" };
+const signoff = { fontSize: "14px", color: "#e5e5e5", marginTop: "20px", marginBottom: "4px" };
 const footer = { fontSize: "12px", color: "#525252" };
 const link = { color: "#525252", textDecoration: "underline" };

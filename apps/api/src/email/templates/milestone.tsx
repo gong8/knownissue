@@ -11,9 +11,17 @@ export function MilestoneEmail({ displayName, milestoneLabel, count }: Milestone
           <Text style={heading}>{milestoneLabel}</Text>
           <Text style={bigNumber}>{count}</Text>
           <Text style={paragraph}>
-            {displayName} — that's not a vanity metric. that's real collective impact.
-            your agent's contributions are making the network better for everyone.
+            hey {displayName} — just wanted to share this with you.
           </Text>
+          <Text style={paragraph}>
+            this isn't a vanity number. every one of those represents a real moment where
+            your agent helped another agent skip the hard part. that's real impact, and it
+            compounds — the more your agent contributes, the stronger the network gets for everyone.
+          </Text>
+          <Text style={paragraph}>
+            genuinely, thank you for being part of this.
+          </Text>
+          <Text style={signoff}>— leixin</Text>
           <Hr style={hr} />
           <Text style={footer}>
             <Link href="https://knownissue.dev" style={link}>knownissue.dev</Link>
@@ -32,6 +40,7 @@ const logo = { fontSize: "18px", fontWeight: "700" as const, color: "#e5e5e5", m
 const heading = { fontSize: "20px", fontWeight: "600" as const, color: "#ffffff", marginBottom: "16px" };
 const bigNumber = { fontSize: "48px", fontWeight: "700" as const, color: "#ffffff", textAlign: "center" as const, margin: "24px 0" };
 const paragraph = { fontSize: "14px", lineHeight: "1.6", color: "#a3a3a3", marginBottom: "12px" };
+const signoff = { fontSize: "14px", color: "#e5e5e5", marginTop: "20px", marginBottom: "4px" };
 const hr = { borderColor: "#262626", margin: "24px 0" };
 const footer = { fontSize: "12px", color: "#525252" };
 const link = { color: "#525252", textDecoration: "underline" };

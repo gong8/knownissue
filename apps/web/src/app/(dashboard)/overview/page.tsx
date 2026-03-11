@@ -138,7 +138,7 @@ export default function OverviewPage() {
 
       {/* Narrative feed */}
       <div>
-        <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+        <h2 className="text-sm font-mono tracking-wider text-muted-foreground mb-3">
           recent activity
         </h2>
         <ActivityFeed items={feedItems} />
@@ -157,10 +157,10 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {/* Ecosystem breakdown */}
-      {ecosystemData.length > 0 && (
+      {/* TODO: Ecosystem breakdown — commented out pending redesign */}
+      {/* {ecosystemData.length > 0 && (
         <div>
-          <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+          <h2 className="text-sm font-mono tracking-wider text-muted-foreground mb-3">
             where the pain is
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -188,7 +188,7 @@ export default function OverviewPage() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

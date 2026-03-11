@@ -58,7 +58,7 @@ export function KeyboardHelpDialog({ open, onOpenChange }: KeyboardHelpDialogPro
         <div className="space-y-4 pt-2">
           {shortcuts.map((section) => (
             <div key={section.group}>
-              <p className="mb-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <p className="mb-2 text-xs font-mono tracking-wider text-muted-foreground">
                 {section.group}
               </p>
               <div className="space-y-1.5">

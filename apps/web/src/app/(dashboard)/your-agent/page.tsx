@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -15,9 +15,6 @@ import {
 import { CreditPurchase } from "@/components/credit-purchase";
 import { formatDate, relativeTime } from "@/lib/helpers";
 import type { User } from "@knownissue/shared";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const MCP_ENDPOINT = `${API_URL}/mcp`;
 
 type UserStats = {
   credits: number;
@@ -161,7 +158,6 @@ function buildFeed(activity: ActivityData): FeedItem[] {
 }
 
 export default function YourAgentPage() {
-  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -170,6 +166,7 @@ export default function YourAgentPage() {
   const [transactionsLoaded, setTransactionsLoaded] = useState(false);
   const [transactionsPage, setTransactionsPage] = useState(1);
   const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     let cancelled = false;
@@ -196,12 +193,12 @@ export default function YourAgentPage() {
     };
   }, []);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(MCP_ENDPOINT).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
+  // Load transactions when credits tab is first opened
+  useEffect(() => {
+    if (activeTab === "credits" && !transactionsLoaded) {
+      loadTransactions(1, false);
+    }
+  }, [activeTab, transactionsLoaded]);
 
   function loadTransactions(page: number, append: boolean) {
     fetchUserTransactions({ page, limit: 20 })
@@ -216,12 +213,6 @@ export default function YourAgentPage() {
         setTransactionsLoaded(true);
         setHasMoreTransactions(false);
       });
-  }
-
-  function handleToggleTransactions() {
-    if (!transactionsLoaded) {
-      loadTransactions(1, false);
-    }
   }
 
   function handleLoadMoreTransactions() {
@@ -247,10 +238,10 @@ export default function YourAgentPage() {
             <Skeleton className="h-7 w-20" />
           </div>
         </div>
-        {/* MCP endpoint skeleton */}
-        <div>
-          <Skeleton className="h-3 w-28 mb-2" />
-          <Skeleton className="h-10 w-full" />
+        {/* Tabs skeleton */}
+        <div className="flex gap-4 border-b border-border pb-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-16" />
         </div>
         {/* Impact metrics skeleton */}
         <div className="flex items-baseline gap-8">
@@ -285,7 +276,7 @@ export default function YourAgentPage() {
     <div className="space-y-6">
       <PageHeader title="your agent" />
 
-      {/* Agent identity */}
+      {/* Agent identity + credit balance */}
       {user && (
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 border-2 border-primary/40">
@@ -306,176 +297,172 @@ export default function YourAgentPage() {
             </p>
           </div>
           {stats && (
-            <div className="ml-auto flex items-center gap-4">
-              <div>
-                <span className="text-xl font-bold font-mono">{stats.credits}</span>
-                <span className="ml-1 text-xs text-muted-foreground">credits</span>
-              </div>
+            <div className="ml-auto">
+              <span className="text-2xl font-bold font-mono">{stats.credits}</span>
+              <span className="ml-1 text-xs text-muted-foreground">credits</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Buy credits */}
-      <CreditPurchase
-        onCreditsAdded={() => {
-          fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
-          if (transactionsLoaded) {
-            loadTransactions(1, false);
-          }
-        }}
-      />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="border-b border-border w-full justify-start">
+          <TabsTrigger value="overview" className="font-mono text-xs uppercase tracking-wider">
+            overview
+          </TabsTrigger>
+          <TabsTrigger value="credits" className="font-mono text-xs uppercase tracking-wider">
+            credits
+          </TabsTrigger>
+        </TabsList>
 
-      {/* MCP connection */}
-      <div>
-        <p className="mb-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          mcp connection
-        </p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-md border border-border bg-surface px-4 py-2 font-mono text-sm text-foreground">
-            {MCP_ENDPOINT}
-          </code>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            className="shrink-0 font-mono"
-          >
-            {copied ? "copied" : "copy"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Impact summary */}
-      {stats && (
-        <div className="flex items-baseline gap-8">
-          <div>
-            <span className="text-2xl font-bold font-mono">
-              {stats.issuesReported}
-            </span>
-            <span className="ml-1.5 text-xs text-muted-foreground">
-              issues reported
-            </span>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
-              {stats.issuesPatched} got patched
-            </p>
-          </div>
-          <div>
-            <span className="text-2xl font-bold font-mono">
-              {stats.patchesSubmitted}
-            </span>
-            <span className="ml-1.5 text-xs text-muted-foreground">
-              patches submitted
-            </span>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
-              {stats.patchesVerifiedFixed} verified as working
-            </p>
-          </div>
-          <div>
-            <span className="text-2xl font-bold font-mono">
-              {stats.verificationsGiven}
-            </span>
-            <span className="ml-1.5 text-xs text-muted-foreground">
-              verifications given
-            </span>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
-              {stats.verificationsFixed} fixed &middot;{" "}
-              {stats.verificationsNotFixed} not fixed &middot;{" "}
-              {stats.verificationsPartial} partial
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Contribution history */}
-      <div>
-        <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
-          contribution history
-        </h2>
-        {feedItems.length > 0 ? (
-          <div className="rounded-lg border border-border">
-            {feedItems.map((item) => (
-              <Link key={`${item.type}-${item.id}`} href={item.href}>
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-hover transition-colors">
-                  <span className="flex-1 text-sm">{item.text}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {relativeTime(new Date(item.createdAt))}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            no contributions yet. connect your agent to start.
-          </p>
-        )}
-      </div>
-
-      {/* Credit ledger (collapsible) */}
-      <details className="group" onToggle={handleToggleTransactions}>
-        <summary className="cursor-pointer text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground">
-          credit history
-        </summary>
-        {transactionsLoaded && transactions.length > 0 ? (
-          <>
-            <div className="mt-3 rounded-lg border border-border">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0 text-xs"
-                >
-                  <span className="text-muted-foreground w-24 shrink-0">
-                    {formatDate(new Date(tx.createdAt))}
-                  </span>
-                  <span
-                    className={
-                      tx.amount >= 0
-                        ? "text-green-400 font-mono w-12"
-                        : "text-red-400 font-mono w-12"
-                    }
-                  >
-                    {tx.amount >= 0 ? "+" : ""}
-                    {tx.amount}
-                  </span>
-                  <span className="flex-1 text-muted-foreground">
-                    {tx.type.replace(/_/g, " ")}
-                  </span>
-                  <span className="font-mono text-muted-foreground">
-                    {tx.balance}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {hasMoreTransactions && (
-              <button
-                onClick={handleLoadMoreTransactions}
-                className="mt-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
-              >
-                load more
-              </button>
-            )}
-          </>
-        ) : transactionsLoaded ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            no transactions yet.
-          </p>
-        ) : (
-          <div className="mt-3 rounded-lg border border-border">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0"
-              >
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-3 w-12" />
-                <Skeleton className="h-3 flex-1" />
-                <Skeleton className="h-3 w-10" />
+        {/* Overview tab */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Impact summary */}
+          {stats && (
+            <div className="flex items-baseline gap-8">
+              <div>
+                <span className="text-2xl font-bold font-mono">
+                  {stats.issuesReported}
+                </span>
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  issues reported
+                </span>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  {stats.issuesPatched} got patched
+                </p>
               </div>
-            ))}
+              <div>
+                <span className="text-2xl font-bold font-mono">
+                  {stats.patchesSubmitted}
+                </span>
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  patches submitted
+                </span>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  {stats.patchesVerifiedFixed} verified as working
+                </p>
+              </div>
+              <div>
+                <span className="text-2xl font-bold font-mono">
+                  {stats.verificationsGiven}
+                </span>
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  verifications given
+                </span>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  {stats.verificationsFixed} fixed &middot;{" "}
+                  {stats.verificationsNotFixed} not fixed &middot;{" "}
+                  {stats.verificationsPartial} partial
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Contribution history */}
+          <div>
+            <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+              contribution history
+            </h2>
+            {feedItems.length > 0 ? (
+              <div className="rounded-lg border border-border">
+                {feedItems.map((item) => (
+                  <Link key={`${item.type}-${item.id}`} href={item.href}>
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-hover transition-colors">
+                      <span className="flex-1 text-sm">{item.text}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {relativeTime(new Date(item.createdAt))}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                no contributions yet. connect your agent to start.
+              </p>
+            )}
           </div>
-        )}
-      </details>
+        </TabsContent>
+
+        {/* Credits tab */}
+        <TabsContent value="credits" className="space-y-6">
+          {/* Buy credits */}
+          <CreditPurchase
+            onCreditsAdded={() => {
+              fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
+              if (transactionsLoaded) {
+                loadTransactions(1, false);
+              }
+            }}
+          />
+
+          {/* Transaction history */}
+          <div>
+            <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-3">
+              transaction history
+            </h2>
+            {transactionsLoaded && transactions.length > 0 ? (
+              <>
+                <div className="rounded-lg border border-border">
+                  {transactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0 text-xs"
+                    >
+                      <span className="text-muted-foreground w-24 shrink-0">
+                        {formatDate(new Date(tx.createdAt))}
+                      </span>
+                      <span
+                        className={
+                          tx.amount >= 0
+                            ? "text-green-400 font-mono w-12"
+                            : "text-red-400 font-mono w-12"
+                        }
+                      >
+                        {tx.amount >= 0 ? "+" : ""}
+                        {tx.amount}
+                      </span>
+                      <span className="flex-1 text-muted-foreground">
+                        {tx.type.replace(/_/g, " ")}
+                      </span>
+                      <span className="font-mono text-muted-foreground">
+                        {tx.balance}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {hasMoreTransactions && (
+                  <button
+                    onClick={handleLoadMoreTransactions}
+                    className="mt-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    load more
+                  </button>
+                )}
+              </>
+            ) : transactionsLoaded ? (
+              <p className="text-sm text-muted-foreground">
+                no transactions yet.
+              </p>
+            ) : (
+              <div className="rounded-lg border border-border">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0"
+                  >
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-12" />
+                    <Skeleton className="h-3 flex-1" />
+                    <Skeleton className="h-3 w-10" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
