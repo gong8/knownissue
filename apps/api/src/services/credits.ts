@@ -1,6 +1,9 @@
 import { prisma } from "@knownissue/db";
 import type { CreditEventType } from "@knownissue/db";
+import { CREDIT_PURCHASE_PRESETS } from "@knownissue/shared";
 import { checkMilestones } from "../email/triggers";
+import { sendEmail } from "../email/client.js";
+import { EmailType } from "../email/types.js";
 
 export async function getCredits(userId: string): Promise<number> {
   const user = await prisma.user.findUniqueOrThrow({
@@ -147,6 +150,28 @@ export async function awardCreditsPurchase(
 
   // Fire-and-forget milestone check after successful credit purchase
   checkMilestones(userId).catch(() => {});
+
+  // Fire-and-forget purchase receipt email
+  const preset = CREDIT_PURCHASE_PRESETS.find((p) => p.credits === amount);
+  if (preset) {
+    prisma.user
+      .findUnique({ where: { id: userId }, select: { displayName: true } })
+      .then((user) => {
+        if (!user) return;
+        sendEmail(userId, EmailType.PURCHASE_RECEIPT, {
+          displayName: user.displayName,
+          credits: amount,
+          amountCents: preset.priceCents,
+          newBalance,
+          date: new Date().toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+        }).catch(() => {});
+      })
+      .catch(() => {});
+  }
 
   return newBalance;
 }

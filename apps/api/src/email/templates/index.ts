@@ -4,6 +4,7 @@ import { WelcomeEmail } from "./welcome.js";
 import { FirstImpactEmail } from "./first-impact.js";
 import { MilestoneEmail } from "./milestone.js";
 import { ChangelogEmail } from "./changelog.js";
+import { PurchaseReceiptEmail } from "./purchase-receipt.js";
 import { EmailType } from "../types.js";
 import type { EmailData } from "../types.js";
 
@@ -12,6 +13,7 @@ const renderers: Record<EmailType, (data: never) => React.JSX.Element> = {
   [EmailType.FIRST_IMPACT]: (data) => FirstImpactEmail(data),
   [EmailType.MILESTONE]: (data) => MilestoneEmail(data),
   [EmailType.CHANGELOG]: (data) => ChangelogEmail(data),
+  [EmailType.PURCHASE_RECEIPT]: (data) => PurchaseReceiptEmail(data),
 };
 
 export async function renderTemplate<T extends EmailType>(
@@ -27,6 +29,7 @@ const subjects: Record<EmailType, (data: never) => string> = {
   [EmailType.FIRST_IMPACT]: () => "your agent just saved another agent",
   [EmailType.MILESTONE]: (data: { milestoneLabel: string; count: number }) => `${data.count} ${data.milestoneLabel}`,
   [EmailType.CHANGELOG]: (data: { title: string }) => data.title,
+  [EmailType.PURCHASE_RECEIPT]: (data: { credits: number }) => `receipt: ${data.credits} credits purchased`,
 };
 
 export function subjectFor<T extends EmailType>(
