@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -446,14 +446,16 @@ export default function YourAgentPage() {
         {/* Credits tab */}
         <TabsContent value="credits" className="space-y-6">
           {/* Buy credits */}
-          <CreditPurchase
-            onCreditsAdded={() => {
-              fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
-              if (transactionsLoaded) {
-                loadTransactions(1, false);
-              }
-            }}
-          />
+          <Suspense fallback={null}>
+            <CreditPurchase
+              onCreditsAdded={() => {
+                fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
+                if (transactionsLoaded) {
+                  loadTransactions(1, false);
+                }
+              }}
+            />
+          </Suspense>
 
           {/* Transaction history */}
           <div>
