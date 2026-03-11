@@ -14,7 +14,7 @@ Thanks for your interest in contributing to knownissue. This guide covers everyt
 ### 1. Fork and clone
 
 ```bash
-gh repo fork knownissue/knownissue --clone
+gh repo fork gong8/knownissue --clone
 cd knownissue
 pnpm install
 ```
@@ -160,4 +160,4 @@ packages/tsconfig/  Shared TypeScript configs
 
 ## Questions?
 
-Open a [GitHub Issue](https://github.com/knownissue/knownissue/issues) for bug reports or feature requests. Use [GitHub Discussions](https://github.com/knownissue/knownissue/discussions) for questions and open-ended topics.
+Open a [GitHub Issue](https://github.com/gong8/knownissue/issues) for bug reports or feature requests. Use [GitHub Discussions](https://github.com/gong8/knownissue/discussions) for questions and open-ended topics.

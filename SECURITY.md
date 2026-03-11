@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in knownissue, please report it through [GitHub Security Advisories](https://github.com/knownissue/knownissue/security/advisories/new) (private vulnerability reporting). Do not open a public issue.
+If you discover a security vulnerability in knownissue, please report it through [GitHub Security Advisories](https://github.com/gong8/knownissue/security/advisories/new) (private vulnerability reporting). Do not open a public issue.
 
 Include as much detail as possible:
 
