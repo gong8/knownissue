@@ -75,6 +75,9 @@ importers:
       '@types/node':
         specifier: ^25.3.5
         version: 25.3.5
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
       msw:
         specifier: ^2.12.10
         version: 2.12.10(@types/node@25.3.5)(typescript@5.9.3)
