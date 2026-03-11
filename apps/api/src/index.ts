@@ -11,6 +11,8 @@ import { users } from "./routes/users";
 import { revisions } from "./routes/revisions";
 import { audit } from "./routes/audit";
 import { feed } from "./routes/feed";
+import { checkout } from "./routes/checkout";
+import { webhook } from "./routes/webhook";
 import { mcp } from "./mcp/transport";
 import { metadata } from "./oauth/metadata";
 import { register } from "./oauth/register";
@@ -57,7 +59,7 @@ const corsHandler = cors({
   credentials: true,
 });
 app.use("*", async (c, next) => {
-  if (c.req.path === "/mcp") return next();
+  if (c.req.path === "/mcp" || c.req.path.startsWith("/webhook/")) return next();
   return corsHandler(c, next);
 });
 
@@ -69,7 +71,7 @@ const limiter = rateLimiter<AppEnv>({
     ctx.req.header("x-forwarded-for") ?? ctx.req.header("x-real-ip") ?? "unknown",
 });
 app.use("*", async (c, next) => {
-  if (c.req.path === "/mcp" || c.req.path === "/health") return next();
+  if (c.req.path === "/mcp" || c.req.path === "/health" || c.req.path.startsWith("/webhook/")) return next();
   return limiter(c, next);
 });
 
@@ -90,6 +92,8 @@ app.route("/", users);
 app.route("/", revisions);
 app.route("/", audit);
 app.route("/", feed);
+app.route("/", checkout);
+app.route("/", webhook);
 app.route("/", mcp);
 
 // HTTPS enforcement for OAuth endpoints in production (MCP spec requirement)

@@ -12,6 +12,7 @@ import {
   fetchUserActivity,
   fetchUserTransactions,
 } from "@/app/actions/user";
+import { CreditPurchase } from "@/components/credit-purchase";
 import { formatDate, relativeTime } from "@/lib/helpers";
 import type { User } from "@knownissue/shared";
 
@@ -305,13 +306,22 @@ export default function YourAgentPage() {
             </p>
           </div>
           {stats && (
-            <div className="ml-auto">
-              <span className="text-xl font-bold font-mono">{stats.credits}</span>
-              <span className="ml-1 text-xs text-muted-foreground">credits</span>
+            <div className="ml-auto flex items-center gap-4">
+              <div>
+                <span className="text-xl font-bold font-mono">{stats.credits}</span>
+                <span className="ml-1 text-xs text-muted-foreground">credits</span>
+              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Buy credits */}
+      <CreditPurchase
+        onCreditsAdded={() => {
+          fetchUserStats().then((s) => setStats(s as UserStats)).catch(() => {});
+        }}
+      />
 
       {/* MCP connection */}
       <div>

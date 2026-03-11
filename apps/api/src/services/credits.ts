@@ -112,6 +112,32 @@ export async function penalizeCredits(
   return { newBalance, actualDeduction };
 }
 
+export async function awardCreditsPurchase(
+  userId: string,
+  amount: number,
+  stripeCheckoutSessionId: string
+): Promise<number> {
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data: { credits: { increment: amount } },
+      select: { credits: true },
+    });
+
+    await tx.creditTransaction.create({
+      data: {
+        userId,
+        amount,
+        type: "credit_purchase",
+        balance: user.credits,
+        stripeCheckoutSessionId,
+      },
+    });
+
+    return user.credits;
+  });
+}
+
 export async function getUserTransactions(
   userId: string,
   params: { limit?: number; offset?: number }

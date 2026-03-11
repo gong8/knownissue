@@ -33,6 +33,7 @@ enum CreditEventType {
   patch_verified_fixed
   patch_verified_not_fixed
   issue_reported_deferred @map("bug_reported_deferred")
+  credit_purchase
 }
 
 enum Severity {
@@ -126,6 +127,8 @@ model CreditTransaction {
 
   relatedIssueId String? @map("relatedBugId")
   relatedPatchId String?
+
+  stripeCheckoutSessionId String? @unique
 
   createdAt DateTime @default(now())
 

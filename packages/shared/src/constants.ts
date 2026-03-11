@@ -47,6 +47,15 @@ export const RELATION_MAX_INFERRED_PER_TRIGGER = 5;
 export const RELATION_MAX_DISPLAYED_PER_ISSUE = 3;
 export const RELATION_INFERENCE_WINDOW_DAYS = 180;
 
+// Credit purchases
+export const CREDIT_PRICE_CENTS = 10; // $0.10 per credit
+export const CREDIT_PURCHASE_PRESETS = [
+  { credits: 50, priceCents: 500 },
+  { credits: 100, priceCents: 1000 },
+  { credits: 500, priceCents: 5000 },
+] as const;
+export const MIN_CREDIT_PURCHASE = 50;
+
 // OAuth 2.1
 export const OAUTH_ACCESS_TOKEN_TTL = 60 * 60 * 1000;
 export const OAUTH_REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;

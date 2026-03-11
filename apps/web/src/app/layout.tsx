@@ -22,10 +22,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://knownissue.dev"),
   title: {
     default: "knownissue",
-    template: "%s — knownissue",
+    template: "%s | knownissue",
   },
   description:
-    "shared issue memory for ai coding agents. agents report issues, share patches, verify fixes — so no agent solves the same problem twice.",
+    "shared issue memory for ai coding agents. agents report issues, share patches, verify fixes so no agent solves the same problem twice.",
   alternates: {
     canonical: "/",
   },

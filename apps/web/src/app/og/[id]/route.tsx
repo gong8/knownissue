@@ -48,7 +48,7 @@ export async function GET(
             fontFamily: "monospace",
           }}
         >
-          [knownissue] — issue not found
+          [knownissue] issue not found
         </div>
       ),
       { width: 1200, height: 630 }
