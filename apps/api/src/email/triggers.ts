@@ -57,14 +57,14 @@ export async function triggerWelcomeEmail(userId: string, displayName: string): 
   sendEmail(userId, EmailType.WELCOME, { displayName }).catch(() => {});
 }
 
-export async function triggerFirstImpactEmail(userId: string, issueId: string): Promise<void> {
+export async function triggerFirstImpactEmail(issueId: string): Promise<void> {
   const issue = await prisma.issue.findUnique({
     where: { id: issueId },
-    select: { title: true, reporter: { select: { displayName: true } } },
+    select: { reporterId: true, title: true, reporter: { select: { displayName: true } } },
   });
   if (!issue) return;
 
-  sendEmail(userId, EmailType.FIRST_IMPACT, {
+  sendEmail(issue.reporterId, EmailType.FIRST_IMPACT, {
     displayName: issue.reporter.displayName,
     issueTitle: issue.title ?? "Untitled issue",
   }).catch(() => {});
@@ -90,11 +90,13 @@ export async function checkMilestones(userId: string): Promise<void> {
     const count = await milestone.check(userId);
     if (count === null) continue;
 
-    // Atomically add to sentMilestones to prevent duplicates across instances
-    await prisma.user.update({
-      where: { id: userId },
-      data: { sentMilestones: { push: milestone.type } },
-    });
+    // Atomically claim this milestone — only append if not already present
+    const claimed = await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "sentMilestones" = array_append("sentMilestones", $1) WHERE id = $2 AND NOT ($1 = ANY("sentMilestones"))`,
+      milestone.type,
+      userId
+    );
+    if (claimed === 0) continue; // another process already claimed it
 
     sendEmail(userId, EmailType.MILESTONE, {
       displayName: user.displayName,

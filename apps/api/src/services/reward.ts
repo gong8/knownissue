@@ -31,5 +31,5 @@ export async function claimReportReward(issueId: string, triggerUserId: string):
   await awardCredits(issue.reporterId, REPORT_DEFERRED_REWARD, "issue_reported_deferred", { issueId });
 
   // Fire-and-forget first impact email
-  triggerFirstImpactEmail(issue.reporterId, issueId).catch(() => {});
+  triggerFirstImpactEmail(issueId).catch(() => {});
 }
