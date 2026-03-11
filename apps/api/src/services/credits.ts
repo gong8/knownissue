@@ -1,5 +1,6 @@
 import { prisma } from "@knownissue/db";
 import type { CreditEventType } from "@knownissue/db";
+import { checkMilestones } from "../email/triggers";
 
 export async function getCredits(userId: string): Promise<number> {
   const user = await prisma.user.findUniqueOrThrow({
@@ -15,7 +16,7 @@ export async function awardCredits(
   type: CreditEventType,
   related?: { issueId?: string; patchId?: string }
 ): Promise<number> {
-  return await prisma.$transaction(async (tx) => {
+  const newBalance = await prisma.$transaction(async (tx) => {
     const user = await tx.user.update({
       where: { id: userId },
       data: { credits: { increment: amount } },
@@ -35,6 +36,11 @@ export async function awardCredits(
 
     return user.credits;
   });
+
+  // Fire-and-forget milestone check after successful credit award
+  checkMilestones(userId).catch(() => {});
+
+  return newBalance;
 }
 
 export async function deductCredits(
