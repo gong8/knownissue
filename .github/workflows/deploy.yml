@@ -105,5 +105,10 @@ jobs:
           SST_CONFIG_B64: ${{ secrets.SST_CONFIG }}
         run: echo "$SST_CONFIG_B64" | base64 -d > sst.config.ts
 
+      - name: Restore Dockerfile
+        env:
+          DOCKERFILE_B64: ${{ secrets.DOCKERFILE }}
+        run: echo "$DOCKERFILE_B64" | base64 -d > Dockerfile
+
       - name: Deploy with SST
         run: npx sst deploy --stage production
