@@ -36,6 +36,12 @@ export async function sendEmail<T extends EmailType>(
 
     if (!user?.email || user.emailUnsubscribed) return;
 
+    // Sanitize displayName so no email ever says "hey Unknown"
+    const d = data as never as Record<string, unknown>;
+    if ("displayName" in data && d["displayName"] === "Unknown") {
+      d["displayName"] = "there";
+    }
+
     const rawHtml = await renderTemplate(type, data);
     const subject = subjectFor(type, data);
 

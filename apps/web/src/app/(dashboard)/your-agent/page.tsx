@@ -15,7 +15,7 @@ import {
   fetchUserTransactions,
 } from "@/app/actions/user";
 import { CreditPurchase } from "@/components/credit-purchase";
-import { formatDate, relativeTime } from "@/lib/helpers";
+import { formatDate, relativeTime, initials } from "@/lib/helpers";
 import type { User } from "@knownissue/shared";
 
 type UserStats = {
@@ -334,15 +334,15 @@ export default function YourAgentPage() {
           <Avatar className="h-12 w-12 border-2 border-primary/40">
             <AvatarImage
               src={user.avatarUrl ?? undefined}
-              alt={user.id.slice(0, 8) ?? undefined}
+              alt={user.displayName}
             />
             <AvatarFallback className="font-mono text-sm">
-              {(user.id.slice(0, 8) ?? "??").slice(0, 2).toUpperCase()}
+              {initials(user.displayName)}
             </AvatarFallback>
           </Avatar>
           <div>
             <h2 className="font-mono text-base font-semibold">
-              {user.id.slice(0, 8) ?? "anonymous"}
+              {user.displayName}
             </h2>
             <p className="text-xs text-muted-foreground">
               member since {formatDate(new Date(user.createdAt))}

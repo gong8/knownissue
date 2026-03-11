@@ -11,6 +11,10 @@ import { triggerWelcomeEmail } from "../email/triggers";
 
 type AuthResult = { user: User; scopes?: string[] };
 
+export function displayNameFromEmail(email: string): string {
+  return email.split("@")[0].replace(/[._+]/g, " ").trim() || "there";
+}
+
 export async function fetchClerkUserInfo(clerkId: string): Promise<{ displayName: string | null; email: string | null }> {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) return { displayName: null, email: null };
@@ -112,21 +116,27 @@ async function authenticateClerkJwt(token: string): Promise<AuthResult | null> {
       user = await prisma.user.create({
         data: {
           clerkId: clerkUserId,
-          displayName: info.displayName ?? "Unknown",
+          displayName: info.displayName ?? (info.email ? displayNameFromEmail(info.email) : "there"),
           email: info.email,
           credits: SIGNUP_BONUS,
         },
       });
       // Fire-and-forget welcome email
       triggerWelcomeEmail(user.id, user.displayName).catch(() => {});
-    } else if (!user.email) {
-      // Backfill email for existing users
-      const info = await fetchClerkUserInfo(clerkUserId);
-      if (info.email) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { email: info.email },
-        });
+    } else {
+      // Backfill missing email or stale displayName for existing users
+      const needsEmail = !user.email;
+      const needsName = user.displayName === "Unknown";
+      if (needsEmail || needsName) {
+        const info = await fetchClerkUserInfo(clerkUserId);
+        const updates: { email?: string; displayName?: string } = {};
+        if (needsEmail && info.email) updates.email = info.email;
+        if (needsName && info.displayName) updates.displayName = info.displayName;
+        else if (needsName && info.email) updates.displayName = displayNameFromEmail(info.email);
+        else if (needsName && user.email) updates.displayName = displayNameFromEmail(user.email);
+        if (Object.keys(updates).length > 0) {
+          user = await prisma.user.update({ where: { id: user.id }, data: updates });
+        }
       }
     }
 
