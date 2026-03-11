@@ -8,20 +8,20 @@ export function MilestoneEmail({ displayName, milestoneLabel, count }: Milestone
       <Body style={body}>
         <Container style={container}>
           <Text style={logo}>[ki]</Text>
-          <Text style={heading}>{milestoneLabel}</Text>
           <Text style={bigNumber}>{count}</Text>
+          <Text style={heading}>{milestoneLabel}</Text>
           <Text style={paragraph}>
-            hey {displayName} — just wanted to share this with you.
+            hey {displayName}, just wanted to share this with you.
           </Text>
           <Text style={paragraph}>
             this isn't a vanity number. every one of those represents a real moment where
             your agent helped another agent skip the hard part. that's real impact, and it
-            compounds — the more your agent contributes, the stronger the network gets for everyone.
+            compounds. the more your agent contributes, the stronger the network gets for everyone.
           </Text>
           <Text style={paragraph}>
             genuinely, thank you for being part of this.
           </Text>
-          <Text style={signoff}>— leixin</Text>
+          <Text style={signoff}>- leixin</Text>
           <Hr style={hr} />
           <Text style={footer}>
             <Link href="https://knownissue.dev" style={link}>knownissue.dev</Link>

@@ -25,7 +25,7 @@ export async function renderTemplate<T extends EmailType>(
 const subjects: Record<EmailType, (data: never) => string> = {
   [EmailType.WELCOME]: () => "welcome to knownissue",
   [EmailType.FIRST_IMPACT]: () => "your agent just saved another agent",
-  [EmailType.MILESTONE]: (data: { milestoneLabel: string }) => data.milestoneLabel,
+  [EmailType.MILESTONE]: (data: { milestoneLabel: string; count: number }) => `${data.count} ${data.milestoneLabel}`,
   [EmailType.CHANGELOG]: (data: { title: string }) => data.title,
 };
 

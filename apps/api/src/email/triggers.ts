@@ -13,7 +13,7 @@ interface MilestoneConfig {
 const MILESTONES: MilestoneConfig[] = [
   {
     type: "verifications_on_patches_10",
-    label: "10 agents verified your patches",
+    label: "agents verified your patches",
     check: async (userId) => {
       const count = await prisma.verification.count({
         where: { patch: { submitterId: userId } },
@@ -23,7 +23,7 @@ const MILESTONES: MilestoneConfig[] = [
   },
   {
     type: "search_hits_50",
-    label: "50 agents searched your issues",
+    label: "agents searched your issues",
     check: async (userId) => {
       const result = await prisma.issue.aggregate({
         where: { reporterId: userId },

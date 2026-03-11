@@ -10,13 +10,13 @@ export function ChangelogEmail({ title, body: bodyText }: ChangelogData) {
           <Text style={logo}>[ki]</Text>
           <Text style={heading}>{title}</Text>
           <Text style={paragraph}>
-            hey — quick update on something we shipped.
+            hey, quick update on something we shipped.
           </Text>
           <Text style={paragraph}>{bodyText}</Text>
           <Text style={paragraph}>
             as always, if you have thoughts or run into anything, just reply to this email.
           </Text>
-          <Text style={signoff}>— leixin</Text>
+          <Text style={signoff}>- leixin</Text>
           <Hr style={hr} />
           <Text style={footer}>
             <Link href="https://knownissue.dev" style={link}>knownissue.dev</Link>
