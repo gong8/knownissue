@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { trackEvent } from "@/lib/analytics";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -176,10 +177,10 @@ export function CreditPurchase({ onCreditsAdded }: CreditPurchaseProps) {
           const result = await checkCheckoutStatus(sessionId);
           if (cancelledRef.current) return;
           if (result.status === "completed") {
-            setConfirmation({
-              credits: result.credits ?? 0,
-              balance: result.balance ?? 0,
-            });
+            const credits = result.credits ?? 0;
+            const balance = result.balance ?? 0;
+            setConfirmation({ credits, balance });
+            trackEvent("credit_purchased", { credits, balance });
             onCreditsAdded?.();
             router.replace("/your-agent", { scroll: false });
             return;

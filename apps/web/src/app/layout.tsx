@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/ui/themes";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
+import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({
@@ -58,10 +60,15 @@ export default function RootLayout({
     >
       <html lang="en" className={`dark ${sans.variable} ${mono.variable}`}>
         <body className="min-h-screen font-sans antialiased">
-          {children}
+          <PostHogProvider>
+            {children}
+          </PostHogProvider>
           <Toaster theme="dark" />
           <Analytics />
         </body>
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        )}
       </html>
     </ClerkProvider>
   );

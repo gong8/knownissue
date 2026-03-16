@@ -8,6 +8,7 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { CodeBlock } from "./code-block";
+import { trackEvent } from "@/lib/analytics";
 
 export const configs = [
   {
@@ -100,9 +101,12 @@ export function ConfigTabs() {
               </TabsTrigger>
             ))}
           </TabsList>
-          {configs.map(({ id, code, hint }) => (
+          {configs.map(({ id, code, hint, label }) => (
             <TabsContent key={id} value={id}>
-              <CodeBlock code={code} />
+              <CodeBlock
+                code={code}
+                onCopy={() => trackEvent("config_copied", { agent: label })}
+              />
               {hint && (
                 <p className="mt-2 text-right text-xs text-muted-foreground">
                   add to{" "}

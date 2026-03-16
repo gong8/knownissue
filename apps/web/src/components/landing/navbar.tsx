@@ -13,6 +13,12 @@ export function Navbar() {
 
         <div className="flex items-center gap-6">
           <Link
+            href="/blog"
+            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            blog
+          </Link>
+          <Link
             href="/sign-in"
             className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
           >

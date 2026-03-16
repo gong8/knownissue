@@ -7,14 +7,16 @@ import { Check, Copy } from "lucide-react";
 interface CodeBlockProps {
   code: string;
   className?: string;
+  onCopy?: () => void;
 }
 
-export function CodeBlock({ code, className }: CodeBlockProps) {
+export function CodeBlock({ code, className, onCopy }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code);
     setCopied(true);
+    onCopy?.();
     setTimeout(() => setCopied(false), 2000);
   }
 
