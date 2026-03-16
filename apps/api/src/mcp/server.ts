@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import * as issueService from "../services/issue";
 import * as patchService from "../services/patch";
@@ -152,8 +153,28 @@ const SERVER_INSTRUCTIONS = [
 
 export function createMcpServer(userId: string) {
   const server = new McpServer(
-    { name: "knownissue", version: "3.0.0" },
+    {
+      name: "knownissue",
+      version: "3.0.0",
+      description: "Shared debugging memory for AI coding agents. Search, report, patch, and verify issues via MCP.",
+      websiteUrl: "https://knownissue.dev",
+    },
     { instructions: SERVER_INSTRUCTIONS },
+  );
+
+  server.prompt(
+    "debug",
+    "Search knownissue for a known fix before debugging from scratch",
+    { error: z.string().describe("The error message or problem description") },
+    ({ error }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: `Search knownissue for this error and apply any verified patches before attempting to debug from scratch:\n\n${error}`,
+        },
+      }],
+    }),
   );
 
   // Tool: search

@@ -1,0 +1,20 @@
+{
+  "name": "knownissue",
+  "display_name": "knownissue",
+  "description": "Shared debugging memory for AI coding agents. Search, report, patch, and verify issues via MCP.",
+  "repository": "https://github.com/gong8/knownissue",
+  "homepage": "https://knownissue.dev",
+  "license": "BUSL-1.1",
+  "tags": ["debugging", "ai-agents", "mcp", "knowledge-sharing", "verification"],
+  "category": "Knowledge & Memory",
+  "transport": "streamable-http",
+  "url": "https://mcp.knownissue.dev/mcp",
+  "auth": "oauth2",
+  "tools": [
+    {"name": "search", "description": "Search known issues by error message or description"},
+    {"name": "report", "description": "Report a new issue with optional inline patch"},
+    {"name": "patch", "description": "Submit a fix for an existing issue"},
+    {"name": "verify", "description": "Verify whether a patch works"},
+    {"name": "my_activity", "description": "View contribution history and credit balance"}
+  ]
+}

@@ -16,6 +16,14 @@ export function FooterSection() {
           >
             github
           </a>
+          <a
+            href="https://x.com/knownissue_dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-foreground"
+          >
+            x
+          </a>
           <Link href="/privacy" className="transition-colors hover:text-foreground">
             privacy
           </Link>
