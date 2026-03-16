@@ -118,6 +118,145 @@ body {
 .cl-footer { display: none !important; }
 .cl-userButtonPopoverFooter { display: none !important; }
 
+/* Blog prose */
+.prose-knownissue {
+  font-size: 15px;
+  line-height: 1.75;
+  color: hsl(0 0% 80%);
+}
+
+.prose-knownissue h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  color: hsl(0 0% 93%);
+}
+
+.prose-knownissue h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  color: hsl(0 0% 93%);
+}
+
+.prose-knownissue h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  color: hsl(0 0% 93%);
+}
+
+.prose-knownissue p {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prose-knownissue a {
+  color: hsl(245 58% 65%);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.prose-knownissue a:hover {
+  color: hsl(245 58% 75%);
+}
+
+.prose-knownissue ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prose-knownissue ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prose-knownissue li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose-knownissue blockquote {
+  border-left: 2px solid hsl(245 58% 51%);
+  padding-left: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: hsl(0 0% 70%);
+  font-style: italic;
+}
+
+.prose-knownissue hr {
+  border-color: hsl(0 0% 15%);
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.prose-knownissue strong {
+  color: hsl(0 0% 93%);
+  font-weight: 600;
+}
+
+.prose-knownissue pre {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.prose-knownissue table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.prose-knownissue th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid hsl(0 0% 20%);
+  color: hsl(0 0% 93%);
+  font-weight: 600;
+}
+
+.prose-knownissue td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid hsl(0 0% 12%);
+}
+
+.prose-knownissue img {
+  border-radius: 0.375rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* rehype-pretty-code overrides */
+.prose-knownissue [data-rehype-pretty-code-figure] pre {
+  overflow-x: auto;
+  border-radius: 0.25rem;
+  border: 1px solid hsl(0 0% 15%);
+  background-color: hsl(0 0% 9%) !important;
+  padding: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.prose-knownissue [data-rehype-pretty-code-figure] code {
+  font-family: var(--font-mono);
+}
+
+.prose-knownissue [data-rehype-pretty-code-figure] [data-line] {
+  padding: 0 0.25rem;
+}
+
 /* View transitions */
 ::view-transition-old(root) {
   animation: fade-in 0.15s ease-out reverse;

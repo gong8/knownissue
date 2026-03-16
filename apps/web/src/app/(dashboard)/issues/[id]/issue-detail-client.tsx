@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics";
 import {
   FileCode,
   Clock,
@@ -275,6 +276,10 @@ export function IssueDetailClient({
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   const displayTitle = issue.title ?? issue.errorMessage ?? "Untitled";
+
+  useEffect(() => {
+    trackEvent("issue_viewed", { issue_id: issueId });
+  }, [issueId]);
 
   // Keyboard: U to go back, J/K between patches
   useEffect(() => {

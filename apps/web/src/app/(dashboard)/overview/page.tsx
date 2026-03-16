@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { fetchFeed, fetchAggregateStats, fetchEcosystemStats } from "@/app/actions/feed";
 import { ActivityFeed, type FeedItem } from "@/components/activity-feed";
+import { trackEvent } from "@/lib/analytics";
 
 type AggregateStats = {
   issues: number;
@@ -35,6 +36,10 @@ export default function OverviewPage() {
   const [feedPage, setFeedPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  useEffect(() => {
+    trackEvent("dashboard_viewed");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
